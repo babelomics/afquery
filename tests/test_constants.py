@@ -1,4 +1,3 @@
-import pytest
 from afquery.constants import (
     ALL_CHROMS,
     normalize_chrom,
