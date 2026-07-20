@@ -1,16 +1,29 @@
 import bisect
+import itertools
 import pickle
 import warnings
 import pyranges as pr
 import pandas as pd
+from .constants import normalize_chrom
 from .models import Technology
 
 
 class CaptureIndex:
+    """Interval index over a capture BED, queried by 1-based position.
+
+    Chromosome keys in ``_index`` are always normalized (see
+    :func:`~afquery.constants.normalize_chrom`), because queries reach
+    :meth:`covers` already normalized. BED files in the wild use either
+    convention ('1' for GRCh37/hs37d5, 'chr1' for hg38), so normalizing on
+    construction is what keeps the two sides in agreement.
+    """
+
     _always_covered: bool
     _pr: "pr.PyRanges | None"
-    # Per-chrom sorted interval index: {chrom: (sorted_starts, corresponding_ends)}
-    _index: "dict[str, tuple[list[int], list[int]]]"
+    # Per-chrom sorted interval index, keyed by normalized chrom:
+    #   {chrom: (sorted_starts, corresponding_ends, running_max_of_ends)}
+    # The running max lets covers() answer in O(log n) — see there.
+    _index: "dict[str, tuple[list[int], list[int], list[int]]]"
 
     def __init__(self, *, always_covered: bool = False, pyranges_obj=None):
         self._always_covered = always_covered
@@ -18,12 +31,25 @@ class CaptureIndex:
         self._index = {}
         if pyranges_obj is not None:
             df = pyranges_obj.df
+            by_chrom: dict[str, list[tuple[int, int]]] = {}
             for chrom, group in df.groupby("Chromosome", observed=True):
-                pairs = sorted(zip(group["Start"].tolist(), group["End"].tolist()))
-                self._index[str(chrom)] = (
-                    [s for s, _ in pairs],
-                    [e for _, e in pairs],
+                # Normalizing can merge two groups ('1' and 'chr1') into one key,
+                # so accumulate before sorting rather than assigning per group.
+                key = normalize_chrom(str(chrom))
+                by_chrom.setdefault(key, []).extend(
+                    zip(group["Start"].tolist(), group["End"].tolist())
                 )
+            self._index = {
+                chrom: self._pack(pairs) for chrom, pairs in by_chrom.items()
+            }
+
+    @staticmethod
+    def _pack(pairs: list[tuple[int, int]]) -> tuple[list[int], list[int], list[int]]:
+        """Sort (start, end) pairs by start and precompute the running max of ends."""
+        pairs = sorted(pairs)
+        starts = [s for s, _ in pairs]
+        ends = [e for _, e in pairs]
+        return starts, ends, list(itertools.accumulate(ends, max))
 
     @classmethod
     def wgs(cls) -> "CaptureIndex":
@@ -46,33 +72,51 @@ class CaptureIndex:
         entry = self._index.get(chrom)
         if entry is None:
             return False
-        starts, ends = entry
+        starts, _ends, max_ends = entry
         # Find rightmost interval whose Start < pos (0-based start, so Start < pos_1based)
         # bisect_left gives insertion point for pos in starts; all starts[:idx] < pos
         idx = bisect.bisect_left(starts, pos) - 1
-        # Check candidates from idx downward: intervals may overlap, so we scan
-        # backwards until Start is so small it can't possibly reach pos
-        while idx >= 0:
-            if ends[idx] >= pos:
-                return True
-            # Since starts are sorted ascending, once we go far enough back,
-            # no remaining interval can cover pos either
-            idx -= 1
-        return False
+        # Intervals may overlap, so any of starts[:idx+1] could reach pos. max_ends[idx]
+        # is the largest End among them, so it alone decides — no backwards scan needed.
+        return idx >= 0 and max_ends[idx] >= pos
 
     def __setstate__(self, state: dict) -> None:
-        """Rebuild _index when loading pickles saved before the binary-search refactor."""
+        """Migrate pickles written by older versions.
+
+        Three generations are repaired here, so existing databases self-heal on
+        load with no rebuild:
+          1. no _index at all (pre binary-search refactor) — rebuilt from _pr;
+          2. un-normalized chrom keys ('1' instead of 'chr1'), which made covers()
+             miss every WES technology and silently drop them from AN;
+          3. 2-tuple entries lacking the running max of ends.
+        """
         self.__dict__.update(state)
-        if not hasattr(self, "_index"):
+        index = getattr(self, "_index", None)
+
+        if index is None:
             self._index = {}
             if getattr(self, "_pr", None) is not None:
-                df = self._pr.df
-                for chrom, group in df.groupby("Chromosome", observed=True):
-                    pairs = sorted(zip(group["Start"].tolist(), group["End"].tolist()))
-                    self._index[str(chrom)] = (
-                        [s for s, _ in pairs],
-                        [e for _, e in pairs],
-                    )
+                CaptureIndex.__init__(
+                    self,
+                    always_covered=self._always_covered,
+                    pyranges_obj=self._pr,
+                )
+            return
+
+        needs_migration = any(
+            chrom != normalize_chrom(chrom) or len(entry) < 3
+            for chrom, entry in index.items()
+        )
+        if not needs_migration:
+            return
+
+        # Rebuild from the stored intervals rather than from _pr: _pr is absent in
+        # some pickles, and the intervals themselves are all we need.
+        by_chrom: dict[str, list[tuple[int, int]]] = {}
+        for chrom, entry in index.items():
+            starts, ends = entry[0], entry[1]
+            by_chrom.setdefault(normalize_chrom(chrom), []).extend(zip(starts, ends))
+        self._index = {chrom: self._pack(pairs) for chrom, pairs in by_chrom.items()}
 
     def save(self, path: str) -> None:
         with open(path, "wb") as f:
