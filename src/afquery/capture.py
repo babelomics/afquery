@@ -108,6 +108,20 @@ class CaptureIndex:
         """
         return not self._always_covered and not self._index
 
+    def __getstate__(self) -> dict:
+        """Pickle without _pr — nothing outside this class reads the PyRanges object.
+
+        Keeping it put a pandas DataFrame in every WES pickle and made loading depend
+        on the pyranges/pandas versions that wrote it. Worse, __init__ normalizes the
+        chrom keys of _index but not of _pr, so a pickled _pr is a stale copy of the
+        raw BED names — exactly what a future reader would reintroduce this bug from.
+        _index alone answers covers() and is enough to rebuild after a normalization
+        change.
+        """
+        state = self.__dict__.copy()
+        state.pop("_pr", None)
+        return state
+
     def __setstate__(self, state: dict) -> None:
         """Migrate pickles written by older versions.
 
@@ -119,6 +133,9 @@ class CaptureIndex:
           3. 2-tuple entries lacking the running max of ends.
         """
         self.__dict__.update(state)
+        # Pickles written since __getstate__ carry no _pr; keep the attribute present
+        # so it stays safe to read on any restored object.
+        self.__dict__.setdefault("_pr", None)
         index = getattr(self, "_index", None)
 
         if index is None:

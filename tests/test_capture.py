@@ -200,6 +200,41 @@ def test_chrMT_bed_indexes_as_chrM(tmp_path):
     assert idx.covers("chrM", 150) is True
 
 
+# --- pickle payload ---
+
+def test_getstate_omits_pyranges():
+    # _pr keeps the raw, un-normalized BED chrom names, so a pickled copy is a stale
+    # mirror of _index. Dropping it also keeps pandas out of the pickle entirely.
+    assert "_pr" not in CaptureIndex.from_bed(BED_A).__getstate__()
+
+
+def test_pickle_roundtrip_without_pyranges(tmp_path):
+    path = str(tmp_path / "kit.pickle")
+    CaptureIndex.from_bed(BED_A).save(path)
+    loaded = CaptureIndex.load(path)
+    assert loaded._pr is None
+    assert loaded.covers("chr1", 1500) is True
+    assert loaded.known_chroms() == {"chr1", "chrX"}
+
+
+def test_legacy_pickle_without_index_rebuilds_from_pyranges():
+    # Regression: __getstate__ must not break the pre-_index migration path, which is
+    # the only generation that still needs _pr. Those pickles predate __getstate__, so
+    # they carry _pr on disk and must keep rebuilding from it.
+    src = CaptureIndex.from_bed(BED_NOCHR)
+    legacy = CaptureIndex.__new__(CaptureIndex)
+    legacy.__setstate__({"_always_covered": False, "_pr": src._pr})
+    assert legacy.covers("chr1", 1500) is True
+    assert legacy.known_chroms() == {"chr1", "chrX"}
+
+
+def test_legacy_pickle_with_chrMT_key_self_heals():
+    legacy = CaptureIndex.__new__(CaptureIndex)
+    legacy.__setstate__({"_always_covered": False, "_index": {"chrMT": ([99], [200])}})
+    assert legacy.known_chroms() == {"chrM"}
+    assert legacy.covers("chrM", 150) is True
+
+
 # --- load_capture_indices ---
 
 def test_load_capture_indices_missing_pickle(tmp_path):
