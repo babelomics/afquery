@@ -1,9 +1,11 @@
+import shutil
 import warnings
 
 import pytest
 from click.testing import CliRunner
 
 from afquery import Database, AfqueryWarning
+from afquery.capture import CaptureIndex
 from afquery.cli import query as query_cmd
 
 
@@ -89,6 +91,25 @@ def test_existing_tests_not_broken_by_warnings(test_db):
         warnings.simplefilter("error", AfqueryWarning)
         results = db.query(chrom="chr1", pos=1500, phenotype=["E11.9"], sex="both")
     assert len(results) > 0
+
+
+def test_warn_capture_bed_matches_no_known_chrom(test_db, tmp_path):
+    # A capture BED whose chrom names match nothing would silently drop that
+    # technology's samples from AN at every position — it must be loud.
+    db_copy = tmp_path / "db_bad_bed"
+    shutil.copytree(test_db, db_copy)
+    bad_bed = tmp_path / "bad.bed"
+    bad_bed.write_text("contigZ\t100\t200\n")
+    CaptureIndex.from_bed(str(bad_bed)).save(str(db_copy / "capture" / "tech_1.pickle"))
+
+    with pytest.warns(AfqueryWarning, match="WES_kit_A.*match no known chromosome"):
+        Database(str(db_copy))
+
+
+def test_no_capture_warning_for_valid_db(test_db):
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", AfqueryWarning)
+        Database(test_db)
 
 
 def test_warn_chrom_message_includes_available(test_db):

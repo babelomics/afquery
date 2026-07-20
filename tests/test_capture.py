@@ -9,6 +9,8 @@ from afquery.capture import CaptureIndex
 DATA_DIR = Path(__file__).parent / "data"
 BED_A = str(DATA_DIR / "beds" / "wes_kit_a.bed")  # chr1:999-2000, chrX:999-2000
 BED_B = str(DATA_DIR / "beds" / "wes_kit_b.bed")  # chr1:2999-4000
+# Same regions as BED_A but with GRCh37/hs37d5-style names ('1', 'X').
+BED_NOCHR = str(DATA_DIR / "beds" / "wes_kit_nochr.bed")
 
 
 # --- WGS sentinel ---
@@ -75,6 +77,58 @@ def test_bed_b_covers_3500():
 def test_bed_b_does_not_cover_1500():
     idx = CaptureIndex.from_bed(BED_B)
     assert idx.covers("chr1", 1500) is False
+
+
+# --- BED chrom naming: queries always arrive normalized, BEDs may not be ---
+
+def test_nochr_bed_matches_normalized_query():
+    # Regression: BEDs without the 'chr' prefix used to index under '1', so every
+    # covers("chr1", ...) missed and the technology's samples silently vanished from AN.
+    idx = CaptureIndex.from_bed(BED_NOCHR)
+    assert idx.covers("chr1", 1500) is True
+    assert idx.covers("chrX", 1500) is True
+
+
+def test_nochr_bed_agrees_with_chr_bed():
+    nochr = CaptureIndex.from_bed(BED_NOCHR)
+    chr_ = CaptureIndex.from_bed(BED_A)
+    for pos in (999, 1000, 1500, 2000, 2001):
+        assert nochr.covers("chr1", pos) is chr_.covers("chr1", pos)
+
+
+def test_nochr_bed_still_rejects_other_chroms():
+    idx = CaptureIndex.from_bed(BED_NOCHR)
+    assert idx.covers("chr2", 1500) is False
+
+
+def test_index_keys_are_normalized():
+    idx = CaptureIndex.from_bed(BED_NOCHR)
+    assert set(idx._index) == {"chr1", "chrX"}
+
+
+def test_legacy_pickle_with_unnormalized_keys_self_heals(tmp_path):
+    # Simulates a database built before the fix: keys stored as '1'/'X', 2-tuple entries.
+    idx = CaptureIndex.from_bed(BED_NOCHR)
+    idx._index = {"1": ([999], [2000]), "X": ([999], [2000])}
+    path = str(tmp_path / "legacy.pickle")
+    idx.save(path)
+
+    loaded = CaptureIndex.load(path)
+    assert set(loaded._index) == {"chr1", "chrX"}
+    assert loaded.covers("chr1", 1500) is True
+    assert loaded.covers("chr1", 999) is False
+
+
+# --- overlapping intervals: the running-max shortcut must not miss a cover ---
+
+def test_overlapping_intervals(tmp_path):
+    # An early wide interval covers pos while later, narrower ones do not.
+    bed = tmp_path / "overlap.bed"
+    bed.write_text("chr1\t100\t9000\nchr1\t200\t300\nchr1\t400\t500\n")
+    idx = CaptureIndex.from_bed(str(bed))
+    assert idx.covers("chr1", 8000) is True   # only the first interval reaches here
+    assert idx.covers("chr1", 250) is True
+    assert idx.covers("chr1", 9001) is False
 
 
 # --- pickle save/load round-trip ---
