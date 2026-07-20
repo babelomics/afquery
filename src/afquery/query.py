@@ -70,6 +70,17 @@ class QueryEngine:
         self._male_bm = sex_bms.get("male", BitMap())
         self._female_bm = sex_bms.get("female", BitMap())
         self._capture = load_capture_indices(techs, str(self._db / "capture"))
+        for tech_id, capture_idx in self._capture.items():
+            if capture_idx._always_covered:
+                continue
+            if not any(c in ALL_CHROMS for c in capture_idx._index):
+                tech_name = self._tech_map[tech_id].tech_name
+                warnings.warn(
+                    f"Capture regions for technology {tech_name!r} match no known chromosome — "
+                    "its samples will be counted as uncovered at every position, "
+                    "lowering AN and inflating AF.",
+                    AfqueryWarning, stacklevel=2,
+                )
         self._tech_bitmaps = self._bitmaps.get("tech", {})
         self._all_samples_bm = BitMap(s.sample_id for s in self._samples)
         self._tech_name_to_id: dict[str, str] = {
