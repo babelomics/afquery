@@ -4,7 +4,7 @@ import pickle
 import warnings
 import pyranges as pr
 import pandas as pd
-from .constants import normalize_chrom
+from .constants import ALL_CHROMS, normalize_chrom
 from .models import Technology
 
 
@@ -79,6 +79,26 @@ class CaptureIndex:
         # Intervals may overlap, so any of starts[:idx+1] could reach pos. max_ends[idx]
         # is the largest End among them, so it alone decides — no backwards scan needed.
         return idx >= 0 and max_ends[idx] >= pos
+
+    @property
+    def is_always_covered(self) -> bool:
+        """True for the WGS sentinel: every position counts as covered."""
+        return self._always_covered
+
+    def indexed_chroms(self) -> set[str]:
+        """Normalized chrom names present in the index, unknown contigs included."""
+        return set(self._index)
+
+    def known_chroms(self) -> set[str]:
+        """Indexed chrom names that are real chromosomes (subset of ALL_CHROMS)."""
+        return self.indexed_chroms() & set(ALL_CHROMS)
+
+    def is_empty(self) -> bool:
+        """True when the index holds no intervals at all.
+
+        The WGS sentinel is not empty — it covers everything without an index.
+        """
+        return not self._always_covered and not self._index
 
     def __setstate__(self, state: dict) -> None:
         """Migrate pickles written by older versions.

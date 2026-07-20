@@ -71,9 +71,9 @@ class QueryEngine:
         self._female_bm = sex_bms.get("female", BitMap())
         self._capture = load_capture_indices(techs, str(self._db / "capture"))
         for tech_id, capture_idx in self._capture.items():
-            if capture_idx._always_covered:
+            if capture_idx.is_always_covered:
                 continue
-            if not any(c in ALL_CHROMS for c in capture_idx._index):
+            if not capture_idx.known_chroms():
                 tech_name = self._tech_map[tech_id].tech_name
                 warnings.warn(
                     f"Capture regions for technology {tech_name!r} match no known chromosome — "
@@ -106,7 +106,7 @@ class QueryEngine:
         # For each tech, store its bitmap; also precompute the union of all WGS tech bitmaps
         self._covered_all_bm: BitMap = BitMap()
         for tech_id, capture_idx in self._capture.items():
-            if capture_idx._always_covered:
+            if capture_idx.is_always_covered:
                 bm = self._tech_bitmaps.get(str(tech_id), BitMap())
                 self._covered_all_bm |= bm
 
@@ -225,7 +225,7 @@ class QueryEngine:
         # Phase 1: count-based gate
         if min_pass > 0 or min_observed > 0:
             for tech_id, capture_idx in self._capture.items():
-                if capture_idx._always_covered:
+                if capture_idx.is_always_covered:
                     continue
                 tech_bm = self._tech_bitmaps.get(str(tech_id), BitMap())
                 tech_eligible = eligible & tech_bm
@@ -244,7 +244,7 @@ class QueryEngine:
         if quality_pass_bm is not None and min_quality_evidence > 0:
             already_filtered = filtered_bm if filtered_bm is not None else BitMap()
             for tech_id, capture_idx in self._capture.items():
-                if capture_idx._always_covered:
+                if capture_idx.is_always_covered:
                     continue
                 tech_bm = self._tech_bitmaps.get(str(tech_id), BitMap())
                 tech_eligible = eligible & tech_bm
@@ -299,7 +299,7 @@ class QueryEngine:
         """Return (eligible_bitmap, AN) for a single position."""
         covered = BitMap(self._covered_all_bm)  # start with WGS samples (always covered)
         for tech_id, capture_idx in self._capture.items():
-            if capture_idx._always_covered:
+            if capture_idx.is_always_covered:
                 continue  # already included in _covered_all_bm
             if capture_idx.covers(chrom, pos):
                 covered |= self._tech_bitmaps.get(str(tech_id), BitMap())

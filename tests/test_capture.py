@@ -103,7 +103,34 @@ def test_nochr_bed_still_rejects_other_chroms():
 
 def test_index_keys_are_normalized():
     idx = CaptureIndex.from_bed(BED_NOCHR)
-    assert set(idx._index) == {"chr1", "chrX"}
+    assert idx.known_chroms() == {"chr1", "chrX"}
+
+
+# --- public API: chrom introspection ---
+
+def test_is_always_covered_wgs():
+    assert CaptureIndex.wgs().is_always_covered is True
+
+
+def test_is_always_covered_bed():
+    assert CaptureIndex.from_bed(BED_A).is_always_covered is False
+
+
+def test_known_chroms_excludes_unknown_contigs(tmp_path):
+    bed = tmp_path / "mixed.bed"
+    bed.write_text("chr1\t100\t200\ncontigZ\t100\t200\n")
+    idx = CaptureIndex.from_bed(str(bed))
+    assert idx.known_chroms() == {"chr1"}
+    assert "chrcontigZ" in idx.indexed_chroms()
+
+
+def test_is_empty_false_for_bed():
+    assert CaptureIndex.from_bed(BED_A).is_empty() is False
+
+
+def test_is_empty_false_for_wgs():
+    # The WGS sentinel has no index but covers everything — not "empty".
+    assert CaptureIndex.wgs().is_empty() is False
 
 
 def test_legacy_pickle_with_unnormalized_keys_self_heals(tmp_path):
