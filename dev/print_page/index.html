@@ -19,7 +19,7 @@
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -27,7 +27,7 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -4734,6 +4734,18 @@ filter is active (see <a href="#advanced-coverage-evidence">Coverage Evidence</a
 <p class="admonition-title">Tip</p>
 <p><code>variant-info</code> is the natural next step after <code>query</code> — once you find a variant of interest, use it to see which specific samples carry it.</p>
 </div>
+<div class="admonition note">
+<p class="admonition-title">Carrier counts may exceed the counts reported by <code>query</code></p>
+<p><code>variant-info</code> lists every carrier present in the source VCFs. <code>query</code> additionally
+restricts to samples whose capture regions cover the position, so a WES sample with a
+call just outside its own BED appears here but is not counted in <code>AN</code>, <code>AC</code> or the
+genotype tallies. The two commands answer different questions — "who carries it?"
+versus "what is the frequency among samples that could have been called?" — so a
+modest difference is expected.</p>
+<p>A <em>large</em> gap is worth investigating: if <code>variant-info</code> shows many carriers from a
+technology that contributes nothing to <code>AN</code>, check that technology's capture index
+(see <a href="#advanced-debugging-results">Debugging Results</a>).</p>
+</div>
 <p>By default all samples are queried and results are printed as an aligned text table:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#guides-variant-info-__codelineno-1-1"></a>sample_id  sample_name  sex     tech       phenotypes    genotype  filter
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#guides-variant-info-__codelineno-1-2"></a>---------  -----------  ------  ---------  ------------  --------  ------
@@ -9281,6 +9293,16 @@ exits with a clear error:</p>
 <td>Query with no filters first. If AN&gt;0 without filters, the filter is excluding all samples.</td>
 </tr>
 <tr>
+<td>WES samples missing from AN</td>
+<td>Compare <code>variant-info</code> carriers against <code>query</code> counts</td>
+<td>If <code>variant-info</code> shows many WES carriers but AN reflects only the WGS samples, that technology's capture index is not matching the position. <code>afquery</code> warns on open when a capture BED is empty or matches no known chromosome, naming the offending contigs.</td>
+</tr>
+<tr>
+<td>AN=0 only on chrM</td>
+<td><code>afquery query --db ./db/ --locus chrM:3243</code></td>
+<td>Mitochondrial coverage is easy to lose on its own: a BED naming it <code>chrMT</code> still matches on the autosomes, so nothing else looks wrong. Names are normalized (<code>MT</code>, <code>M</code>, <code>chrMT</code> → <code>chrM</code>) since v0.4.0 — databases built before that may need the capture BED re-checked.</td>
+</tr>
+<tr>
 <td>Technology filter</td>
 <td>Remove <code>--tech</code> filter</td>
 <td>Check if any samples match the requested technology.</td>
@@ -9533,7 +9555,11 @@ exits with a clear error:</p>
 <p>Yes. Both GRCh37 and GRCh38 are supported. Specify at database creation:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#faq-__codelineno-7-1"></a>afquery<span class="w"> </span>create-db<span class="w"> </span>--genome-build<span class="w"> </span>GRCh37<span class="w"> </span>...
 </code></pre></div>
-<p>The genome build affects PAR1/PAR2 coordinates on chrX (see <a href="#advanced-ploidy-and-sex-chroms">Ploidy &amp; Special Chromosomes</a>). Chromosome names in your VCFs should match the chosen build (<code>chr1</code>/<code>1</code> both work — <code>normalize_chrom()</code> handles the <code>chr</code> prefix).</p>
+<p>The genome build affects PAR1/PAR2 coordinates on chrX (see <a href="#advanced-ploidy-and-sex-chroms">Ploidy &amp; Special Chromosomes</a>). Chromosome names in your VCFs and capture BEDs are normalized to a canonical <code>chr</code>-prefixed
+form, so the common naming conventions interoperate: <code>1</code> and <code>chr1</code> both become <code>chr1</code>, <code>X</code>
+and <code>x</code> become <code>chrX</code>, and <code>MT</code>, <code>M</code> and <code>chrMT</code> all become <code>chrM</code>. Unplaced and alt contigs
+(<code>GL000209.1</code>, <code>chr1_KI270706v1_random</code>) are left alone and skipped at build time — the build
+log reports which ones it dropped.</p>
 <hr />
 <h2 id="faq-can-i-share-the-database">Can I share the database?</h2>
 <p>Yes. The database is just files — copy or rsync the entire directory:</p>
@@ -9937,7 +9963,7 @@ the run aborts immediately — before any VCF ingestion begins — with:</p>
       <script id="__config" type="application/json">{"annotate": null, "base": "/afquery/dev", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.instant", "navigation.indexes", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "toc.integrate"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
       
         <script src="../js/print-site.js"></script>
       
