@@ -7,7 +7,7 @@ import duckdb
 from pyroaring import BitMap
 
 from .bitmaps import deserialize
-from .capture import CaptureIndex, load_capture_indices
+from .capture import CaptureIndex, describe_capture_problem, load_capture_indices
 from .constants import normalize_chrom, ALL_CHROMS, CHROM_ORDER
 from .models import AfqueryWarning, QueryParams, QueryResult, SampleCarrier, VariantKey, Sample, Technology, SampleFilter
 from .ploidy import compute_AN, split_ploidy
@@ -71,16 +71,11 @@ class QueryEngine:
         self._female_bm = sex_bms.get("female", BitMap())
         self._capture = load_capture_indices(techs, str(self._db / "capture"))
         for tech_id, capture_idx in self._capture.items():
-            if capture_idx.is_always_covered:
-                continue
-            if not capture_idx.known_chroms():
-                tech_name = self._tech_map[tech_id].tech_name
-                warnings.warn(
-                    f"Capture regions for technology {tech_name!r} match no known chromosome — "
-                    "its samples will be counted as uncovered at every position, "
-                    "lowering AN and inflating AF.",
-                    AfqueryWarning, stacklevel=2,
-                )
+            problem = describe_capture_problem(
+                capture_idx, self._tech_map[tech_id].tech_name
+            )
+            if problem is not None:
+                warnings.warn(problem, AfqueryWarning, stacklevel=2)
         self._tech_bitmaps = self._bitmaps.get("tech", {})
         self._all_samples_bm = BitMap(s.sample_id for s in self._samples)
         self._tech_name_to_id: dict[str, str] = {

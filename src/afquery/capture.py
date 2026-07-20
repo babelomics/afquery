@@ -59,7 +59,15 @@ class CaptureIndex:
     def from_bed(cls, bed_path: str) -> "CaptureIndex":
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", category=pd.errors.DtypeWarning)
-            ranges = pr.read_bed(bed_path)
+            try:
+                ranges = pr.read_bed(bed_path)
+            except (IndexError, AssertionError, pd.errors.EmptyDataError):
+                # pyranges raises rather than returning an empty frame when a BED
+                # holds no intervals: IndexError for a zero-byte file, AssertionError
+                # for a comment-only one. An empty index is the honest representation
+                # — the caller reports it (see describe_capture_problem) instead of
+                # the build dying on an opaque traceback.
+                return cls()
         return cls(pyranges_obj=ranges)
 
     def covers(self, chrom: str, pos: int) -> bool:
@@ -148,11 +156,44 @@ class CaptureIndex:
             return pickle.load(f)
 
 
+def describe_capture_problem(index: CaptureIndex, tech_name: str) -> "str | None":
+    """Return a ready-to-emit message if this index cannot cover anything, else None.
+
+    Build time and load time both need this verdict; sharing one implementation is
+    what stops them drifting on what counts as broken. The two failures are reported
+    separately because they need different fixes:
+      - empty: the BED held no intervals (missing, empty or malformed file);
+      - unknown contigs: intervals exist but none is on a real chromosome.
+    """
+    if index.is_always_covered or index.known_chroms():
+        return None
+    consequence = (
+        "its samples will be counted as uncovered at every position, "
+        "lowering AN and inflating AF."
+    )
+    if index.is_empty():
+        return f"Capture regions for technology {tech_name!r} are empty — {consequence}"
+    found = sorted(index.indexed_chroms())
+    shown = ", ".join(found[:5]) + (", ..." if len(found) > 5 else "")
+    return (
+        f"Capture regions for technology {tech_name!r} match no known chromosome "
+        f"(found: {shown}) — {consequence}"
+    )
+
+
 def load_capture_indices(
     technologies: list[Technology], capture_dir: str
 ) -> dict[int, "CaptureIndex"]:
     result = {}
     for tech in technologies:
         path = f"{capture_dir}/tech_{tech.tech_id}.pickle"
-        result[tech.tech_id] = CaptureIndex.load(path)
+        try:
+            result[tech.tech_id] = CaptureIndex.load(path)
+        except FileNotFoundError as exc:
+            # Defaulting to WGS here would silently inflate AN, so this must stay fatal
+            # — only the message improves.
+            raise FileNotFoundError(
+                f"Missing capture index for technology {tech.tech_name!r} at {path} — "
+                "the database is incomplete; rebuild it or re-run 'afquery update-db'."
+            ) from exc
     return result

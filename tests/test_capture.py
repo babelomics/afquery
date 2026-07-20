@@ -1,10 +1,13 @@
-import pickle
-import tempfile
 from pathlib import Path
 
 import pytest
 
-from afquery.capture import CaptureIndex
+from afquery.capture import (
+    CaptureIndex,
+    describe_capture_problem,
+    load_capture_indices,
+)
+from afquery.models import Technology
 
 DATA_DIR = Path(__file__).parent / "data"
 BED_A = str(DATA_DIR / "beds" / "wes_kit_a.bed")  # chr1:999-2000, chrX:999-2000
@@ -131,6 +134,93 @@ def test_is_empty_false_for_bed():
 def test_is_empty_false_for_wgs():
     # The WGS sentinel has no index but covers everything — not "empty".
     assert CaptureIndex.wgs().is_empty() is False
+
+
+# --- BEDs with no intervals: report, do not crash ---
+
+def test_from_bed_empty_file_does_not_raise(tmp_path):
+    # Regression: pyranges raises IndexError on a zero-byte BED, so create-db died
+    # with an opaque traceback instead of naming the offending technology.
+    bed = tmp_path / "empty.bed"
+    bed.write_text("")
+    idx = CaptureIndex.from_bed(str(bed))
+    assert idx.is_empty() is True
+    assert idx.covers("chr1", 1500) is False
+
+
+def test_from_bed_comment_only_does_not_raise(tmp_path):
+    # pyranges raises AssertionError here rather than IndexError — both must be caught.
+    bed = tmp_path / "comment.bed"
+    bed.write_text("# no regions\n")
+    assert CaptureIndex.from_bed(str(bed)).is_empty() is True
+
+
+# --- problem reporting ---
+
+def test_no_problem_for_valid_bed():
+    assert describe_capture_problem(CaptureIndex.from_bed(BED_A), "kit") is None
+
+
+def test_no_problem_for_wgs():
+    assert describe_capture_problem(CaptureIndex.wgs(), "WGS") is None
+
+
+def test_problem_for_empty_bed_says_empty(tmp_path):
+    bed = tmp_path / "empty.bed"
+    bed.write_text("")
+    msg = describe_capture_problem(CaptureIndex.from_bed(str(bed)), "kit")
+    assert "are empty" in msg
+    assert "match no known chromosome" not in msg
+
+
+def test_problem_for_unknown_contigs_lists_them(tmp_path):
+    bed = tmp_path / "unknown.bed"
+    bed.write_text("contigZ\t100\t200\n")
+    msg = describe_capture_problem(CaptureIndex.from_bed(str(bed)), "kit")
+    assert "match no known chromosome" in msg
+    assert "chrcontigZ" in msg
+
+
+def test_no_problem_when_only_some_contigs_are_unknown(tmp_path):
+    # One real chromosome is enough for the index to be usable.
+    bed = tmp_path / "mixed.bed"
+    bed.write_text("chr1\t100\t200\ncontigZ\t100\t200\n")
+    assert describe_capture_problem(CaptureIndex.from_bed(str(bed)), "kit") is None
+
+
+# --- chrMT capture BEDs ---
+
+def test_chrMT_bed_indexes_as_chrM(tmp_path):
+    # Regression: a BED naming the mitochondrion 'chrMT' kept valid autosome keys, so
+    # the "no known chromosome" warning never fired and chrM was silently uncovered.
+    bed = tmp_path / "mito.bed"
+    bed.write_text("chr1\t100\t200\nchrMT\t99\t200\n")
+    idx = CaptureIndex.from_bed(str(bed))
+    assert idx.known_chroms() == {"chr1", "chrM"}
+    assert idx.covers("chrM", 150) is True
+
+
+# --- load_capture_indices ---
+
+def test_load_capture_indices_missing_pickle(tmp_path):
+    tech = Technology(tech_id=1, tech_name="WES_kit_A", bed_path=BED_A)
+    with pytest.raises(
+        FileNotFoundError, match="Missing capture index for technology 'WES_kit_A'"
+    ):
+        load_capture_indices([tech], str(tmp_path))
+
+
+def test_load_capture_indices_keys_by_tech_id(tmp_path):
+    CaptureIndex.wgs().save(str(tmp_path / "tech_0.pickle"))
+    CaptureIndex.from_bed(BED_A).save(str(tmp_path / "tech_1.pickle"))
+    techs = [
+        Technology(tech_id=0, tech_name="WGS", bed_path=None),
+        Technology(tech_id=1, tech_name="WES_kit_A", bed_path=BED_A),
+    ]
+    loaded = load_capture_indices(techs, str(tmp_path))
+    assert set(loaded) == {0, 1}
+    assert loaded[0].is_always_covered is True
+    assert loaded[1].covers("chr1", 1500) is True
 
 
 def test_legacy_pickle_with_unnormalized_keys_self_heals(tmp_path):
