@@ -7,7 +7,7 @@ import duckdb
 from pyroaring import BitMap
 
 from .bitmaps import deserialize
-from .capture import CaptureIndex, load_capture_indices
+from .capture import CaptureIndex, describe_capture_problem, load_capture_indices
 from .constants import normalize_chrom, ALL_CHROMS, CHROM_ORDER
 from .models import AfqueryWarning, QueryParams, QueryResult, SampleCarrier, VariantKey, Sample, Technology, SampleFilter
 from .ploidy import compute_AN, split_ploidy
@@ -70,6 +70,12 @@ class QueryEngine:
         self._male_bm = sex_bms.get("male", BitMap())
         self._female_bm = sex_bms.get("female", BitMap())
         self._capture = load_capture_indices(techs, str(self._db / "capture"))
+        for tech_id, capture_idx in self._capture.items():
+            problem = describe_capture_problem(
+                capture_idx, self._tech_map[tech_id].tech_name
+            )
+            if problem is not None:
+                warnings.warn(problem, AfqueryWarning, stacklevel=2)
         self._tech_bitmaps = self._bitmaps.get("tech", {})
         self._all_samples_bm = BitMap(s.sample_id for s in self._samples)
         self._tech_name_to_id: dict[str, str] = {
@@ -95,9 +101,18 @@ class QueryEngine:
         # For each tech, store its bitmap; also precompute the union of all WGS tech bitmaps
         self._covered_all_bm: BitMap = BitMap()
         for tech_id, capture_idx in self._capture.items():
-            if capture_idx._always_covered:
+            if capture_idx.is_always_covered:
                 bm = self._tech_bitmaps.get(str(tech_id), BitMap())
                 self._covered_all_bm |= bm
+
+        # Targeted (non-WGS) technologies only. The per-position loops below run once
+        # per queried position, so the WGS ones are skipped here rather than re-tested
+        # on every iteration — they are already folded into _covered_all_bm.
+        self._targeted_capture: dict[int, CaptureIndex] = {
+            tech_id: capture_idx
+            for tech_id, capture_idx in self._capture.items()
+            if not capture_idx.is_always_covered
+        }
 
         # Cache parquet glob patterns per chrom (avoids filesystem scan on every query)
         self._glob_cache: dict[str, str | None] = {}
@@ -213,9 +228,7 @@ class QueryEngine:
 
         # Phase 1: count-based gate
         if min_pass > 0 or min_observed > 0:
-            for tech_id, capture_idx in self._capture.items():
-                if capture_idx._always_covered:
-                    continue
+            for tech_id in self._targeted_capture:
                 tech_bm = self._tech_bitmaps.get(str(tech_id), BitMap())
                 tech_eligible = eligible & tech_bm
                 if len(tech_eligible) == 0:
@@ -232,9 +245,7 @@ class QueryEngine:
         # Phase 2: quality_pass gate (--min-quality-evidence K)
         if quality_pass_bm is not None and min_quality_evidence > 0:
             already_filtered = filtered_bm if filtered_bm is not None else BitMap()
-            for tech_id, capture_idx in self._capture.items():
-                if capture_idx._always_covered:
-                    continue
+            for tech_id in self._targeted_capture:
                 tech_bm = self._tech_bitmaps.get(str(tech_id), BitMap())
                 tech_eligible = eligible & tech_bm
                 if len(tech_eligible) == 0:
@@ -287,9 +298,7 @@ class QueryEngine:
     ) -> tuple[BitMap, int]:
         """Return (eligible_bitmap, AN) for a single position."""
         covered = BitMap(self._covered_all_bm)  # start with WGS samples (always covered)
-        for tech_id, capture_idx in self._capture.items():
-            if capture_idx._always_covered:
-                continue  # already included in _covered_all_bm
+        for tech_id, capture_idx in self._targeted_capture.items():
             if capture_idx.covers(chrom, pos):
                 covered |= self._tech_bitmaps.get(str(tech_id), BitMap())
         eligible = sample_bitmap & covered

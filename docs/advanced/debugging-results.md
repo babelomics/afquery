@@ -16,6 +16,8 @@ AN=0 means no eligible samples at the queried position. Work through these check
 | Position exists in database | `afquery query --db ./db/ --locus chr1:12345678` | If no result at all, the variant was not observed in any sample during ingestion. |
 | BED coverage (WES) | `afquery info --db ./db/` | If all eligible samples are WES and the position is outside capture regions, AN=0 is correct. |
 | Sample filter too restrictive | Remove `--phenotype` and `--sex` filters | Query with no filters first. If AN>0 without filters, the filter is excluding all samples. |
+| WES samples missing from AN | Compare `variant-info` carriers against `query` counts | If `variant-info` shows many WES carriers but AN reflects only the WGS samples, that technology's capture index is not matching the position. `afquery` warns on open when a capture BED is empty or matches no known chromosome, naming the offending contigs. |
+| AN=0 only on chrM | `afquery query --db ./db/ --locus chrM:3243` | Mitochondrial coverage is easy to lose on its own: a BED naming it `chrMT` still matches on the autosomes, so nothing else looks wrong. Names are normalized (`MT`, `M`, `chrMT` → `chrM`) since v0.4.0 — databases built before that may need the capture BED re-checked. |
 | Technology filter | Remove `--tech` filter | Check if any samples match the requested technology. |
 
 ### 2. Unexpected AF Value

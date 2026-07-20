@@ -100,7 +100,11 @@ Yes. Both GRCh37 and GRCh38 are supported. Specify at database creation:
 afquery create-db --genome-build GRCh37 ...
 ```
 
-The genome build affects PAR1/PAR2 coordinates on chrX (see [Ploidy & Special Chromosomes](advanced/ploidy-and-sex-chroms.md)). Chromosome names in your VCFs should match the chosen build (`chr1`/`1` both work — `normalize_chrom()` handles the `chr` prefix).
+The genome build affects PAR1/PAR2 coordinates on chrX (see [Ploidy & Special Chromosomes](advanced/ploidy-and-sex-chroms.md)). Chromosome names in your VCFs and capture BEDs are normalized to a canonical `chr`-prefixed
+form, so the common naming conventions interoperate: `1` and `chr1` both become `chr1`, `X`
+and `x` become `chrX`, and `MT`, `M` and `chrMT` all become `chrM`. Unplaced and alt contigs
+(`GL000209.1`, `chr1_KI270706v1_random`) are left alone and skipped at build time — the build
+log reports which ones it dropped.
 
 ---
 

@@ -15,6 +15,18 @@ afquery variant-info --db ./db/ --locus chr1:925952
 !!! tip
     `variant-info` is the natural next step after `query` — once you find a variant of interest, use it to see which specific samples carry it.
 
+!!! note "Carrier counts may exceed the counts reported by `query`"
+    `variant-info` lists every carrier present in the source VCFs. `query` additionally
+    restricts to samples whose capture regions cover the position, so a WES sample with a
+    call just outside its own BED appears here but is not counted in `AN`, `AC` or the
+    genotype tallies. The two commands answer different questions — "who carries it?"
+    versus "what is the frequency among samples that could have been called?" — so a
+    modest difference is expected.
+
+    A *large* gap is worth investigating: if `variant-info` shows many carriers from a
+    technology that contributes nothing to `AN`, check that technology's capture index
+    (see [Debugging Results](../advanced/debugging-results.md)).
+
 By default all samples are queried and results are printed as an aligned text table:
 
 ```

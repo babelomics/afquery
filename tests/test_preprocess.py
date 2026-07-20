@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import pickle
 import sqlite3
@@ -637,6 +638,24 @@ class TestGetChromsFromFile:
         chroms = _get_chroms_from_file(str(tmp_path / "s.parquet"))
         assert "chrFAKE" not in chroms
 
+    def test_unknown_contigs_reported_once(self, tmp_path, caplog):
+        # Regression: the "Skipping unknown contig" warning sat downstream of this
+        # filter, so it could never fire and contigs vanished with no signal.
+        _write_parquet(tmp_path / "s.parquet", [
+            ("chr1", 1000, "A", "T", 1, 0),
+            ("chrFAKE", 1000, "A", "T", 1, 0),
+            ("chrFAKE", 2000, "A", "T", 1, 0),
+            ("chrOTHER", 3000, "A", "T", 1, 0),
+        ])
+        with caplog.at_level(logging.WARNING, logger="afquery.preprocess.build"):
+            chroms = _get_chroms_from_file(str(tmp_path / "s.parquet"))
+        assert chroms == ["chr1"]
+        records = [r for r in caplog.records if "unknown contig" in r.message]
+        assert len(records) == 1
+        message = records[0].getMessage()
+        assert "chrFAKE" in message
+        assert "chrOTHER" in message
+
 
 # ---------------------------------------------------------------------------
 # _get_chroms_from_consolidated unit tests
@@ -663,6 +682,14 @@ class TestGetChromsFromConsolidated:
         (tmp_path / "chrom=chrFAKE" / "data.parquet").touch()
         chroms = _get_chroms_from_consolidated(str(tmp_path))
         assert "chrFAKE" not in chroms
+
+    def test_hive_unknown_chroms_reported(self, tmp_path, caplog):
+        (tmp_path / "chrom=chr1").mkdir()
+        (tmp_path / "chrom=chrFAKE").mkdir()
+        with caplog.at_level(logging.WARNING, logger="afquery.preprocess.build"):
+            chroms = _get_chroms_from_consolidated(str(tmp_path))
+        assert chroms == ["chr1"]
+        assert any("chrFAKE" in r.getMessage() for r in caplog.records)
 
     def test_single_file_delegates(self, tmp_path):
         _write_parquet(tmp_path / "consolidated.parquet", [

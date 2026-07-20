@@ -33,6 +33,24 @@ PARQUET_SCHEMA = pa.schema([
 ])
 
 
+def _filter_known_chroms(chroms: list[str], source: str) -> list[str]:
+    """Keep only real chromosomes, reporting the dropped contigs once.
+
+    Chrom discovery happens in three places and every one of them must drop
+    unplaced and alt contigs. Centralizing the filter is what keeps the report
+    from either vanishing — it used to live downstream of the filter, where it
+    could never fire — or firing once per row.
+    """
+    known = [c for c in chroms if c in ALL_CHROMS]
+    unknown = sorted({c for c in chroms if c not in ALL_CHROMS})
+    if unknown:
+        logger.warning(
+            "[build] Skipping %d unknown contig(s) from %s: %s",
+            len(unknown), source, ", ".join(unknown),
+        )
+    return known
+
+
 def _get_chroms_from_file(parquet_path: str) -> list[str]:
     """SELECT DISTINCT chrom from a single consolidated Parquet file."""
     path = parquet_path.replace("'", "''")
@@ -46,7 +64,7 @@ def _get_chroms_from_file(parquet_path: str) -> list[str]:
         return []
     finally:
         con.close()
-    return [r[0] for r in rows if r[0] in ALL_CHROMS]
+    return _filter_known_chroms([r[0] for r in rows], parquet_path)
 
 
 def consolidate_temp_files(
@@ -81,13 +99,12 @@ def _get_chroms_from_consolidated(path: str) -> list[str]:
     """Discover chromosomes from consolidated path (Hive-partitioned directory or single file)."""
     if os.path.isdir(path):
         # Hive-partitioned: scan chrom=X/ subdirs — fast, no SQL needed
-        chroms = []
-        for entry in os.scandir(path):
-            if entry.is_dir() and entry.name.startswith("chrom="):
-                chrom = entry.name[6:]  # strip "chrom="
-                if chrom in ALL_CHROMS:
-                    chroms.append(chrom)
-        return chroms
+        chroms = [
+            entry.name[6:]  # strip "chrom="
+            for entry in os.scandir(path)
+            if entry.is_dir() and entry.name.startswith("chrom=")
+        ]
+        return _filter_known_chroms(chroms, path)
     else:
         # Single file (legacy) — use SQL
         return _get_chroms_from_file(path)
@@ -111,7 +128,7 @@ def get_chroms_in_temp_files(tmp_dir: str) -> list[str]:
     finally:
         con.close()
 
-    return [r[0] for r in rows if r[0] in ALL_CHROMS]
+    return _filter_known_chroms([r[0] for r in rows], tmp_dir)
 
 
 def _make_table(
@@ -524,12 +541,8 @@ def build_all_parquets(
         chroms = _get_chroms_from_consolidated(consolidated_path)
     else:
         chroms = get_chroms_in_temp_files(tmp_dir)
-    valid_chroms = []
-    for chrom in chroms:
-        if chrom in ALL_CHROMS:
-            valid_chroms.append(chrom)
-        else:
-            logger.warning("Skipping unknown contig: %s", chrom)
+    # Both discovery helpers already filter to ALL_CHROMS and report what they drop.
+    valid_chroms = chroms
 
     if not valid_chroms:
         return {}
