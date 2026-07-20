@@ -105,6 +105,15 @@ class QueryEngine:
                 bm = self._tech_bitmaps.get(str(tech_id), BitMap())
                 self._covered_all_bm |= bm
 
+        # Targeted (non-WGS) technologies only. The per-position loops below run once
+        # per queried position, so the WGS ones are skipped here rather than re-tested
+        # on every iteration — they are already folded into _covered_all_bm.
+        self._targeted_capture: dict[int, CaptureIndex] = {
+            tech_id: capture_idx
+            for tech_id, capture_idx in self._capture.items()
+            if not capture_idx.is_always_covered
+        }
+
         # Cache parquet glob patterns per chrom (avoids filesystem scan on every query)
         self._glob_cache: dict[str, str | None] = {}
 
@@ -219,9 +228,7 @@ class QueryEngine:
 
         # Phase 1: count-based gate
         if min_pass > 0 or min_observed > 0:
-            for tech_id, capture_idx in self._capture.items():
-                if capture_idx.is_always_covered:
-                    continue
+            for tech_id in self._targeted_capture:
                 tech_bm = self._tech_bitmaps.get(str(tech_id), BitMap())
                 tech_eligible = eligible & tech_bm
                 if len(tech_eligible) == 0:
@@ -238,9 +245,7 @@ class QueryEngine:
         # Phase 2: quality_pass gate (--min-quality-evidence K)
         if quality_pass_bm is not None and min_quality_evidence > 0:
             already_filtered = filtered_bm if filtered_bm is not None else BitMap()
-            for tech_id, capture_idx in self._capture.items():
-                if capture_idx.is_always_covered:
-                    continue
+            for tech_id in self._targeted_capture:
                 tech_bm = self._tech_bitmaps.get(str(tech_id), BitMap())
                 tech_eligible = eligible & tech_bm
                 if len(tech_eligible) == 0:
@@ -293,9 +298,7 @@ class QueryEngine:
     ) -> tuple[BitMap, int]:
         """Return (eligible_bitmap, AN) for a single position."""
         covered = BitMap(self._covered_all_bm)  # start with WGS samples (always covered)
-        for tech_id, capture_idx in self._capture.items():
-            if capture_idx.is_always_covered:
-                continue  # already included in _covered_all_bm
+        for tech_id, capture_idx in self._targeted_capture.items():
             if capture_idx.covers(chrom, pos):
                 covered |= self._tech_bitmaps.get(str(tech_id), BitMap())
         eligible = sample_bitmap & covered
