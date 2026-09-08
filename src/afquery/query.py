@@ -294,6 +294,19 @@ class QueryEngine:
             if capture_idx.covers(chrom, pos):
                 covered |= self._tech_bitmaps.get(str(tech_id), BitMap())
         eligible = sample_bitmap & covered
+
+        # A sample with no allele at this position is not eligible at it. The
+        # case is chrY in a female: she is neither a carrier nor homozygous
+        # reference there, because she has no chrY to genotype. AN has always
+        # excluded such samples, so leaving them in the eligible set made
+        # N_HOM_REF and n_samples_eligible disagree with it. Every other
+        # chromosome is unaffected: on chrX both sexes carry alleles, only the
+        # ploidy differs.
+        haploid, diploid = split_ploidy(
+            eligible, self._male_bm, self._female_bm, chrom, pos, self._genome_build,
+        )
+        eligible = haploid | diploid
+
         AN = compute_AN(
             eligible,
             self._male_bm,

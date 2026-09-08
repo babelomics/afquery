@@ -45,7 +45,7 @@
     "n_eligible": 3
   },
   {
-    "description": "chrY:500000 J45 both sexes (only males count for AN)",
+    "description": "chrY:500000 J45 both sexes (females have no chrY to genotype)",
     "chrom": "chrY",
     "pos": 500000,
     "ref": "T",
@@ -57,7 +57,7 @@
     "AC": 1,
     "AN": 1,
     "AF": 1.0,
-    "n_eligible": 2
+    "n_eligible": 1
   },
   {
     "description": "chrM:100 E11.9 both sexes (ploidy=1 for all)",
