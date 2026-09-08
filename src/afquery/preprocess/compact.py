@@ -109,8 +109,11 @@ def compact_database(db_path: Path) -> dict:
             logger.debug("  [compact] %s: no changes", parquet_file.name)
             continue
 
-        # Build new table with kept rows and updated bitmaps
-        orig_keep = table.take(keep_indices)
+        # Build new table with kept rows and updated bitmaps.
+        # The index type is spelled out: a bare [] makes pyarrow infer a null
+        # array, which has no take kernel, and every row of a file can legitimately
+        # be dropped when the removed samples were the only carriers in it.
+        orig_keep = table.take(pa.array(keep_indices, type=pa.int64()))
         new_table = pa.table(
             {
                 "pos":                 orig_keep["pos"],
