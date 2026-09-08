@@ -7,6 +7,7 @@ from pathlib import Path
 
 import duckdb
 
+from . import storage
 from .bitmaps import deserialize
 from .constants import normalize_chrom, ALL_CHROMS
 from .models import SampleFilter
@@ -14,7 +15,7 @@ from .ploidy import split_ploidy
 
 logger = logging.getLogger(__name__)
 
-BUCKET_SIZE = 1_000_000
+BUCKET_SIZE = storage.BUCKET_SIZE
 
 
 def _build_groups(engine, base_sf, by_sex, by_tech, by_phenotype, all_groups):
@@ -136,8 +137,8 @@ def _dump_bucket_worker(
     bucket_end = (bucket_id + 1) * BUCKET_SIZE - 1
 
     # Resolve parquet path and WHERE clause
-    if chrom in engine._partitioned_chroms:
-        parquet_file = _db / "variants" / chrom / f"bucket_{bucket_id}.parquet"
+    if storage.chrom_layout(_db / "variants", chrom) == storage.PARTITIONED:
+        parquet_file = storage.bucket_path(_db / "variants", chrom, bucket_id)
         if not parquet_file.exists():
             return []
         where_parts = []
@@ -150,7 +151,7 @@ def _dump_bucket_worker(
             params.append(pos_end)
         where_clause = ("WHERE " + " AND ".join(where_parts)) if where_parts else ""
     else:
-        parquet_file = _db / "variants" / f"{chrom}.parquet"
+        parquet_file = storage.flat_path(_db / "variants", chrom)
         if not parquet_file.exists():
             return []
         range_start = max(bucket_start, pos_start) if pos_start is not None else bucket_start
@@ -326,23 +327,15 @@ def dump_database(
         # All chroms that have data
         available = set()
         for chrom in ALL_CHROMS:
-            if chrom in engine._partitioned_chroms:
-                available.add(chrom)
-            elif (variants_dir / f"{chrom}.parquet").exists():
+            if storage.variant_parquet_glob(variants_dir, chrom) is not None:
                 available.add(chrom)
         chroms = [c for c in ALL_CHROMS if c in available]
 
     # Build work units: (chrom, bucket_id) in genomic order
     work_units: list[tuple[str, int]] = []
     for chrom in chroms:
-        if chrom in engine._partitioned_chroms:
-            chrom_dir = variants_dir / chrom
-            bucket_files = sorted(
-                chrom_dir.glob("bucket_*.parquet"),
-                key=lambda p: int(p.stem.split("_")[1]),
-            )
-            for bf in bucket_files:
-                bid = int(bf.stem.split("_")[1])
+        if storage.chrom_layout(variants_dir, chrom) == storage.PARTITIONED:
+            for bid in storage.existing_bucket_ids(variants_dir, chrom):
                 # Filter by region if specified
                 if pos_start is not None and (bid + 1) * BUCKET_SIZE - 1 < pos_start:
                     continue
@@ -350,7 +343,7 @@ def dump_database(
                     continue
                 work_units.append((chrom, bid))
         else:
-            flat_path = variants_dir / f"{chrom}.parquet"
+            flat_path = storage.flat_path(variants_dir, chrom)
             if not flat_path.exists():
                 continue
             bucket_ids = _discover_flat_buckets(flat_path, pos_start, pos_end)

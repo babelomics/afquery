@@ -1,4 +1,3 @@
-import glob as glob_module
 import json
 import logging
 import os
@@ -11,6 +10,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 from pyroaring import BitMap
 
+from .. import storage
 from ..bitmaps import deserialize, serialize
 from .build import PARQUET_SCHEMA
 
@@ -43,13 +43,7 @@ def compact_database(db_path: Path) -> dict:
     active_ids = BitMap([r[0] for r in rows])
 
     # Collect all parquet files (flat + partitioned buckets)
-    all_parquets: list[Path] = []
-    for f in sorted(variants_dir.glob("*.parquet")):
-        all_parquets.append(f)
-    for chrom_dir in sorted(variants_dir.iterdir()):
-        if chrom_dir.is_dir():
-            for f in sorted(chrom_dir.glob("bucket_*.parquet")):
-                all_parquets.append(f)
+    all_parquets: list[Path] = list(storage.iter_variant_parquets(variants_dir))
 
     logger.info("[compact] Compacting %d Parquet file(s) against %d active sample(s)...",
                 len(all_parquets), len(active_ids))

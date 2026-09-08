@@ -7,7 +7,6 @@ import tempfile
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from pathlib import Path
 
 import duckdb
 import pyarrow as pa
@@ -862,22 +861,11 @@ def remove_samples(db_dir: str, sample_names: list[str]) -> dict:
         removal_ids = BitMap([r[0] for r in rows])
         id_list = list(removal_ids)
 
-        # 2-3. Clear bits from all Parquet files (flat and partitioned)
+        # 2-3. Clear bits from every Parquet file, in either layout
         variants_dir = os.path.join(db_dir, "variants")
-        if os.path.exists(variants_dir):
-            for pq_file in sorted(
-                glob_module.glob(os.path.join(variants_dir, "*.parquet"))
-            ):
-                _clear_bits_from_parquet(pq_file, removal_ids)
-                logger.debug("  [remove-samples] %s cleared", os.path.basename(pq_file))
-            # Also handle partitioned format (variants/{chrom}/bucket_*.parquet)
-            for chrom_dir in sorted(Path(variants_dir).iterdir()):
-                if chrom_dir.is_dir():
-                    for pq_file in sorted(
-                        glob_module.glob(str(chrom_dir / "bucket_*.parquet"))
-                    ):
-                        _clear_bits_from_parquet(pq_file, removal_ids)
-                        logger.debug("  [remove-samples] %s cleared", os.path.basename(pq_file))
+        for pq_file in storage.iter_variant_parquets(variants_dir):
+            _clear_bits_from_parquet(str(pq_file), removal_ids)
+            logger.debug("  [remove-samples] %s cleared", pq_file.name)
 
         # 4-5. Delete from SQLite
         ph2 = ",".join("?" * len(id_list))
@@ -1013,20 +1001,10 @@ def check_database(db_dir: str) -> list[CheckResult]:
         err("variants/ directory not found")
         return results
 
-    # Collect flat parquet files
-    flat_parquets = sorted(glob_module.glob(os.path.join(variants_dir, "*.parquet")))
-    # Collect partitioned parquets (variants/{chrom}/bucket_*.parquet)
-    chrom_dirs = []
-    bucket_parquets = []
-    for entry in sorted(os.scandir(variants_dir), key=lambda e: e.name):
-        if entry.is_dir():
-            chrom_dirs.append(entry.path)
-            bucket_parquets.extend(
-                sorted(glob_module.glob(os.path.join(entry.path, "bucket_*.parquet")))
-            )
-
-    parquet_files = flat_parquets + bucket_parquets
-    n_chroms = len(flat_parquets) + len(chrom_dirs)
+    parquet_files = [str(p) for p in storage.iter_variant_parquets(variants_dir)]
+    n_chroms = len(storage.flat_chroms(variants_dir)) + len(
+        storage.partitioned_chroms(variants_dir)
+    )
 
     expected_fields = {
         "pos":        pa.uint32(),

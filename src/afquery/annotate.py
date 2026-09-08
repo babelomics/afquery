@@ -3,6 +3,7 @@ import os
 import warnings
 import duckdb
 
+from . import storage
 from .bitmaps import deserialize
 from .constants import normalize_chrom
 from .models import AfqueryWarning, SampleFilter
@@ -52,8 +53,8 @@ def _compute_chunk_annotations(
     bucket_end = (bucket_id + 1) * 1_000_000 - 1
     cols = ", ".join(engine._bitmap_cols(with_pos=True))
 
-    if chrom in engine._partitioned_chroms:
-        parquet_file = _db / "variants" / chrom / f"bucket_{bucket_id}.parquet"
+    if storage.chrom_layout(_db / "variants", chrom) == storage.PARTITIONED:
+        parquet_file = storage.bucket_path(_db / "variants", chrom, bucket_id)
         if valid_positions and parquet_file.exists():
             con = duckdb.connect()
             placeholders = ", ".join("?" * len(valid_positions))
@@ -67,7 +68,7 @@ def _compute_chunk_annotations(
                 pos, ref, alt = row[0], row[1], row[2]
                 variant_data[(pos, ref, alt)] = tuple(bytes(b) for b in row[3:3 + n_bitmap_cols])
     else:
-        parquet_file = _db / "variants" / f"{chrom}.parquet"
+        parquet_file = storage.flat_path(_db / "variants", chrom)
         if valid_positions and parquet_file.exists():
             con = duckdb.connect()
             rows = con.execute(
