@@ -38,6 +38,8 @@ afquery update-db \
 
 The new manifest follows the same format as the original (see [Manifest Format](manifest-format.md)). New samples are assigned monotonically increasing sample IDs.
 
+New variants are merged into the per-chromosome bucket files the database already uses; buckets are created on demand, and no new top-level Parquet file is produced. See [Data Model](../reference/data-model.md#storage-layouts).
+
 To add multiple manifests at once:
 
 ```bash
@@ -67,9 +69,10 @@ decisions are comparable across batches.
 When new carriers push a partially-covered tech above the `--min-covered`
 threshold at positions that were previously below it, those positions are
 re-evaluated and their non-carrier samples once again count as `N_HOM_REF`
-instead of `N_NO_COVERAGE`. The recomputation runs only for chromosomes
-touched by the new samples; existing rows on other chromosomes are not
-rewritten.
+instead of `N_NO_COVERAGE`. The recomputation runs across every bucket of the
+chromosomes touched by the new samples, because the value depends on the whole
+cohort rather than on which bucket received rows; chromosomes the batch does not
+touch are not rewritten.
 
 VCFs added via `update-db` should preserve `FORMAT/DP` and `FORMAT/GQ` (the
 bundled `resources/normalize_vcf.sh` does so by default). Samples without
