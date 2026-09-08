@@ -828,6 +828,10 @@ def add_samples(
         )
         con.commit()
 
+        # sample_count is the number of samples the database holds, which is not
+        # the next free id once anything has been removed.
+        sample_count = con.execute("SELECT COUNT(*) FROM samples").fetchone()[0]
+
     finally:
         con.close()
 
@@ -836,7 +840,7 @@ def add_samples(
     # Resolve db_version: explicit value overrides auto-bump
     current_version = manifest.get("db_version", "1.0")
     new_version = db_version if db_version is not None else _bump_version(current_version)
-    _update_manifest(db_dir, next_id, next_sample_id=next_id, db_version=new_version)
+    _update_manifest(db_dir, sample_count, next_sample_id=next_id, db_version=new_version)
 
     logger.info("[add-samples] Done. %d sample(s) added.", len(new_samples))
 
