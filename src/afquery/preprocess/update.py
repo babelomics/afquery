@@ -659,12 +659,26 @@ def add_samples(
             f"genome_build mismatch: DB has '{db_genome_build}', got '{genome_build}'"
         )
 
-    # 3. Parse new manifest
+    # 3. Refuse a database that already stores a chromosome in both layouts.
+    # Checked before ingest so an operator is not told this after hours of work.
+    mixed = storage.mixed_layout_chroms(os.path.join(db_dir, "variants"))
+    if mixed:
+        raise UpdateError(
+            "Mixed variant layout: chromosome(s) "
+            + ", ".join(mixed)
+            + " have both variants/<chrom>/ (bucketed) and variants/<chrom>.parquet. "
+            "The flat files were written by an older update-db and are invisible to "
+            "queries; adding more samples would compound the error. Run "
+            "'afquery check --db <db>' and follow the recovery procedure in the "
+            "troubleshooting guide before retrying."
+        )
+
+    # 4. Parse new manifest
     samples_raw, techs_raw = parse_manifest(manifest_path, bed_dir)
 
     logger.info("[add-samples] Adding %d new sample(s)...", len(samples_raw))
 
-    # 4. Open connection
+    # 5. Open connection
     db_path = os.path.join(db_dir, "metadata.sqlite")
     con = sqlite3.connect(db_path)
 
@@ -672,7 +686,7 @@ def add_samples(
     total_updated = 0
 
     try:
-        # 5. Check for duplicate sample names
+        # 6. Check for duplicate sample names
         existing_names = {
             r[0] for r in con.execute("SELECT sample_name FROM samples").fetchall()
         }
@@ -683,7 +697,7 @@ def add_samples(
                 f"Sample(s) already in database: {', '.join(duplicates)}"
             )
 
-        # 6. Assign IDs sequentially from next available.
+        # 7. Assign IDs sequentially from next available.
         # Use manifest's next_sample_id when present (survives removals) so IDs
         # are never reused even after a sample has been deleted.
         manifest_next = manifest.get("next_sample_id")
@@ -699,7 +713,7 @@ def add_samples(
             for i, ps in enumerate(samples_raw)
         ]
 
-        # 7. Handle technologies
+        # 8. Handle technologies
         capture_dir = os.path.join(db_dir, "capture")
         os.makedirs(capture_dir, exist_ok=True)
 
@@ -735,7 +749,7 @@ def add_samples(
 
         vcf_paths = [ps.vcf_path for ps in samples_raw]
 
-        # 8. Ingest VCFs into fresh tmp_dir
+        # 9. Ingest VCFs into fresh tmp_dir
         auto_tmp = tmp_dir is None
         if auto_tmp:
             tmp_dir = tempfile.mkdtemp(prefix="afquery_update_")
@@ -743,7 +757,7 @@ def add_samples(
         try:
             ingest_all(new_samples, vcf_paths, tmp_dir, n_workers=effective_threads)
 
-            # 9. Collect chroms from new temp files
+            # 10. Collect chroms from new temp files
             chroms = get_chroms_in_temp_files(tmp_dir)
 
             # Phase 2: build WES tech bitmaps from CURRENT DB state (existing + new samples)
@@ -768,7 +782,7 @@ def add_samples(
                     if tech_obj is not None and tech_obj.bed_path is not None:
                         wes_tech_bitmaps.setdefault(s.tech_id, BitMap()).add(s.sample_id)
 
-            # 10. Merge Parquet files. The layout is decided once for the whole
+            # 11. Merge Parquet files. The layout is decided once for the whole
             # update so every chromosome in this batch agrees, including any
             # chromosome new to the database.
             layout = storage.detect_layout(os.path.join(db_dir, "variants"))
@@ -787,7 +801,7 @@ def add_samples(
                 import shutil
                 shutil.rmtree(tmp_dir, ignore_errors=True)
 
-        # 11. Insert new samples and Phenotype pairs into SQLite
+        # 12. Insert new samples and Phenotype pairs into SQLite
         ingested_at = datetime.now(timezone.utc).isoformat()
         con.executemany(
             "INSERT INTO samples (sample_id, sample_name, sex, tech_id, vcf_path, ingested_at)"
@@ -802,10 +816,10 @@ def add_samples(
         ]
         con.executemany("INSERT INTO sample_phenotype VALUES (?, ?)", sample_phenotype_pairs)
 
-        # 12. Regenerate precomputed bitmaps
+        # 13. Regenerate precomputed bitmaps
         _regenerate_precomputed_bitmaps(con)
 
-        # 13. Append changelog entry
+        # 14. Append changelog entry
         import json as _json
         sample_names_json = _json.dumps([s.sample_name for s in new_samples])
         con.execute(
@@ -817,7 +831,7 @@ def add_samples(
     finally:
         con.close()
 
-    # 14. Update manifest (persist next_sample_id so future adds don't reuse IDs)
+    # 15. Update manifest (persist next_sample_id so future adds don't reuse IDs)
     next_id = starting_id + len(new_samples)
     # Resolve db_version: explicit value overrides auto-bump
     current_version = manifest.get("db_version", "1.0")
@@ -1000,6 +1014,16 @@ def check_database(db_dir: str) -> list[CheckResult]:
     if not os.path.exists(variants_dir):
         err("variants/ directory not found")
         return results
+
+    # Check 9b: no chromosome is stored in both layouts at once
+    for chrom in storage.mixed_layout_chroms(variants_dir):
+        err(
+            f"{chrom}: both variants/{chrom}/ (bucketed) and variants/{chrom}.parquet "
+            f"exist. Queries read only the bucketed files, so every sample whose calls "
+            f"live in {chrom}.parquet is silently counted as homozygous reference and "
+            f"biases allele frequencies downward. See the troubleshooting guide: "
+            f"'Samples Added by update-db Are Missing From Queries'."
+        )
 
     parquet_files = [str(p) for p in storage.iter_variant_parquets(variants_dir)]
     n_chroms = len(storage.flat_chroms(variants_dir)) + len(
