@@ -375,6 +375,29 @@ def test_version_set_then_show(runner, db_copy):
     assert "MYVER" in result.output
 
 
+# --- afquery --version / --help ---
+
+def test_version_flag(runner):
+    from afquery import __version__
+    result = runner.invoke(cli, ["--version"])
+    assert result.exit_code == 0
+    assert __version__ in result.output
+
+
+def test_help_shows_program_name_and_version(runner):
+    from afquery import __version__
+    result = runner.invoke(cli, ["--help"])
+    assert result.exit_code == 0
+    assert f"AFQuery v{__version__}" in result.output
+
+
+def test_help_lists_all_commands(runner):
+    result = runner.invoke(cli, ["--help"])
+    for cmd in ("query", "variant-info", "annotate", "dump", "info",
+                "version", "create-db", "update-db", "check", "benchmark"):
+        assert cmd in result.output
+
+
 # --- afquery check ---
 
 def test_check_ok(runner, test_db):
