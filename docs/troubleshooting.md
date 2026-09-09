@@ -120,16 +120,23 @@ sqlite3 ./db/metadata.sqlite \
    LEFT JOIN sample_phenotype p ON p.sample_id = s.sample_id
    WHERE s.sample_name IN ('SAMPLE_1','SAMPLE_2') GROUP BY s.sample_id;"
 
-# 2. List the orphan files before deleting anything.
-find ./db/variants -maxdepth 1 -name '*.parquet'
+# 2. List the flat files before deleting anything. Only those with a sibling
+#    directory of the same name are orphans; one without a sibling is the only
+#    copy of that chromosome and queries still read it.
+for f in ./db/variants/*.parquet; do
+  [ -d "${f%.parquet}" ] && echo "orphan: $f" || echo "KEEP (no sibling): $f"
+done
 
 # 3. Remove the affected samples. This clears their bits from both layouts and is
 #    safe on a split database. Every bucket is read, so budget minutes, not
 #    seconds, and do not interrupt it.
 afquery update-db --db ./db/ --remove-samples SAMPLE_1 --remove-samples SAMPLE_2
 
-# 4. Delete the orphan flat files. Each one has a sibling directory of the same name.
-find ./db/variants -maxdepth 1 -name '*.parquet' -delete
+# 4. Delete only the orphans listed in step 2. A flat file with no sibling
+#    directory must be kept: deleting it would drop that chromosome entirely.
+for f in ./db/variants/*.parquet; do
+  [ -d "${f%.parquet}" ] && rm "$f"
+done
 
 # 5. Confirm the errors are gone.
 afquery check --db ./db/
