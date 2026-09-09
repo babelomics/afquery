@@ -6053,6 +6053,29 @@ technology that contributes nothing to <code>AN</code>, check that technology's 
                     <section class="print-page" id="reference-cli" heading-number="4.1"><h1 id="reference-cli-cli-reference">CLI Reference</h1>
 <p>All AFQuery commands follow the pattern <code>afquery &lt;command&gt; [OPTIONS]</code>.</p>
 <hr />
+<h2 id="reference-cli-global-options">Global options</h2>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--version</code></td>
+<td>Print the AFQuery version and exit</td>
+</tr>
+<tr>
+<td><code>--help</code></td>
+<td>Show help for the command and exit</td>
+</tr>
+</tbody>
+</table>
+<p><code>afquery --version</code> prints the installed package version (e.g. <code>afquery 0.4.2</code>),
+taken from the Git release tag at build time. In an editable install
+(<code>pip install -e .</code>) it reflects the last build, not later local commits.</p>
+<hr />
 <h2 id="reference-cli-create-db">create-db</h2>
 <p>Build a new AFQuery database from a manifest of single-sample VCFs.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#reference-cli-__codelineno-0-1"></a>afquery create-db [OPTIONS]
