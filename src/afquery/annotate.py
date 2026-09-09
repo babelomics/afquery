@@ -49,8 +49,8 @@ def _compute_chunk_annotations(
     n_bitmap_cols = 5 if engine._has_coverage_data else 3
     variant_data: dict[tuple[int, str, str], tuple] = {}
     _db = Path(db_path)
-    bucket_start = bucket_id * 1_000_000
-    bucket_end = (bucket_id + 1) * 1_000_000 - 1
+    bucket_start = bucket_id * storage.BUCKET_SIZE
+    bucket_end = (bucket_id + 1) * storage.BUCKET_SIZE - 1
     cols = ", ".join(engine._bitmap_cols(with_pos=True))
 
     if storage.chrom_layout(_db / "variants", chrom) == storage.PARTITIONED:
@@ -186,7 +186,7 @@ def annotate_vcf(
     for variant in vcf:
 
         norm = normalize_chrom(variant.CHROM)
-        bucket = variant.POS // 1_000_000
+        bucket = storage.bucket_id(variant.POS)
         key = (norm, bucket)
         if key not in variant_buffers:
             work_order.append(key)
