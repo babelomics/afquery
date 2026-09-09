@@ -2324,10 +2324,10 @@
 <p>Results are returned in the same order as the input file. You can also use the Python API directly:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">afquery</span><span class="w"> </span><span class="kn">import</span> <span class="n">Database</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">db</span> <span class="o">=</span> <span class="n">Database</span><span class="p">(</span><span class="s2">&quot;./db/&quot;</span><span class="p">)</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">db</span> <span class="o">=</span> <span class="n">Database</span><span class="p">(</span><span class="s2">"./db/"</span><span class="p">)</span>
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">results</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">query_batch_multi</span><span class="p">([</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="p">(</span><span class="s2">&quot;chr1&quot;</span><span class="p">,</span> <span class="mi">925952</span><span class="p">,</span> <span class="s2">&quot;G&quot;</span><span class="p">,</span> <span class="s2">&quot;A&quot;</span><span class="p">),</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="p">(</span><span class="s2">&quot;chrX&quot;</span><span class="p">,</span> <span class="mi">5000000</span><span class="p">,</span> <span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;G&quot;</span><span class="p">),</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="p">(</span><span class="s2">"chr1"</span><span class="p">,</span> <span class="mi">925952</span><span class="p">,</span> <span class="s2">"G"</span><span class="p">,</span> <span class="s2">"A"</span><span class="p">),</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="p">(</span><span class="s2">"chrX"</span><span class="p">,</span> <span class="mi">5000000</span><span class="p">,</span> <span class="s2">"A"</span><span class="p">,</span> <span class="s2">"G"</span><span class="p">),</span>
 <a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="p">])</span>
 <a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
 <a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">variant</span><span class="o">.</span><span class="n">chrom</span><span class="p">,</span> <span class="n">r</span><span class="o">.</span><span class="n">variant</span><span class="o">.</span><span class="n">pos</span><span class="p">,</span> <span class="n">r</span><span class="o">.</span><span class="n">AC</span><span class="p">,</span> <span class="n">r</span><span class="o">.</span><span class="n">AN</span><span class="p">,</span> <span class="n">r</span><span class="o">.</span><span class="n">AF</span><span class="p">)</span>
@@ -2348,7 +2348,7 @@
 <h2 id="how-do-i-update-phenotype-metadata-without-re-ingesting">How do I update phenotype metadata without re-ingesting?</h2>
 <p>Use <code>afquery update-db --update-sample</code> to correct a sample's <code>sex</code> or <code>phenotype_codes</code> without touching the VCF or the Parquet files. The change is recorded in the changelog and precomputed bitmaps are regenerated automatically.</p>
 <p>Update a single sample:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>afquery<span class="w"> </span>update-db<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--update-sample<span class="w"> </span>SAMP_001<span class="w"> </span>--set-phenotype<span class="w"> </span><span class="s2">&quot;E11.9,I10&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>afquery<span class="w"> </span>update-db<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--update-sample<span class="w"> </span>SAMP_001<span class="w"> </span>--set-phenotype<span class="w"> </span><span class="s2">"E11.9,I10"</span>
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>afquery<span class="w"> </span>update-db<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--update-sample<span class="w"> </span>SAMP_001<span class="w"> </span>--set-sex<span class="w"> </span>female
 </code></pre></div>
 <p>Update many samples at once using a TSV file (header: <code>sample_name</code>, <code>field</code>, <code>new_value</code>):</p>
@@ -2385,7 +2385,7 @@ log reports which ones it dropped.</p>
 </code></pre></div>
 <p>Or via Python:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">afquery</span><span class="w"> </span><span class="kn">import</span> <span class="n">Database</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="n">db</span> <span class="o">=</span> <span class="n">Database</span><span class="p">(</span><span class="s2">&quot;./db/&quot;</span><span class="p">)</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="n">db</span> <span class="o">=</span> <span class="n">Database</span><span class="p">(</span><span class="s2">"./db/"</span><span class="p">)</span>
 <a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="nb">print</span><span class="p">(</span><span class="n">db</span><span class="o">.</span><span class="n">get_all_phenotypes</span><span class="p">())</span>
 </code></pre></div>
 <hr />
@@ -2408,8 +2408,8 @@ log reports which ones it dropped.</p>
 <hr />
 <h2 id="what-happens-if-i-query-a-phenotype-code-that-does-not-exist">What happens if I query a phenotype code that does not exist?</h2>
 <p>AFQuery emits an <code>AfqueryWarning</code> to stderr and returns <code>AC=0, AN=0, AF=None</code>. The warning message indicates whether the unknown code was used as an include filter (will match 0 samples) or an exclude filter (has no effect):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>AfqueryWarning: Phenotype &#39;CODE&#39; not in database — include will match 0 samples.
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>AfqueryWarning: Phenotype &#39;CODE&#39; not in database — exclude has no effect.
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>AfqueryWarning: Phenotype 'CODE' not in database — include will match 0 samples.
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>AfqueryWarning: Phenotype 'CODE' not in database — exclude has no effect.
 </code></pre></div>
 <p>Use <code>afquery info --db ./db/</code> to list all registered codes before running queries. Use <code>--no-warn</code> to suppress warnings in batch pipelines.</p>
 <hr />
@@ -2456,7 +2456,7 @@ log reports which ones it dropped.</p>
 <h3 id="why-does-create-db-abort-with-bed-file-not-found">Why does <code>create-db</code> abort with "BED file not found"?</h3>
 <p>AFQuery requires a BED capture file for every non-WGS technology. If the file is missing,
 the run aborts immediately — before any VCF ingestion begins — with:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>ManifestError: BED file not found for technology &#39;&lt;tech&gt;&#39;: &#39;&lt;path&gt;&#39;
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>ManifestError: BED file not found for technology '&lt;tech&gt;': '&lt;path&gt;'
 </code></pre></div>
 <p><strong>How to fix:</strong></p>
 <ul>

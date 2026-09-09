@@ -2262,7 +2262,7 @@ Samples with no phenotype can leave the <code>phenotype_codes</code> column empt
 <p>For any technology that is not WGS, you must provide a BED file named <code>&lt;tech&gt;.bed</code> in
 the <code>--bed-dir</code> directory. If the file is not found, AFQuery aborts with an error before
 any ingestion begins:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>ManifestError: BED file not found for technology &#39;WES_kit_A&#39;: &#39;/path/to/WES_kit_A.bed&#39;
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>ManifestError: BED file not found for technology 'WES_kit_A': '/path/to/WES_kit_A.bed'
 </code></pre></div>
 <p>To resolve this, either supply the correct BED file or rename the technology to <code>WGS</code>
 in the manifest (no BED file required for WGS).</p>

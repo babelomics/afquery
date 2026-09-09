@@ -2,150 +2,150 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://babelomics.github.io/afquery/dev/</loc>
-         <lastmod>2026-07-20</lastmod>
+         <lastmod>2026-09-09</lastmod>
     </url>
     <url>
          <loc>https://babelomics.github.io/afquery/dev/faq/</loc>
-         <lastmod>2026-07-20</lastmod>
+         <lastmod>2026-09-09</lastmod>
     </url>
     <url>
          <loc>https://babelomics.github.io/afquery/dev/troubleshooting/</loc>
-         <lastmod>2026-07-20</lastmod>
+         <lastmod>2026-09-09</lastmod>
     </url>
     <url>
          <loc>https://babelomics.github.io/afquery/dev/advanced/benchmarking/</loc>
-         <lastmod>2026-07-20</lastmod>
+         <lastmod>2026-09-09</lastmod>
     </url>
     <url>
          <loc>https://babelomics.github.io/afquery/dev/advanced/coverage-evidence/</loc>
-         <lastmod>2026-07-20</lastmod>
+         <lastmod>2026-09-09</lastmod>
     </url>
     <url>
          <loc>https://babelomics.github.io/afquery/dev/advanced/debugging-results/</loc>
-         <lastmod>2026-07-20</lastmod>
+         <lastmod>2026-09-09</lastmod>
     </url>
     <url>
          <loc>https://babelomics.github.io/afquery/dev/advanced/filter-pass-tracking/</loc>
-         <lastmod>2026-07-20</lastmod>
+         <lastmod>2026-09-09</lastmod>
     </url>
     <url>
          <loc>https://babelomics.github.io/afquery/dev/advanced/multi-cohort-strategies/</loc>
-         <lastmod>2026-07-20</lastmod>
+         <lastmod>2026-09-09</lastmod>
     </url>
     <url>
          <loc>https://babelomics.github.io/afquery/dev/advanced/performance/</loc>
-         <lastmod>2026-07-20</lastmod>
+         <lastmod>2026-09-09</lastmod>
     </url>
     <url>
          <loc>https://babelomics.github.io/afquery/dev/advanced/pipeline-integration/</loc>
-         <lastmod>2026-07-20</lastmod>
+         <lastmod>2026-09-09</lastmod>
     </url>
     <url>
          <loc>https://babelomics.github.io/afquery/dev/advanced/ploidy-and-sex-chroms/</loc>
-         <lastmod>2026-07-20</lastmod>
+         <lastmod>2026-09-09</lastmod>
     </url>
     <url>
          <loc>https://babelomics.github.io/afquery/dev/getting-started/concepts/</loc>
-         <lastmod>2026-07-20</lastmod>
+         <lastmod>2026-09-09</lastmod>
     </url>
     <url>
          <loc>https://babelomics.github.io/afquery/dev/getting-started/installation/</loc>
-         <lastmod>2026-07-20</lastmod>
+         <lastmod>2026-09-09</lastmod>
     </url>
     <url>
          <loc>https://babelomics.github.io/afquery/dev/getting-started/motivation/</loc>
-         <lastmod>2026-07-20</lastmod>
+         <lastmod>2026-09-09</lastmod>
     </url>
     <url>
          <loc>https://babelomics.github.io/afquery/dev/getting-started/preprocessing/</loc>
-         <lastmod>2026-07-20</lastmod>
+         <lastmod>2026-09-09</lastmod>
     </url>
     <url>
          <loc>https://babelomics.github.io/afquery/dev/getting-started/quickstart/</loc>
-         <lastmod>2026-07-20</lastmod>
+         <lastmod>2026-09-09</lastmod>
     </url>
     <url>
          <loc>https://babelomics.github.io/afquery/dev/getting-started/tutorial/</loc>
-         <lastmod>2026-07-20</lastmod>
+         <lastmod>2026-09-09</lastmod>
     </url>
     <url>
          <loc>https://babelomics.github.io/afquery/dev/getting-started/understanding-output/</loc>
-         <lastmod>2026-07-20</lastmod>
+         <lastmod>2026-09-09</lastmod>
     </url>
     <url>
          <loc>https://babelomics.github.io/afquery/dev/guides/annotate-vcf/</loc>
-         <lastmod>2026-07-20</lastmod>
+         <lastmod>2026-09-09</lastmod>
     </url>
     <url>
          <loc>https://babelomics.github.io/afquery/dev/guides/create-database/</loc>
-         <lastmod>2026-07-20</lastmod>
+         <lastmod>2026-09-09</lastmod>
     </url>
     <url>
          <loc>https://babelomics.github.io/afquery/dev/guides/dump-export/</loc>
-         <lastmod>2026-07-20</lastmod>
+         <lastmod>2026-09-09</lastmod>
     </url>
     <url>
          <loc>https://babelomics.github.io/afquery/dev/guides/manifest-format/</loc>
-         <lastmod>2026-07-20</lastmod>
+         <lastmod>2026-09-09</lastmod>
     </url>
     <url>
          <loc>https://babelomics.github.io/afquery/dev/guides/query/</loc>
-         <lastmod>2026-07-20</lastmod>
+         <lastmod>2026-09-09</lastmod>
     </url>
     <url>
          <loc>https://babelomics.github.io/afquery/dev/guides/sample-filtering/</loc>
-         <lastmod>2026-07-20</lastmod>
+         <lastmod>2026-09-09</lastmod>
     </url>
     <url>
          <loc>https://babelomics.github.io/afquery/dev/guides/update-database/</loc>
-         <lastmod>2026-07-20</lastmod>
+         <lastmod>2026-09-09</lastmod>
     </url>
     <url>
          <loc>https://babelomics.github.io/afquery/dev/guides/variant-info/</loc>
-         <lastmod>2026-07-20</lastmod>
+         <lastmod>2026-09-09</lastmod>
     </url>
     <url>
          <loc>https://babelomics.github.io/afquery/dev/reference/cli/</loc>
-         <lastmod>2026-07-20</lastmod>
+         <lastmod>2026-09-09</lastmod>
     </url>
     <url>
          <loc>https://babelomics.github.io/afquery/dev/reference/data-model/</loc>
-         <lastmod>2026-07-20</lastmod>
+         <lastmod>2026-09-09</lastmod>
     </url>
     <url>
          <loc>https://babelomics.github.io/afquery/dev/reference/glossary/</loc>
-         <lastmod>2026-07-20</lastmod>
+         <lastmod>2026-09-09</lastmod>
     </url>
     <url>
          <loc>https://babelomics.github.io/afquery/dev/reference/python-api/</loc>
-         <lastmod>2026-07-20</lastmod>
+         <lastmod>2026-09-09</lastmod>
     </url>
     <url>
          <loc>https://babelomics.github.io/afquery/dev/use-cases/acmg-use-cases/</loc>
-         <lastmod>2026-07-20</lastmod>
+         <lastmod>2026-09-09</lastmod>
     </url>
     <url>
          <loc>https://babelomics.github.io/afquery/dev/use-cases/clinical-prioritization/</loc>
-         <lastmod>2026-07-20</lastmod>
+         <lastmod>2026-09-09</lastmod>
     </url>
     <url>
          <loc>https://babelomics.github.io/afquery/dev/use-cases/cohort-stratification/</loc>
-         <lastmod>2026-07-20</lastmod>
+         <lastmod>2026-09-09</lastmod>
     </url>
     <url>
          <loc>https://babelomics.github.io/afquery/dev/use-cases/population-specific-af/</loc>
-         <lastmod>2026-07-20</lastmod>
+         <lastmod>2026-09-09</lastmod>
     </url>
     <url>
          <loc>https://babelomics.github.io/afquery/dev/use-cases/pseudo-controls/</loc>
-         <lastmod>2026-07-20</lastmod>
+         <lastmod>2026-09-09</lastmod>
     </url>
     <url>
          <loc>https://babelomics.github.io/afquery/dev/use-cases/sex-specific-af/</loc>
-         <lastmod>2026-07-20</lastmod>
+         <lastmod>2026-09-09</lastmod>
     </url>
     <url>
          <loc>https://babelomics.github.io/afquery/dev/use-cases/technology-integration/</loc>
-         <lastmod>2026-07-20</lastmod>
+         <lastmod>2026-09-09</lastmod>
     </url>
 </urlset>

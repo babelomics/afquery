@@ -2349,9 +2349,9 @@
 <div class="tabbed-block">
 <p>Scan multiple technologies to detect capture artifacts:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="k">for</span><span class="w"> </span>tech<span class="w"> </span><span class="k">in</span><span class="w"> </span>wgs<span class="w"> </span>wes_v1<span class="w"> </span>wes_v2<span class="w"> </span>panel_cardio<span class="p">;</span><span class="w"> </span><span class="k">do</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span><span class="nb">echo</span><span class="w"> </span>-n<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$tech</span><span class="s2">: &quot;</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span><span class="nb">echo</span><span class="w"> </span>-n<span class="w"> </span><span class="s2">"</span><span class="nv">$tech</span><span class="s2">: "</span>
 <a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">  </span>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--locus<span class="w"> </span>chr1:925952<span class="w"> </span>--tech<span class="w"> </span><span class="nv">$tech</span><span class="w"> </span>--format<span class="w"> </span>tsv<span class="w"> </span><span class="p">|</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">    </span>awk<span class="w"> </span><span class="s1">&#39;NR&gt;1 {printf &quot;AF=%.4f AN=%s\n&quot;, $7, $6}&#39;</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">    </span>awk<span class="w"> </span><span class="s1">'NR&gt;1 {printf "AF=%.4f AN=%s\n", $7, $6}'</span>
 <a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="k">done</span>
 </code></pre></div>
 <p>If AF differs substantially between WGS and WES at the same position, this may indicate:</p>

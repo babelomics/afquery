@@ -2305,6 +2305,7 @@
 </tbody>
 </table>
 <p>For each eligible sample at a given position, AFQuery adds the appropriate ploidy count to AN based on the sample's sex and the chromosome/position.</p>
+<p>A sample contributing ploidy 0 is not eligible at that position at all: a female has no chrY to genotype, so she is neither a carrier nor homozygous reference there. On chrY, <code>n_eligible</code>, <code>N_HOM_REF</code> and <code>AN</code> therefore count males only.</p>
 <hr />
 <h2 id="pseudoautosomal-regions-par">Pseudoautosomal Regions (PAR)</h2>
 <p>The pseudoautosomal regions on chrX and chrY behave like autosomes — both males and females contribute AN=2 on chrX PAR. PAR coordinates by genome build:</p>

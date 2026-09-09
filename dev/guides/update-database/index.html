@@ -2309,6 +2309,7 @@
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span>--add-samples<span class="w"> </span>new_samples.tsv
 </code></pre></div>
 <p>The new manifest follows the same format as the original (see <a href="../manifest-format/">Manifest Format</a>). New samples are assigned monotonically increasing sample IDs.</p>
+<p>New variants are merged into the per-chromosome bucket files the database already uses; buckets are created on demand, and no new top-level Parquet file is produced. See <a href="../../reference/data-model/#storage-layouts">Data Model</a>.</p>
 <p>To add multiple manifests at once:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>afquery<span class="w"> </span>update-db<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span>--db<span class="w"> </span>./db/<span class="w"> </span><span class="se">\</span>
@@ -2330,9 +2331,15 @@ decisions are comparable across batches.</p>
 <p>When new carriers push a partially-covered tech above the <code>--min-covered</code>
 threshold at positions that were previously below it, those positions are
 re-evaluated and their non-carrier samples once again count as <code>N_HOM_REF</code>
-instead of <code>N_NO_COVERAGE</code>. The recomputation runs only for chromosomes
-touched by the new samples; existing rows on other chromosomes are not
-rewritten.</p>
+instead of <code>N_NO_COVERAGE</code>. Because that value derives from the tech bitmaps of
+the whole cohort rather than from which file received rows, the recomputation
+spans <strong>every bucket of every chromosome the database holds</strong>, not only the ones
+the new samples carry variants on. Skipping the rest would leave an added WES
+sample counted as <code>N_HOM_REF</code> everywhere else its capture BED reaches. Only a
+batch that puts a sample into a capture-based technology can move those bitmaps,
+so a WGS-only batch still visits nothing beyond its own chromosomes; adding a
+WES sample to a large database rewrites broadly and takes minutes rather than
+seconds.</p>
 <p>VCFs added via <code>update-db</code> should preserve <code>FORMAT/DP</code> and <code>FORMAT/GQ</code> (the
 bundled <code>resources/normalize_vcf.sh</code> does so by default). Samples without
 those fields are still merged correctly but contribute no quality evidence.</p>
@@ -2411,13 +2418,13 @@ reference and when to use each one.</p>
 <a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>afquery<span class="w"> </span>update-db<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--update-sample<span class="w"> </span>SAMP_001<span class="w"> </span>--set-sex<span class="w"> </span>female
 <a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
 <a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="c1"># Replace phenotype codes (replaces ALL current codes)</span>
-<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>afquery<span class="w"> </span>update-db<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--update-sample<span class="w"> </span>SAMP_001<span class="w"> </span>--set-phenotype<span class="w"> </span><span class="s2">&quot;E11.9,I10&quot;</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>afquery<span class="w"> </span>update-db<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--update-sample<span class="w"> </span>SAMP_001<span class="w"> </span>--set-phenotype<span class="w"> </span><span class="s2">"E11.9,I10"</span>
 <a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>
 <a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="c1"># Change both fields in one command</span>
 <a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>afquery<span class="w"> </span>update-db<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="w">  </span>--update-sample<span class="w"> </span>SAMP_001<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="w">  </span>--set-sex<span class="w"> </span>female<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="w">  </span>--set-phenotype<span class="w"> </span><span class="s2">&quot;E11.9,I10&quot;</span>
+<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="w">  </span>--set-phenotype<span class="w"> </span><span class="s2">"E11.9,I10"</span>
 </code></pre></div>
 <h3 id="batch-update-from-tsv">Batch update from TSV</h3>
 <p>Create a TSV file with a <code>sample_name</code>, <code>field</code>, <code>new_value</code> header. One change per row; the same sample can appear on multiple rows:</p>
@@ -2433,8 +2440,8 @@ reference and when to use each one.</p>
 <p>Attach a free-text note to every changelog entry created by the update:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>afquery<span class="w"> </span>update-db<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="w">  </span>--update-sample<span class="w"> </span>SAMP_001<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="w">  </span>--set-phenotype<span class="w"> </span><span class="s2">&quot;E11.9&quot;</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="w">  </span>--operator-note<span class="w"> </span><span class="s2">&quot;Corrected after clinical review 2026-03-19&quot;</span>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="w">  </span>--set-phenotype<span class="w"> </span><span class="s2">"E11.9"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="w">  </span>--operator-note<span class="w"> </span><span class="s2">"Corrected after clinical review 2026-03-19"</span>
 </code></pre></div>
 <h3 id="verify-the-change">Verify the change</h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="c1"># Inspect the changelog</span>

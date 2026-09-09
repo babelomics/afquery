@@ -2452,7 +2452,7 @@
 <p>The first query on a chromosome reads Parquet data from disk into OS cache. Subsequent queries on the same chromosome benefit from the OS page cache. On systems with sufficient RAM, warm query times are order-of-magnitude faster.</p>
 <p>To "warm up" a chromosome:
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># One region query to load the chromosome into OS cache</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">db</span><span class="o">.</span><span class="n">query_region</span><span class="p">(</span><span class="s2">&quot;chr1&quot;</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="mi">250_000_000</span><span class="p">)</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">db</span><span class="o">.</span><span class="n">query_region</span><span class="p">(</span><span class="s2">"chr1"</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="mi">250_000_000</span><span class="p">)</span>
 </code></pre></div></p>
 <hr />
 <h2 id="annotation">Annotation</h2>

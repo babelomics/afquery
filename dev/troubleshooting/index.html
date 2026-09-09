@@ -2079,6 +2079,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#samples-added-by-update-db-are-missing-from-queries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Samples Added by update-db Are Missing From Queries
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#compact-takes-a-long-time" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2244,6 +2255,71 @@
 <p><strong>Cause:</strong> A DuckDB float-division rounding bug was present in older AFQuery versions. When computing bucket IDs, <code>CAST(pos / 1000000 AS BIGINT)</code> rounds floats incorrectly (e.g., position 1,500,000 → bucket 2 instead of 1).</p>
 <p><strong>Fix:</strong> Upgrade to the latest AFQuery version. The fix uses <code>CAST(pos AS BIGINT) // 1000000</code> — the integer-division operator — for correct bucket IDs. Rebuild the database after upgrading.</p>
 <hr />
+<h2 id="samples-added-by-update-db-are-missing-from-queries">Samples Added by update-db Are Missing From Queries</h2>
+<p><strong>Symptom:</strong> After <code>afquery update-db --add-samples</code>, the new samples show up in
+<code>afquery info --db ./db/ --samples</code> and <code>AN</code> grows by the expected amount, but they
+never appear as carriers: <code>AC</code> does not increase at variants you know they carry, and
+<code>afquery variant-info</code> does not list them. Allele frequencies across the whole database
+drift downward after every update.</p>
+<p><code>afquery check --db ./db/</code> reports one error per affected chromosome:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>ERROR  chr1: both variants/chr1/ (bucketed) and variants/chr1.parquet exist.
+</code></pre></div>
+<p><strong>Cause:</strong> <code>update-db --add-samples</code> before 0.4.1 only understood the
+single-file-per-chromosome variant layout. <code>create-db</code> produces the bucketed layout
+(<code>variants/&lt;chrom&gt;/bucket_N.parquet</code>), so the merge found nothing to merge and wrote the
+new samples to a fresh <code>variants/&lt;chrom&gt;.parquet</code> instead. Queries read the bucketed
+files and ignore that one, so the added samples counted toward <code>AN</code> through the capture
+index but never as carriers — they were treated as homozygous reference everywhere.</p>
+<p><strong>Fix:</strong> Upgrade to 0.4.1 or later, then repair the database. <code>afquery info --db ./db/
+--changelog</code> lists the samples added by each <code>add_samples</code> event.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># 0. Stop all writers and back up the small files.</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>cp<span class="w"> </span>./db/manifest.json<span class="w"> </span>./db/manifest.json.bak
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>cp<span class="w"> </span>./db/metadata.sqlite<span class="w"> </span>./db/metadata.sqlite.bak
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="c1"># 1. Record the affected samples BEFORE removing them: removal deletes their</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="c1">#    phenotype rows, and you need them to rebuild the manifest.</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>sqlite3<span class="w"> </span>./db/metadata.sqlite<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">  </span><span class="s2">"SELECT s.sample_name, s.sex, t.tech_name, s.vcf_path,</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="s2">          group_concat(p.phenotype_code)</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="s2">   FROM samples s</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="s2">   JOIN technologies t ON s.tech_id = t.tech_id</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="s2">   LEFT JOIN sample_phenotype p ON p.sample_id = s.sample_id</span>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="s2">   WHERE s.sample_name IN ('SAMPLE_1','SAMPLE_2') GROUP BY s.sample_id;"</span>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="c1"># 2. List the flat files before deleting anything. Only those with a sibling</span>
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="c1">#    directory of the same name are orphans; one without a sibling is the only</span>
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="c1">#    copy of that chromosome and queries still read it.</span>
+<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="k">for</span><span class="w"> </span>f<span class="w"> </span><span class="k">in</span><span class="w"> </span>./db/variants/*.parquet<span class="p">;</span><span class="w"> </span><span class="k">do</span>
+<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="w">  </span><span class="o">[</span><span class="w"> </span>-d<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">f</span><span class="p">%.parquet</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="o">]</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="s2">"orphan: </span><span class="nv">$f</span><span class="s2">"</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="s2">"KEEP (no sibling): </span><span class="nv">$f</span><span class="s2">"</span>
+<a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a><span class="k">done</span>
+<a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a>
+<a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a><span class="c1"># 3. Remove the affected samples. This clears their bits from both layouts and is</span>
+<a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a><span class="c1">#    safe on a split database. Every bucket is read, so budget minutes, not</span>
+<a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a><span class="c1">#    seconds, and do not interrupt it.</span>
+<a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a>afquery<span class="w"> </span>update-db<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--remove-samples<span class="w"> </span>SAMPLE_1<span class="w"> </span>--remove-samples<span class="w"> </span>SAMPLE_2
+<a id="__codelineno-3-26" name="__codelineno-3-26" href="#__codelineno-3-26"></a>
+<a id="__codelineno-3-27" name="__codelineno-3-27" href="#__codelineno-3-27"></a><span class="c1"># 4. Delete only the orphans listed in step 2. A flat file with no sibling</span>
+<a id="__codelineno-3-28" name="__codelineno-3-28" href="#__codelineno-3-28"></a><span class="c1">#    directory must be kept: deleting it would drop that chromosome entirely.</span>
+<a id="__codelineno-3-29" name="__codelineno-3-29" href="#__codelineno-3-29"></a><span class="k">for</span><span class="w"> </span>f<span class="w"> </span><span class="k">in</span><span class="w"> </span>./db/variants/*.parquet<span class="p">;</span><span class="w"> </span><span class="k">do</span>
+<a id="__codelineno-3-30" name="__codelineno-3-30" href="#__codelineno-3-30"></a><span class="w">  </span><span class="o">[</span><span class="w"> </span>-d<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">f</span><span class="p">%.parquet</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="o">]</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>rm<span class="w"> </span><span class="s2">"</span><span class="nv">$f</span><span class="s2">"</span>
+<a id="__codelineno-3-31" name="__codelineno-3-31" href="#__codelineno-3-31"></a><span class="k">done</span>
+<a id="__codelineno-3-32" name="__codelineno-3-32" href="#__codelineno-3-32"></a>
+<a id="__codelineno-3-33" name="__codelineno-3-33" href="#__codelineno-3-33"></a><span class="c1"># 5. Confirm the errors are gone.</span>
+<a id="__codelineno-3-34" name="__codelineno-3-34" href="#__codelineno-3-34"></a>afquery<span class="w"> </span>check<span class="w"> </span>--db<span class="w"> </span>./db/
+<a id="__codelineno-3-35" name="__codelineno-3-35" href="#__codelineno-3-35"></a>
+<a id="__codelineno-3-36" name="__codelineno-3-36" href="#__codelineno-3-36"></a><span class="c1"># 6. Re-add the samples with the fixed version.</span>
+<a id="__codelineno-3-37" name="__codelineno-3-37" href="#__codelineno-3-37"></a>afquery<span class="w"> </span>update-db<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--add-samples<span class="w"> </span>repair.tsv<span class="w"> </span>--bed-dir<span class="w"> </span>./beds/
+<a id="__codelineno-3-38" name="__codelineno-3-38" href="#__codelineno-3-38"></a>
+<a id="__codelineno-3-39" name="__codelineno-3-39" href="#__codelineno-3-39"></a><span class="c1"># 7. Verify a variant you know they carry.</span>
+<a id="__codelineno-3-40" name="__codelineno-3-40" href="#__codelineno-3-40"></a>afquery<span class="w"> </span>variant-info<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--locus<span class="w"> </span>chr1:887801
+</code></pre></div>
+<p>Re-added samples receive new sample IDs — IDs are never reused after a removal. That is
+expected and does not affect results.</p>
+<p>If the original VCFs are no longer available, stop after step 5. The samples are then
+absent from both the metadata and <code>AN</code>, which is a correct smaller cohort rather than a
+biased larger one. Rebuilding with <code>create-db</code> is always a valid fallback.</p>
+<p>Databases that were only ever built with <code>create-db</code>, and never updated, are unaffected.</p>
+<hr />
 <h2 id="compact-takes-a-long-time">Compact Takes a Long Time</h2>
 <p><strong>Symptom:</strong> <code>afquery update-db --compact</code> runs for many minutes or hours.</p>
 <p><strong>Cause:</strong> Compaction rewrites every Parquet file in the database. For large databases (many chromosomes × many buckets), this is expected.</p>
@@ -2253,7 +2329,7 @@
 <p><strong>Symptom:</strong> <code>afquery update-db --remove-samples SAMP_001</code> fails with <code>"Sample not found"</code>.</p>
 <p><strong>Cause:</strong> The sample name is case-sensitive and must match exactly what was in the original manifest.</p>
 <p><strong>Fix:</strong> Check the exact sample name:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>afquery<span class="w"> </span>info<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--samples<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>SAMP
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>afquery<span class="w"> </span>info<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--samples<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>SAMP
 </code></pre></div>
 <hr />
 <h2 id="afquery-check-reports-errors">afquery check Reports Errors</h2>
@@ -2279,6 +2355,10 @@
 <td><code>Capture file missing for wes_v1</code></td>
 <td>BED file was not provided at build time; rebuild with <code>--bed-dir</code></td>
 </tr>
+<tr>
+<td><code>chr1: both variants/chr1/ ... and variants/chr1.parquet exist</code></td>
+<td>Samples added by a pre-0.4.1 <code>update-db</code> are invisible to queries; see <a href="#samples-added-by-update-db-are-missing-from-queries">Samples Added by update-db Are Missing From Queries</a></td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -2286,11 +2366,11 @@
 <p><strong>Symptom:</strong> AN for WES samples is much higher than expected; positions outside the capture panel return results.</p>
 <p><strong>Cause:</strong> No BED file was found for the technology. When <code>&lt;tech&gt;.bed</code> is missing from <code>--bed-dir</code>, AFQuery treats the technology as WGS (all positions covered) with a warning.</p>
 <p><strong>Fix:</strong> Verify BED files are present:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>ls<span class="w"> </span>./beds/
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="c1"># Should include: wes_v1.bed, wes_v2.bed, etc.</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>ls<span class="w"> </span>./beds/
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="c1"># Should include: wes_v1.bed, wes_v2.bed, etc.</span>
 </code></pre></div>
 <p>Then verify the database was built correctly:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>afquery<span class="w"> </span>check<span class="w"> </span>--db<span class="w"> </span>./db/
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>afquery<span class="w"> </span>check<span class="w"> </span>--db<span class="w"> </span>./db/
 </code></pre></div></p>
 <p>Look for warnings like <code>"Capture file missing for wes_v1"</code>. Rebuild with the BED files if necessary.</p>
 <hr />
