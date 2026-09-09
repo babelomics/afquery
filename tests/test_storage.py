@@ -121,6 +121,25 @@ def test_flat_chroms(variants):
     assert storage.flat_chroms(variants) == {"chr1", "chrX"}
 
 
+def test_existing_bucket_ids_handles_glob_metacharacters(variants):
+    """A contig name is a directory, never a pattern.
+
+    GRCh38 spells HLA contigs with a literal asterisk. Interpolating one into a
+    glob makes it match its neighbours too, so the caller would merge and
+    recompute buckets belonging to a different contig.
+    """
+    contig = "HLA-A*01:01"
+    _touch(variants / contig / "bucket_0.parquet")
+    _touch(variants / "HLA-A-99-01:01" / "bucket_5.parquet")
+
+    assert storage.existing_bucket_ids(variants, contig) == [0]
+    assert storage.existing_bucket_ids(variants, "HLA-A-99-01:01") == [5]
+
+
+def test_existing_bucket_ids_unknown_chrom(variants):
+    assert storage.existing_bucket_ids(variants, "chrNope") == []
+
+
 def test_stored_chroms_spans_both_layouts(variants):
     """The Phase 2 recompute walks this set, so it must miss no chromosome."""
     _touch(variants / "chr1" / "bucket_0.parquet")

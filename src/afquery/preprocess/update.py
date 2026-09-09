@@ -767,6 +767,7 @@ def add_samples(
             # so that filtered_bitmap recomputation uses the merged cohort.
             coverage_filter = manifest.get("coverage_filter", {})
             wes_tech_bitmaps: dict[int, BitMap] = {}
+            new_wes_sample = False
             if coverage_filter and coverage_filter.get("min_covered", 0) > 0:
                 rows = con.execute(
                     "SELECT s.sample_id, s.tech_id, t.bed_path FROM samples s"
@@ -783,18 +784,21 @@ def add_samples(
                         None,
                     )
                     if tech_obj is not None and tech_obj.bed_path is not None:
+                        new_wes_sample = True
                         wes_tech_bitmaps.setdefault(s.tech_id, BitMap()).add(s.sample_id)
 
             # 11. Merge Parquet files. The layout is decided once for the whole
             # update so every chromosome in this batch agrees, including any
             # chromosome new to the database.
             variants_dir = os.path.join(db_dir, "variants")
-            if wes_tech_bitmaps:
+            if wes_tech_bitmaps and new_wes_sample:
                 # A WES tech just grew, and filtered_bitmap is derived from the
                 # tech bitmaps at every row of every chromosome. Restricting the
                 # recomputation to the chromosomes in this batch would leave the
                 # added samples counted as homozygous reference everywhere else
-                # their capture BED reaches.
+                # their capture BED reaches. No tech grows for a WGS-only batch,
+                # so nothing off the touched chromosomes can move and the whole
+                # store does not need reading.
                 chroms = sorted(set(chroms) | storage.stored_chroms(variants_dir))
             layout = storage.detect_layout(variants_dir)
             for chrom in chroms:

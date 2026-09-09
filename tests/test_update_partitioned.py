@@ -309,3 +309,47 @@ def test_add_samples_recomputes_coverage_on_untouched_chromosomes(
     sid = con.execute("SELECT sample_id FROM samples WHERE sample_name='K3'").fetchone()[0]
     con.close()
     assert sid in _row(db_dir, "chr2", 0, 1500, "G", "C")["filtered_bitmap"]
+
+
+def _merged_chroms(monkeypatch):
+    """Record which chromosomes add_samples asks the merge to visit."""
+    from afquery.preprocess import update as update_mod
+
+    seen = []
+    original = update_mod._merge_chromosome_parquet
+
+    def spy(chrom, *args, **kwargs):
+        seen.append(chrom)
+        return original(chrom, *args, **kwargs)
+
+    monkeypatch.setattr(update_mod, "_merge_chromosome_parquet", spy)
+    return seen
+
+
+def test_add_samples_wgs_batch_visits_only_its_own_chromosomes(
+        two_chrom_wes_db, tmp_path, monkeypatch):
+    """Only a batch that enlarges a capture tech can move coverage elsewhere.
+
+    A WGS sample grows no tech bitmap, so nothing off its own chromosomes can
+    change and the rest of the store must not be read. The files would come out
+    byte-identical either way — the dirty guard sees to that — so what is
+    asserted here is that the work is not done at all.
+    """
+    db_dir, _beds = two_chrom_wes_db
+    seen = _merged_chroms(monkeypatch)
+
+    _add_one(db_dir, tmp_path, "W0", [("chr1", 1500, "A", "T", "0/1")])
+
+    assert seen == ["chr1"]
+
+
+def test_add_samples_wes_batch_visits_the_whole_store(
+        two_chrom_wes_db, tmp_path, monkeypatch):
+    """A new capture sample moves coverage everywhere, so every chromosome is visited."""
+    db_dir, beds = two_chrom_wes_db
+    seen = _merged_chroms(monkeypatch)
+
+    _add_one(db_dir, tmp_path, "K3", [("chr1", 1500, "A", "T", "0/1")],
+             tech="kit", bed_dir=beds)
+
+    assert sorted(seen) == ["chr1", "chr2"]

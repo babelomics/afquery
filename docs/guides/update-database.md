@@ -73,10 +73,11 @@ instead of `N_NO_COVERAGE`. Because that value derives from the tech bitmaps of
 the whole cohort rather than from which file received rows, the recomputation
 spans **every bucket of every chromosome the database holds**, not only the ones
 the new samples carry variants on. Skipping the rest would leave an added WES
-sample counted as `N_HOM_REF` everywhere else its capture BED reaches. Files
-whose bitmaps do not actually move are left untouched, so adding WGS-only
-samples costs a read and no rewrites, while adding a WES sample to a large
-database rewrites broadly and takes minutes rather than seconds.
+sample counted as `N_HOM_REF` everywhere else its capture BED reaches. Only a
+batch that puts a sample into a capture-based technology can move those bitmaps,
+so a WGS-only batch still visits nothing beyond its own chromosomes; adding a
+WES sample to a large database rewrites broadly and takes minutes rather than
+seconds.
 
 VCFs added via `update-db` should preserve `FORMAT/DP` and `FORMAT/GQ` (the
 bundled `resources/normalize_vcf.sh` does so by default). Samples without

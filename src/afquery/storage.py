@@ -126,8 +126,14 @@ def mixed_layout_chroms(variants_dir: Path | str) -> list[str]:
 
 def existing_bucket_ids(variants_dir: Path | str, chrom: str) -> list[int]:
     """Bucket ids already written for `chrom`, ascending. Empty when not bucketed."""
+    # The chromosome is a directory name, not part of the pattern: contig names
+    # can legitimately contain glob metacharacters (GRCh38 spells HLA contigs
+    # HLA-A*01:01:01:01), and this is reached with names read straight off disk.
+    chrom_dir = Path(variants_dir) / chrom
+    if not chrom_dir.is_dir():
+        return []
     ids: list[int] = []
-    for p in Path(variants_dir).glob(f"{chrom}/bucket_*.parquet"):
+    for p in chrom_dir.glob("bucket_*.parquet"):
         stem = p.stem[len("bucket_"):]
         if stem.isdigit():
             ids.append(int(stem))
