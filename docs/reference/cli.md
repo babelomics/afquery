@@ -8,11 +8,12 @@ All AFQuery commands follow the pattern `afquery <command> [OPTIONS]`.
 
 | Option | Description |
 |--------|-------------|
-| `--version` | Print the installed AFQuery version and exit |
+| `--version` | Print the AFQuery version and exit |
 | `--help` | Show help for the command and exit |
 
-`afquery --version` prints e.g. `afquery 0.4.2`. The version is derived from the
-release tag at build time.
+`afquery --version` prints the installed package version (e.g. `afquery 0.4.2`),
+taken from the Git release tag at build time. In an editable install
+(`pip install -e .`) it reflects the last build, not later local commits.
 
 ---
 
