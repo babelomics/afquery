@@ -221,12 +221,91 @@ def test_add_samples_partitioned_recomputes_filtered_bitmap_in_untouched_buckets
     assert before["filtered_bitmap"] < after["filtered_bitmap"]
 
 
-def test_add_samples_partitioned_untouched_chrom_is_not_rewritten(covered_db, tmp_path, data_dir):
-    """Chromosomes the batch never touches keep their files as they were."""
-    chrX = storage.bucket_path(f"{covered_db}/variants", "chrX", 5)
+def test_add_samples_untouched_chrom_is_not_rewritten_without_phase2(
+        partitioned_db, tmp_path):
+    """With no coverage threshold, nothing off the batch's chromosomes can change.
+
+    filtered_bitmap is the only value that depends on the cohort as a whole, so
+    when it is not in play a chromosome the batch never mentions must be left
+    exactly as it was.
+    """
+    chrX = storage.bucket_path(f"{partitioned_db}/variants", "chrX", 5)
     before = chrX.read_bytes()
 
-    _add_one(covered_db, tmp_path, "S10", [("chr1", 2_500_000, "C", "G", "0/1")],
-             tech="wes_kit_a", bed_dir=str(data_dir / "beds"))
+    _add_one(partitioned_db, tmp_path, "S10",
+             [("chr1", 2_500_000, "C", "G", "0/1")])
 
     assert chrX.read_bytes() == before
+
+
+# ---------------------------------------------------------------------------
+# Phase 2 across chromosomes the batch never mentions
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(scope="module")
+def two_chrom_wes_src(tmp_path_factory):
+    """A WES cohort on two chromosomes, under-covered on the second one.
+
+    Only K0 carries chr2:1500, so with min_covered=2 the kit has too little
+    quality evidence there and every non-carrier of the kit is marked as lacking
+    coverage rather than counted homozygous reference.
+    """
+    work = tmp_path_factory.mktemp("two_chrom_wes")
+    beds = work / "beds"
+    beds.mkdir()
+    (beds / "kit.bed").write_text("chr1\t999\t2000\nchr2\t999\t2000\n")
+
+    entries = []
+    for name, variants in [
+        ("K0", [("chr1", 1500, "A", "T", "0/1"), ("chr2", 1500, "G", "C", "0/1")]),
+        ("K1", [("chr1", 1500, "A", "T", "1/1")]),
+        ("K2", [("chr1", 1500, "A", "T", "0/1")]),
+    ]:
+        vcf = str(work / f"{name}.vcf")
+        write_vcf(vcf, name, variants)
+        entries.append((name, "male", "kit", vcf, "COHORT"))
+
+    manifest = str(work / "cohort.tsv")
+    write_manifest(manifest, entries)
+
+    db = work / "db"
+    run_preprocess(manifest_path=manifest, output_dir=str(db), genome_build="GRCh37",
+                   bed_dir=str(beds), threads=1, min_covered=2)
+    return str(db), str(beds), work
+
+
+@pytest.fixture
+def two_chrom_wes_db(two_chrom_wes_src, tmp_path):
+    src, beds, _work = two_chrom_wes_src
+    dest = tmp_path / "twochrom"
+    shutil.copytree(src, dest)
+    return str(dest), beds
+
+
+def test_add_samples_recomputes_coverage_on_untouched_chromosomes(
+        two_chrom_wes_db, tmp_path):
+    """A WES sample added on chr1 must not be counted hom-ref on chr2.
+
+    Its capture BED reaches chr2:1500, where the kit is under-covered, so the
+    sample belongs in N_NO_COVERAGE. Scoping the filtered_bitmap recomputation
+    to the chromosomes the batch happened to carry left chr2 stale and the
+    sample silently counted as homozygous reference, biasing the frequency.
+    """
+    db_dir, beds = two_chrom_wes_db
+    before = Database(db_dir).query(chrom="chr2", pos=1500, sex="both")[0]
+    assert (before.N_HOM_REF, before.N_NO_COVERAGE) == (0, 2)
+
+    _add_one(db_dir, tmp_path, "K3", [("chr1", 1500, "A", "T", "0/1")],
+             tech="kit", bed_dir=beds)
+
+    after = Database(db_dir).query(chrom="chr2", pos=1500, sex="both")[0]
+    assert after.N_HOM_REF == 0, (
+        "the added sample was counted homozygous reference on a chromosome the "
+        "batch never touched: its filtered_bitmap was left stale"
+    )
+    assert after.N_NO_COVERAGE == 3
+
+    con = sqlite3.connect(f"{db_dir}/metadata.sqlite")
+    sid = con.execute("SELECT sample_id FROM samples WHERE sample_name='K3'").fetchone()[0]
+    con.close()
+    assert sid in _row(db_dir, "chr2", 0, 1500, "G", "C")["filtered_bitmap"]

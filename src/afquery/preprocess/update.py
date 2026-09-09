@@ -284,16 +284,21 @@ def _merge_chromosome_parquet(
     finally:
         con.close()
 
-    # No new data for this chrom — skip (don't touch the file)
-    if not rows:
-        return (0, 0)
-
     coverage_filter = coverage_filter or {}
     min_dp = coverage_filter.get("min_dp", 0)
     min_gq = coverage_filter.get("min_gq", 0)
     min_qual = coverage_filter.get("min_qual", 0.0)
     min_covered = coverage_filter.get("min_covered", 0)
     has_phase2 = (min_dp > 0 or min_gq > 0 or min_qual > 0 or min_covered > 0)
+
+    # filtered_bitmap is (tech_bm - carrier_set) row by row, so enlarging a WES
+    # tech changes it at every row of the database, not only where the new rows
+    # landed. A chromosome that received nothing still has to be revisited.
+    recompute_phase2 = bool(has_phase2 and wes_tech_bitmaps and min_covered > 0)
+
+    # Nothing new here and nothing to recompute — leave the files alone.
+    if not rows and not recompute_phase2:
+        return (0, 0)
 
     prepared: list[tuple[int, str, str, BitMap, BitMap, BitMap, BitMap]] = []
 
@@ -341,11 +346,9 @@ def _merge_chromosome_parquet(
         by_bucket.setdefault(storage.bucket_id(prepared_row[0]), []).append(prepared_row)
 
     target_ids = set(by_bucket)
-    if has_phase2 and wes_tech_bitmaps and min_covered > 0:
-        # filtered_bitmap is a function of the whole cohort, not of which bucket
-        # received new rows: enlarging a WES tech changes (tech_bm - carrier_set)
-        # at every row of the chromosome. Buckets with no new data must still be
-        # revisited, or their N_NO_COVERAGE goes stale.
+    if recompute_phase2:
+        # Buckets with no new data must still be revisited, or their
+        # N_NO_COVERAGE goes stale and the added samples read as hom-ref there.
         target_ids |= set(storage.existing_bucket_ids(variants_dir, chrom))
 
     total_new = 0
@@ -785,7 +788,15 @@ def add_samples(
             # 11. Merge Parquet files. The layout is decided once for the whole
             # update so every chromosome in this batch agrees, including any
             # chromosome new to the database.
-            layout = storage.detect_layout(os.path.join(db_dir, "variants"))
+            variants_dir = os.path.join(db_dir, "variants")
+            if wes_tech_bitmaps:
+                # A WES tech just grew, and filtered_bitmap is derived from the
+                # tech bitmaps at every row of every chromosome. Restricting the
+                # recomputation to the chromosomes in this batch would leave the
+                # added samples counted as homozygous reference everywhere else
+                # their capture BED reaches.
+                chroms = sorted(set(chroms) | storage.stored_chroms(variants_dir))
+            layout = storage.detect_layout(variants_dir)
             for chrom in chroms:
                 n, u = _merge_chromosome_parquet(
                     chrom, db_dir, tmp_dir,

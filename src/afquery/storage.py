@@ -71,6 +71,11 @@ def flat_chroms(variants_dir: Path | str) -> set[str]:
     return {p.stem for p in variants_dir.iterdir() if p.is_file() and p.suffix == ".parquet"}
 
 
+def stored_chroms(variants_dir: Path | str) -> set[str]:
+    """Every chromosome the database holds, in either layout."""
+    return partitioned_chroms(variants_dir) | flat_chroms(variants_dir)
+
+
 def detect_layout(variants_dir: Path | str) -> str:
     """Layout of the database as a whole.
 

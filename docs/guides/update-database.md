@@ -69,10 +69,14 @@ decisions are comparable across batches.
 When new carriers push a partially-covered tech above the `--min-covered`
 threshold at positions that were previously below it, those positions are
 re-evaluated and their non-carrier samples once again count as `N_HOM_REF`
-instead of `N_NO_COVERAGE`. The recomputation runs across every bucket of the
-chromosomes touched by the new samples, because the value depends on the whole
-cohort rather than on which bucket received rows; chromosomes the batch does not
-touch are not rewritten.
+instead of `N_NO_COVERAGE`. Because that value derives from the tech bitmaps of
+the whole cohort rather than from which file received rows, the recomputation
+spans **every bucket of every chromosome the database holds**, not only the ones
+the new samples carry variants on. Skipping the rest would leave an added WES
+sample counted as `N_HOM_REF` everywhere else its capture BED reaches. Files
+whose bitmaps do not actually move are left untouched, so adding WGS-only
+samples costs a read and no rewrites, while adding a WES sample to a large
+database rewrites broadly and takes minutes rather than seconds.
 
 VCFs added via `update-db` should preserve `FORMAT/DP` and `FORMAT/GQ` (the
 bundled `resources/normalize_vcf.sh` does so by default). Samples without

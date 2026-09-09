@@ -121,6 +121,18 @@ def test_flat_chroms(variants):
     assert storage.flat_chroms(variants) == {"chr1", "chrX"}
 
 
+def test_stored_chroms_spans_both_layouts(variants):
+    """The Phase 2 recompute walks this set, so it must miss no chromosome."""
+    _touch(variants / "chr1" / "bucket_0.parquet")
+    _touch(variants / "chr2" / "bucket_3.parquet")
+    _touch(variants / "chrX.parquet")
+    assert storage.stored_chroms(variants) == {"chr1", "chr2", "chrX"}
+
+
+def test_stored_chroms_empty_database(variants):
+    assert storage.stored_chroms(variants) == set()
+
+
 # ---------------------------------------------------------------------------
 # mixed_layout_chroms
 # ---------------------------------------------------------------------------
