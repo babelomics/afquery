@@ -4,6 +4,19 @@ All AFQuery commands follow the pattern `afquery <command> [OPTIONS]`.
 
 ---
 
+## Global options
+
+| Option | Description |
+|--------|-------------|
+| `--version` | Print the AFQuery version and exit |
+| `--help` | Show help for the command and exit |
+
+`afquery --version` prints the installed package version (e.g. `afquery 0.4.2`),
+taken from the Git release tag at build time. In an editable install
+(`pip install -e .`) it reflects the last build, not later local commits.
+
+---
+
 ## create-db
 
 Build a new AFQuery database from a manifest of single-sample VCFs.

@@ -4,6 +4,8 @@ import sys
 
 import click
 
+from afquery import __version__
+
 from .database import Database
 
 
@@ -168,15 +170,18 @@ def _print_carriers(carriers, variant_key, fmt: str) -> None:
             click.echo(fmt_row.format(*row))
 
 
-@click.group()
+_CLI_HELP = f"""\
+AFQuery v{__version__} — bitmap-indexed allele frequency engine for local genomic cohorts.
+
+Enables fast AC/AN/AF queries on user-defined subcohorts (phenotype, sex,
+technology) without rescanning VCFs.
+"""
+
+
+@click.group(help=_CLI_HELP)
+@click.version_option(version=__version__, prog_name="afquery", message="%(prog)s %(version)s")
 def cli():
-    """AFQuery: bitmap-indexed allele frequency engine for local genomic cohorts.
-
-    Enables fast AC/AN/AF queries on user-defined subcohorts (phenotype, sex,
-    technology) without rescanning VCFs.
-
-    Commands: query, variant-info, annotate, dump, info, version, create-db, update-db, check, benchmark
-    """
+    pass
 
 
 @cli.command()
