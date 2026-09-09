@@ -6,6 +6,7 @@ from pathlib import Path
 import duckdb
 from pyroaring import BitMap
 
+from . import storage
 from .bitmaps import deserialize
 from .capture import CaptureIndex, describe_capture_problem, load_capture_indices
 from .constants import normalize_chrom, ALL_CHROMS, CHROM_ORDER
@@ -83,18 +84,9 @@ class QueryEngine:
         }
 
         # Cache which chroms use partitioned storage (variants/{chrom}/ directory)
-        self._partitioned_chroms: set[str] = set()
-        variants_dir = self._db / "variants"
-        if variants_dir.exists():
-            for p in variants_dir.iterdir():
-                if p.is_dir():
-                    self._partitioned_chroms.add(p.name)
-
-        self._flat_chroms: set[str] = set()
-        if variants_dir.exists():
-            for p in variants_dir.iterdir():
-                if p.is_file() and p.suffix == ".parquet":
-                    self._flat_chroms.add(p.stem)
+        self._variants_dir = self._db / "variants"
+        self._partitioned_chroms: set[str] = storage.partitioned_chroms(self._variants_dir)
+        self._flat_chroms: set[str] = storage.flat_chroms(self._variants_dir)
         self._all_known_chroms: set[str] = self._partitioned_chroms | self._flat_chroms
 
         # Precompute covered bitmap for positions where ALL technologies cover (common case)
@@ -302,6 +294,19 @@ class QueryEngine:
             if capture_idx.covers(chrom, pos):
                 covered |= self._tech_bitmaps.get(str(tech_id), BitMap())
         eligible = sample_bitmap & covered
+
+        # A sample with no allele at this position is not eligible at it. The
+        # case is chrY in a female: she is neither a carrier nor homozygous
+        # reference there, because she has no chrY to genotype. AN has always
+        # excluded such samples, so leaving them in the eligible set made
+        # N_HOM_REF and n_samples_eligible disagree with it. Every other
+        # chromosome is unaffected: on chrX both sexes carry alleles, only the
+        # ploidy differs.
+        haploid, diploid = split_ploidy(
+            eligible, self._male_bm, self._female_bm, chrom, pos, self._genome_build,
+        )
+        eligible = haploid | diploid
+
         AN = compute_AN(
             eligible,
             self._male_bm,
@@ -312,23 +317,13 @@ class QueryEngine:
 
     def _parquet_path(self, chrom: str, pos: int) -> Path | None:
         """Resolve Parquet path for a point query. Partitioned takes priority over flat."""
-        if chrom in self._partitioned_chroms:
-            bucket = pos // 1_000_000
-            p = self._db / "variants" / chrom / f"bucket_{bucket}.parquet"
-            return p if p.exists() else None
-        flat = self._db / "variants" / f"{chrom}.parquet"
-        return flat if flat.exists() else None
+        return storage.variant_parquet_for_pos(self._variants_dir, chrom, pos)
 
     def _parquet_glob(self, chrom: str) -> str | None:
         """Return path/glob pattern for batch/region queries. None if no data for chrom."""
         if chrom in self._glob_cache:
             return self._glob_cache[chrom]
-        if chrom in self._partitioned_chroms:
-            chrom_dir = self._db / "variants" / chrom
-            result = str(chrom_dir / "bucket_*.parquet") if any(chrom_dir.glob("bucket_*.parquet")) else None
-        else:
-            flat = self._db / "variants" / f"{chrom}.parquet"
-            result = str(flat) if flat.exists() else None
+        result = storage.variant_parquet_glob(self._variants_dir, chrom)
         self._glob_cache[chrom] = result
         return result
 

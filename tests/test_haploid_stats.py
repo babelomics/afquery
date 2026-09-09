@@ -145,3 +145,33 @@ class TestHaploidBatchAndRegion:
         region = db.query_region(chrom="chrM", start=100, end=100)
         assert len(region) == 1
         assert region[0].N_HET == 0
+
+
+class TestChrYEligibility:
+    """Females hold no chrY, so they are neither carriers nor homozygous reference there."""
+
+    def test_chrY_excludes_females_from_eligible(self, test_db):
+        db = Database(test_db)
+        r = db.query(chrom="chrY", pos=500000)[0]
+
+        # The fixture is 5 male and 5 female WGS/WES samples; only the males
+        # that the capture covers can be genotyped on chrY.
+        assert r.n_samples_eligible == r.AN, (
+            "n_samples_eligible counts samples with no chrY: it must agree with AN, "
+            "which has always been male-only on this chromosome"
+        )
+
+    def test_chrY_counts_partition_the_eligible_set(self, test_db):
+        """The per-genotype counts must add up to the eligible set on every chromosome."""
+        db = Database(test_db)
+        for chrom, pos in (("chr1", 1500), ("chrX", 5000000), ("chrY", 500000), ("chrM", 100)):
+            for r in db.query(chrom=chrom, pos=pos):
+                total = r.N_HET + r.N_HOM_ALT + r.N_HOM_REF + r.N_FAIL + r.N_NO_COVERAGE
+                assert total == r.n_samples_eligible, f"{chrom}:{pos} counts do not partition"
+
+    def test_chrY_no_phantom_hom_ref(self, test_db):
+        """S00 and S01 carry chrY:500000; nobody else eligible is homozygous reference."""
+        db = Database(test_db)
+        r = db.query(chrom="chrY", pos=500000)[0]
+        assert r.N_HOM_ALT == 2
+        assert r.N_HOM_REF == 0

@@ -22,6 +22,18 @@ This page documents the on-disk layout of an AFQuery database, including file fo
     └── wes_v2.pkl
 ```
 
+### Storage layouts
+
+`create-db` always writes the bucketed layout shown above. A single-file-per-chromosome
+layout (`variants/chr1.parquet`, with no bucket directory) is also readable, and appears
+in small hand-built databases and in test fixtures. `update-db` merges into whichever
+layout a chromosome already uses, and creates buckets for a chromosome new to the
+database.
+
+A chromosome must never have both. `afquery check` reports that as an error, because
+queries resolve the bucket directory first and would silently ignore the flat file — and
+every sample stored only in it.
+
 ---
 
 ## manifest.json
@@ -155,6 +167,10 @@ Variants are partitioned into 1-Mbp buckets:
 ```
 bucket_id = pos // 1_000_000
 ```
+
+`update-db --add-samples` writes new positions into the bucket that owns
+them, creating `bucket_N.parquet` when a batch extends a chromosome past its
+previous last bucket.
 
 !!! warning "DuckDB integer arithmetic"
     When computing bucket IDs in DuckDB SQL, always use the integer-division operator:

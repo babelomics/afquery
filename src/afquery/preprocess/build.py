@@ -14,12 +14,13 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 from pyroaring import BitMap
 
+from .. import storage
 from ..bitmaps import serialize
 from ..constants import ALL_CHROMS
 
 logger = logging.getLogger(__name__)
 
-BUCKET_SIZE = 1_000_000
+BUCKET_SIZE = storage.BUCKET_SIZE
 
 PARQUET_SCHEMA = pa.schema([
     ("pos",                 pa.uint32()),
@@ -685,11 +686,9 @@ def build_all_parquets(
     for chrom in valid_chroms:
         if resume:
             if partitioned:
-                chrom_dir = os.path.join(variants_dir, chrom)
-                done = (os.path.isdir(chrom_dir) and
-                        bool(glob_module.glob(os.path.join(chrom_dir, "bucket_*.parquet"))))
+                done = bool(storage.existing_bucket_ids(variants_dir, chrom))
             else:
-                done = os.path.exists(os.path.join(variants_dir, f"{chrom}.parquet"))
+                done = storage.flat_path(variants_dir, chrom).exists()
             if done:
                 skipped_chroms.append(chrom)
                 continue

@@ -19,6 +19,8 @@ AFQuery computes ploidy-aware AN for sex chromosomes (chrX, chrY) and the mitoch
 
 For each eligible sample at a given position, AFQuery adds the appropriate ploidy count to AN based on the sample's sex and the chromosome/position.
 
+A sample contributing ploidy 0 is not eligible at that position at all: a female has no chrY to genotype, so she is neither a carrier nor homozygous reference there. On chrY, `n_eligible`, `N_HOM_REF` and `AN` therefore count males only.
+
 ---
 
 ## Pseudoautosomal Regions (PAR)

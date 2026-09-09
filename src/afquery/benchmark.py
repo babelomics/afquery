@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pyarrow.parquet as pq
 
+from . import storage
 from .database import Database
 
 
@@ -116,32 +117,18 @@ def _find_test_variants(
         return []
 
     results: list[tuple[str, int, str, str]] = []
-    for entry in sorted(variants_dir.iterdir()):
+    for entry in storage.iter_variant_parquets(variants_dir):
         if len(results) >= n:
             break
-        if entry.suffix == ".parquet":
-            chrom = entry.stem
-            tbl = pq.read_table(str(entry), columns=["pos", "ref", "alt"])
-            for row in range(min(len(tbl), n - len(results))):
-                results.append((
-                    chrom,
-                    int(tbl["pos"][row].as_py()),
-                    str(tbl["ref"][row].as_py()),
-                    str(tbl["alt"][row].as_py()),
-                ))
-        elif entry.is_dir():
-            chrom = entry.name
-            for bucket in sorted(entry.glob("bucket_*.parquet")):
-                if len(results) >= n:
-                    break
-                tbl = pq.read_table(str(bucket), columns=["pos", "ref", "alt"])
-                for row in range(min(len(tbl), n - len(results))):
-                    results.append((
-                        chrom,
-                        int(tbl["pos"][row].as_py()),
-                        str(tbl["ref"][row].as_py()),
-                        str(tbl["alt"][row].as_py()),
-                    ))
+        chrom = entry.stem if entry.parent == variants_dir else entry.parent.name
+        tbl = pq.read_table(str(entry), columns=["pos", "ref", "alt"])
+        for row in range(min(len(tbl), n - len(results))):
+            results.append((
+                chrom,
+                int(tbl["pos"][row].as_py()),
+                str(tbl["ref"][row].as_py()),
+                str(tbl["alt"][row].as_py()),
+            ))
     return results
 
 

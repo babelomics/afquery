@@ -394,3 +394,57 @@ def test_check_sample_count_mismatch(fresh_db):
     results = check_database(fresh_db)
     non_info = [r for r in results if r.severity in ("warning", "error")]
     assert any("sample_count" in r.message or "mismatch" in r.message for r in non_info)
+
+
+# ---------------------------------------------------------------------------
+# Mixed layout: a chromosome stored in both layouts at once
+# ---------------------------------------------------------------------------
+
+def _split_chr1(db: str) -> None:
+    """Put chr1 in both layouts, the state an older add-samples used to leave."""
+    variants = os.path.join(db, "variants")
+    os.makedirs(os.path.join(variants, "chr1"), exist_ok=True)
+    shutil.copy(
+        os.path.join(variants, "chr1.parquet"),
+        os.path.join(variants, "chr1", "bucket_0.parquet"),
+    )
+
+
+def test_check_database_reports_mixed_layout(fresh_db):
+    _split_chr1(fresh_db)
+
+    errors = [r for r in check_database(fresh_db) if r.severity == "error"]
+    assert any("chr1.parquet" in r.message for r in errors)
+
+
+def test_add_samples_refuses_mixed_layout(fresh_db, tmp_path):
+    _split_chr1(fresh_db)
+
+    vcf = str(tmp_path / "S10.vcf")
+    write_vcf(vcf, "S10", [("chr1", 7000, "A", "T", "0/1")])
+    manifest = str(tmp_path / "manifest.tsv")
+    write_manifest(manifest, [("S10", "male", "wgs", vcf, "E11.9")])
+
+    with pytest.raises(UpdateError, match="Mixed variant layout"):
+        add_samples(fresh_db, manifest, threads=1)
+
+
+def test_add_samples_manifest_sample_count_after_removal(fresh_db, tmp_path):
+    """sample_count is a count, not the next free id — they diverge after a removal."""
+    remove_samples(fresh_db, ["S00"])
+
+    vcf = str(tmp_path / "S10.vcf")
+    write_vcf(vcf, "S10", [("chr1", 7000, "A", "T", "0/1")])
+    manifest = str(tmp_path / "manifest.tsv")
+    write_manifest(manifest, [("S10", "male", "wgs", vcf, "E11.9")])
+    add_samples(fresh_db, manifest, threads=1)
+
+    con = sqlite3.connect(os.path.join(fresh_db, "metadata.sqlite"))
+    real_count = con.execute("SELECT COUNT(*) FROM samples").fetchone()[0]
+    con.close()
+
+    data = json.loads(open(os.path.join(fresh_db, "manifest.json")).read())
+    assert data["sample_count"] == real_count == 10
+    assert data["next_sample_id"] == 11
+
+    assert [r for r in check_database(fresh_db) if r.severity == "error"] == []
