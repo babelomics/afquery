@@ -780,7 +780,8 @@ class QueryEngine:
                 AfqueryWarning, stacklevel=3,
             )
 
-        # Compute eligible (BED-aware) for no_coverage assessment
+        # Same eligible set as query(): a call outside the sample's capture
+        # region is not counted there, so it is not listed here either.
         eligible, _AN = self._compute_eligible(chrom, pos, sample_bm)
         sf = params.filter
 
@@ -788,9 +789,9 @@ class QueryEngine:
         for row in rows:
             row_pos, ref, alt = row[0], row[1], row[2]
             het_bm, hom_bm, fail_bm, filtered_bm, quality_pass_bm = self._unpack_bitmaps(row[3:])
-            het_elig = het_bm & sample_bm
-            hom_elig = hom_bm & sample_bm
-            fail_elig = fail_bm & sample_bm
+            het_elig = het_bm & eligible
+            hom_elig = hom_bm & eligible
+            fail_elig = fail_bm & eligible
             no_cov_bm = self._compute_no_coverage_bm(
                 eligible, het_bm, hom_bm, fail_bm,
                 sf.min_pass, sf.min_observed,
@@ -798,7 +799,7 @@ class QueryEngine:
                 quality_pass_bm=quality_pass_bm,
                 min_quality_evidence=sf.min_quality_evidence,
             )
-            no_cov_elig = no_cov_bm & sample_bm
+            no_cov_elig = no_cov_bm & eligible
 
             seen: set[int] = set()
             for sid in sorted(hom_elig):
