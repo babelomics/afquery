@@ -2191,9 +2191,12 @@ into <code>N_HOM_REF</code>. The flags below decide <em>which</em> samples land 
 <hr />
 <h2 id="what-n_no_coverage-represents">What <code>N_NO_COVERAGE</code> represents</h2>
 <p><code>N_NO_COVERAGE</code> counts eligible samples whose hom-ref status is not trusted
-under the active criteria. The genotype invariant becomes:</p>
+under the active criteria. At a biallelic site the genotype invariant becomes:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>N_HET + N_HOM_ALT + N_HOM_REF + N_FAIL + N_NO_COVERAGE = n_eligible
 </code></pre></div>
+<p>At a multi-allelic site, eligible samples that carry only another ALT allele at
+the position fall in none of these categories for this allele, so the sum is
+lower than <code>n_eligible</code> by exactly that number of samples.</p>
 <p>Samples in <code>N_NO_COVERAGE</code> remain in <code>eligible</code> and contribute to <code>AN</code> (just
 like <code>N_FAIL</code>), so AC/AN/AF stay conservative — the field never inflates
 allele frequencies. Two rules always hold:</p>
@@ -2221,7 +2224,7 @@ position. They run at query time, so no database rebuild is needed.</p>
 <tbody>
 <tr>
 <td><code>--min-pass K</code></td>
-<td>A partially-covered tech must have ≥K PASS carriers (<code>het ∪ hom</code>) at the position. If it falls short, all of its non-carrier samples move from <code>N_HOM_REF</code> to <code>N_NO_COVERAGE</code>.</td>
+<td>A partially-covered tech must have ≥K PASS carriers (<code>het ∪ hom</code>) at the position. Carriers of any ALT allele there count, since each shows the position was sequenced. If it falls short, all of its non-carrier samples move from <code>N_HOM_REF</code> to <code>N_NO_COVERAGE</code>.</td>
 </tr>
 <tr>
 <td><code>--min-observed K</code></td>
@@ -2280,7 +2283,7 @@ coverage decision is baked in.</p>
 </tr>
 <tr>
 <td><code>--min-covered K</code></td>
-<td>Per partially-covered tech, the position is "trusted" only if at least K of its carriers pass the quality thresholds. Non-carriers of failing positions are recorded as <code>N_NO_COVERAGE</code>.</td>
+<td>Per partially-covered tech, the position is "trusted" only if at least K of its carriers pass the quality thresholds. Non-carriers of failing positions are recorded as <code>N_NO_COVERAGE</code>. The gate is evaluated at build time for each ALT allele separately; samples carrying another allele at the position are never counted as <code>N_NO_COVERAGE</code>.</td>
 </tr>
 </tbody>
 </table>
@@ -2310,7 +2313,7 @@ query time without rebuilding:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--locus<span class="w"> </span>chr1:925952<span class="w"> </span>--min-quality-evidence<span class="w"> </span><span class="m">5</span>
 </code></pre></div>
 <p><code>--min-quality-evidence K</code> requires each partially-covered tech to have ≥K
-quality-passing carriers at the position. Non-carriers of failing techs
+quality-passing carriers of any ALT allele at the position. Non-carriers of failing techs
 (other than those already filtered at build time) move to <code>N_NO_COVERAGE</code>.</p>
 <p>Running the flag against a database that was not built with quality data
 exits with a clear error:</p>

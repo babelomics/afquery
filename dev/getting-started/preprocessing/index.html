@@ -2140,7 +2140,16 @@
 
 <h1 id="vcf-preprocessing">VCF Preprocessing</h1>
 <p>AFQuery ingests single-sample, normalized VCF files. While AFQuery itself does not perform VCF normalization, the accuracy of your allele frequency estimates depends on the quality and consistency of your input VCFs. This page explains why normalization matters and provides a reference pipeline.</p>
-<p>A ready-to-use normalization script is provided at <a href="https://github.com/babelomics/afquery/blob/master/resources/normalize_vcf.sh"><code>resources/normalize_vcf.sh</code></a>.</p>
+<p>A ready-to-use normalization script is provided at <a href="https://github.com/babelomics/afquery/blob/master/resources/normalize_vcf.sh"><code>resources/normalize_vcf.sh</code></a>. It requires <strong>bcftools 1.20 or later</strong>: older releases refuse to split multi-allelic records and remove duplicates in the same <code>bcftools norm</code> call, and the script exits with an error if it finds one.</p>
+<div class="admonition warning">
+<p class="admonition-title">VCFs normalized with the script from afquery 0.4.2 or earlier</p>
+<p>Those versions of the script did not split multi-allelic records, and removed
+one of two different indels at the same position as a duplicate. Indels from
+multi-allelic sites could therefore be stored untrimmed (e.g. <code>CAAAAAAA&gt;CAAAAAAAAAAAA</code>
+instead of <code>C&gt;CAAAAA</code>), so the same variant appeared under two representations, or
+were dropped. Re-normalize those VCFs with the current script and rebuild the
+database to correct them.</p>
+</div>
 <hr />
 <h2 id="why-normalize">Why Normalize?</h2>
 <h3 id="left-alignment-and-decomposition">Left-alignment and decomposition</h3>
@@ -2150,7 +2159,7 @@
 <li>Multi-allelic sites may not be decomposed into biallelic records</li>
 <li>Duplicate records can inflate AC</li>
 </ul>
-<p><code>bcftools norm</code> left-aligns indels against the reference genome and decomposes multi-allelic sites, ensuring consistent representation across samples.</p>
+<p><code>bcftools norm -m -both</code> decomposes multi-allelic sites into biallelic records, and left-aligns and trims each allele against the reference genome, ensuring consistent representation across samples. <code>-d exact</code> then drops only records whose alleles are identical, so two different alleles at the same position are both kept.</p>
 <h3 id="ploidy-correction-for-sex-chromosomes">Ploidy correction for sex chromosomes</h3>
 <p>Male samples should have haploid genotype calls at chrX non-PAR regions (GT=<code>1</code>, not GT=<code>0/1</code> or <code>1/1</code>). Many variant callers output diploid genotypes for males at chrX by default. Without ploidy correction:</p>
 <ul>

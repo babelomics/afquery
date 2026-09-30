@@ -2204,16 +2204,14 @@
 <p><code>variant-info</code> is the natural next step after <code>query</code> — once you find a variant of interest, use it to see which specific samples carry it.</p>
 </div>
 <div class="admonition note">
-<p class="admonition-title">Carrier counts may exceed the counts reported by <code>query</code></p>
-<p><code>variant-info</code> lists every carrier present in the source VCFs. <code>query</code> additionally
-restricts to samples whose capture regions cover the position, so a WES sample with a
-call just outside its own BED appears here but is not counted in <code>AN</code>, <code>AC</code> or the
-genotype tallies. The two commands answer different questions — "who carries it?"
-versus "what is the frequency among samples that could have been called?" — so a
-modest difference is expected.</p>
-<p>A <em>large</em> gap is worth investigating: if <code>variant-info</code> shows many carriers from a
-technology that contributes nothing to <code>AN</code>, check that technology's capture index
-(see <a href="../../advanced/debugging-results/">Debugging Results</a>).</p>
+<p class="admonition-title">Carriers match the counts reported by <code>query</code></p>
+<p><code>variant-info</code> lists only samples whose capture regions cover the position, the same
+eligible set <code>query</code> uses. A WES sample with a call outside its own BED is not counted
+in <code>AN</code>, <code>AC</code> or the genotype tallies, and is not listed here either. On diploid
+regions the number of <code>het</code>, <code>hom</code> and <code>alt</code> carriers therefore equals <code>N_HET</code>,
+<code>N_HOM_ALT</code> and <code>N_FAIL</code> for the same allele and filters. (In haploid regions a
+single-allele call is listed as <code>het</code> but counted in <code>N_HOM_ALT</code>.) Earlier versions
+also listed off-target carriers, so the two commands could disagree.</p>
 </div>
 <p>By default all samples are queried and results are printed as an aligned text table:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>sample_id  sample_name  sex     tech       phenotypes    genotype  filter

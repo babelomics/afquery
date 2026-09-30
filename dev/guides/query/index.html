@@ -2361,7 +2361,7 @@ that fall below a threshold are reported in <strong>N_NO_COVERAGE</strong> inste
 <tbody>
 <tr>
 <td><code>--min-pass K</code></td>
-<td>A partially-covered tech is valid for hom-ref at a position only if it has ≥K PASS carriers (het|hom). Otherwise its non-carrier samples move to <code>N_NO_COVERAGE</code>.</td>
+<td>A partially-covered tech is valid for hom-ref at a position only if it has ≥K PASS carriers (het|hom) of any ALT allele there. Otherwise its non-carrier samples move to <code>N_NO_COVERAGE</code>.</td>
 </tr>
 <tr>
 <td><code>--min-observed K</code></td>
@@ -2378,8 +2378,11 @@ default to <code>0</code>, which disables the gate.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--locus<span class="w"> </span>chr1:925952<span class="w"> </span>--min-pass<span class="w"> </span><span class="m">1</span>
 <a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--region<span class="w"> </span>chr1:900000-1000000<span class="w"> </span>--min-observed<span class="w"> </span><span class="m">2</span><span class="w"> </span>--min-pass<span class="w"> </span><span class="m">1</span>
 </code></pre></div>
-<p>The genotype invariant becomes:
-<code>N_HET + N_HOM_ALT + N_HOM_REF + N_FAIL + N_NO_COVERAGE = n_eligible</code>.</p>
+<p>At a biallelic site the genotype invariant becomes:
+<code>N_HET + N_HOM_ALT + N_HOM_REF + N_FAIL + N_NO_COVERAGE = n_eligible</code>.
+At a multi-allelic site, eligible samples that carry only another ALT allele at
+the position fall in none of these categories for this allele, so the sum is
+lower than <code>n_eligible</code> by exactly that number of samples.</p>
 <p>Fully-covered samples (those whose tech was registered without a BED) are
 never affected. Carrier samples (het/hom/fail) are never moved to
 <code>N_NO_COVERAGE</code>. See <a href="../../advanced/coverage-evidence/">Coverage Evidence</a>

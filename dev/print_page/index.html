@@ -3567,7 +3567,16 @@
 <li><a href="#advanced-ploidy-and-sex-chroms">Ploidy &amp; Special Chromosomes</a> — PAR regions and ploidy rules in detail</li>
 </ul></section><section class="print-page" id="getting-started-preprocessing" heading-number="2.6"><h1 id="getting-started-preprocessing-vcf-preprocessing">VCF Preprocessing</h1>
 <p>AFQuery ingests single-sample, normalized VCF files. While AFQuery itself does not perform VCF normalization, the accuracy of your allele frequency estimates depends on the quality and consistency of your input VCFs. This page explains why normalization matters and provides a reference pipeline.</p>
-<p>A ready-to-use normalization script is provided at <a href="https://github.com/babelomics/afquery/blob/master/resources/normalize_vcf.sh"><code>resources/normalize_vcf.sh</code></a>.</p>
+<p>A ready-to-use normalization script is provided at <a href="https://github.com/babelomics/afquery/blob/master/resources/normalize_vcf.sh"><code>resources/normalize_vcf.sh</code></a>. It requires <strong>bcftools 1.20 or later</strong>: older releases refuse to split multi-allelic records and remove duplicates in the same <code>bcftools norm</code> call, and the script exits with an error if it finds one.</p>
+<div class="admonition warning">
+<p class="admonition-title">VCFs normalized with the script from afquery 0.4.2 or earlier</p>
+<p>Those versions of the script did not split multi-allelic records, and removed
+one of two different indels at the same position as a duplicate. Indels from
+multi-allelic sites could therefore be stored untrimmed (e.g. <code>CAAAAAAA&gt;CAAAAAAAAAAAA</code>
+instead of <code>C&gt;CAAAAA</code>), so the same variant appeared under two representations, or
+were dropped. Re-normalize those VCFs with the current script and rebuild the
+database to correct them.</p>
+</div>
 <hr />
 <h2 id="getting-started-preprocessing-why-normalize">Why Normalize?</h2>
 <h3 id="getting-started-preprocessing-left-alignment-and-decomposition">Left-alignment and decomposition</h3>
@@ -3577,7 +3586,7 @@
 <li>Multi-allelic sites may not be decomposed into biallelic records</li>
 <li>Duplicate records can inflate AC</li>
 </ul>
-<p><code>bcftools norm</code> left-aligns indels against the reference genome and decomposes multi-allelic sites, ensuring consistent representation across samples.</p>
+<p><code>bcftools norm -m -both</code> decomposes multi-allelic sites into biallelic records, and left-aligns and trims each allele against the reference genome, ensuring consistent representation across samples. <code>-d exact</code> then drops only records whose alleles are identical, so two different alleles at the same position are both kept.</p>
 <h3 id="getting-started-preprocessing-ploidy-correction-for-sex-chromosomes">Ploidy correction for sex chromosomes</h3>
 <p>Male samples should have haploid genotype calls at chrX non-PAR regions (GT=<code>1</code>, not GT=<code>0/1</code> or <code>1/1</code>). Many variant callers output diploid genotypes for males at chrX by default. Without ploidy correction:</p>
 <ul>
@@ -3639,7 +3648,7 @@
 <tr>
 <td><strong>N_HOM_REF</strong></td>
 <td>int</td>
-<td>Number of eligible samples homozygous reference (GT=0/0 or GT=0)</td>
+<td>Number of eligible samples homozygous reference (GT=0/0 or GT=0). Samples carrying another ALT allele at the same position are not counted (see <a href="#getting-started-understanding-output-multi-allelic-sites">Multi-allelic sites</a>).</td>
 </tr>
 <tr>
 <td><strong>n_eligible</strong></td>
@@ -3703,6 +3712,16 @@
 <p class="admonition-title">AN=0 does not mean the variant is absent</p>
 <p>AN=0 means AFQuery has no data to compute frequency. It is not evidence of rarity.</p>
 </div>
+<h3 id="getting-started-understanding-output-multi-allelic-sites">Multi-allelic sites</h3>
+<p>Each ALT allele at a position is reported on its own line, and its counts refer to
+that allele only. A sample carrying a different ALT allele at the same position
+(for example <code>G/T</code> on the <code>G&gt;A</code> line) is neither a carrier nor homozygous
+reference for this allele, so it appears in none of <code>N_HET</code>, <code>N_HOM_ALT</code>,
+<code>N_HOM_REF</code>, <code>N_FAIL</code> or <code>N_NO_COVERAGE</code>. The five counts add up to
+<code>n_eligible</code> at biallelic sites; at a multi-allelic site they fall short by the
+number of such samples. AC, AN and AF are not affected.</p>
+<p>A sample with two different ALT alleles (<code>GT=1/2</code>) is counted as heterozygous on
+both lines.</p>
 <h3 id="getting-started-understanding-output-warnings">Warnings</h3>
 <p>afquery emits a <code>AfqueryWarning</code> to stderr when a query may silently return fewer or no results. Common causes:</p>
 <table>
@@ -3787,7 +3806,7 @@
 <tr>
 <td><code>AFQUERY_N_HOM_REF</code></td>
 <td>A (per ALT)</td>
-<td>Homozygous ref sample count per ALT allele</td>
+<td>Homozygous ref sample count per ALT allele, excluding carriers of other ALT alleles at the position</td>
 </tr>
 <tr>
 <td><code>AFQUERY_N_FAIL</code></td>
@@ -4440,7 +4459,7 @@ that fall below a threshold are reported in <strong>N_NO_COVERAGE</strong> inste
 <tbody>
 <tr>
 <td><code>--min-pass K</code></td>
-<td>A partially-covered tech is valid for hom-ref at a position only if it has ≥K PASS carriers (het|hom). Otherwise its non-carrier samples move to <code>N_NO_COVERAGE</code>.</td>
+<td>A partially-covered tech is valid for hom-ref at a position only if it has ≥K PASS carriers (het|hom) of any ALT allele there. Otherwise its non-carrier samples move to <code>N_NO_COVERAGE</code>.</td>
 </tr>
 <tr>
 <td><code>--min-observed K</code></td>
@@ -4457,8 +4476,11 @@ default to <code>0</code>, which disables the gate.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#guides-query-__codelineno-12-1"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--locus<span class="w"> </span>chr1:925952<span class="w"> </span>--min-pass<span class="w"> </span><span class="m">1</span>
 <a id="__codelineno-12-2" name="__codelineno-12-2" href="#guides-query-__codelineno-12-2"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--region<span class="w"> </span>chr1:900000-1000000<span class="w"> </span>--min-observed<span class="w"> </span><span class="m">2</span><span class="w"> </span>--min-pass<span class="w"> </span><span class="m">1</span>
 </code></pre></div>
-<p>The genotype invariant becomes:
-<code>N_HET + N_HOM_ALT + N_HOM_REF + N_FAIL + N_NO_COVERAGE = n_eligible</code>.</p>
+<p>At a biallelic site the genotype invariant becomes:
+<code>N_HET + N_HOM_ALT + N_HOM_REF + N_FAIL + N_NO_COVERAGE = n_eligible</code>.
+At a multi-allelic site, eligible samples that carry only another ALT allele at
+the position fall in none of these categories for this allele, so the sum is
+lower than <code>n_eligible</code> by exactly that number of samples.</p>
 <p>Fully-covered samples (those whose tech was registered without a BED) are
 never affected. Carrier samples (het/hom/fail) are never moved to
 <code>N_NO_COVERAGE</code>. See <a href="#advanced-coverage-evidence">Coverage Evidence</a>
@@ -4563,7 +4585,7 @@ for when to reach for each flag.</p>
 <td><code>AFQUERY_N_HOM_REF</code></td>
 <td>Integer</td>
 <td>A (per ALT)</td>
-<td>Homozygous ref sample count</td>
+<td>Homozygous ref sample count, excluding carriers of other ALT alleles at the position (including alleles stored in the database but absent from the input record)</td>
 </tr>
 <tr>
 <td><code>AFQUERY_N_FAIL</code></td>
@@ -4742,16 +4764,14 @@ filter is active (see <a href="#advanced-coverage-evidence">Coverage Evidence</a
 <p><code>variant-info</code> is the natural next step after <code>query</code> — once you find a variant of interest, use it to see which specific samples carry it.</p>
 </div>
 <div class="admonition note">
-<p class="admonition-title">Carrier counts may exceed the counts reported by <code>query</code></p>
-<p><code>variant-info</code> lists every carrier present in the source VCFs. <code>query</code> additionally
-restricts to samples whose capture regions cover the position, so a WES sample with a
-call just outside its own BED appears here but is not counted in <code>AN</code>, <code>AC</code> or the
-genotype tallies. The two commands answer different questions — "who carries it?"
-versus "what is the frequency among samples that could have been called?" — so a
-modest difference is expected.</p>
-<p>A <em>large</em> gap is worth investigating: if <code>variant-info</code> shows many carriers from a
-technology that contributes nothing to <code>AN</code>, check that technology's capture index
-(see <a href="#advanced-debugging-results">Debugging Results</a>).</p>
+<p class="admonition-title">Carriers match the counts reported by <code>query</code></p>
+<p><code>variant-info</code> lists only samples whose capture regions cover the position, the same
+eligible set <code>query</code> uses. A WES sample with a call outside its own BED is not counted
+in <code>AN</code>, <code>AC</code> or the genotype tallies, and is not listed here either. On diploid
+regions the number of <code>het</code>, <code>hom</code> and <code>alt</code> carriers therefore equals <code>N_HET</code>,
+<code>N_HOM_ALT</code> and <code>N_FAIL</code> for the same allele and filters. (In haploid regions a
+single-allele call is listed as <code>het</code> but counted in <code>N_HOM_ALT</code>.) Earlier versions
+also listed off-target carriers, so the two commands could disagree.</p>
 </div>
 <p>By default all samples are queried and results are printed as an aligned text table:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#guides-variant-info-__codelineno-1-1"></a>sample_id  sample_name  sex     tech       phenotypes    genotype  filter
@@ -7375,8 +7395,11 @@ Variants not found in the database are omitted.</p>
 <a id="__codelineno-29-11" name="__codelineno-29-11" href="#reference-python-api-__codelineno-29-11"></a>    <span class="n">N_FAIL</span><span class="p">:</span> <span class="nb">int</span>              <span class="c1"># Eligible samples whose call had FILTER≠PASS (excluded from AC, kept in AN)</span>
 <a id="__codelineno-29-12" name="__codelineno-29-12" href="#reference-python-api-__codelineno-29-12"></a>    <span class="n">N_NO_COVERAGE</span><span class="p">:</span> <span class="nb">int</span>       <span class="c1"># Eligible samples whose tech lacks evidence (excluded from N_HOM_REF)</span>
 </code></pre></div>
-<p>The new genotype invariant is
+<p>At a biallelic site the genotype categories partition the eligible samples:
 <code>N_HET + N_HOM_ALT + N_HOM_REF + N_FAIL + N_NO_COVERAGE == n_samples_eligible</code>.
+At a multi-allelic site, eligible samples that carry only another ALT allele at
+the position fall in none of these categories for this allele, so the sum is
+lower than <code>n_samples_eligible</code> by exactly that number of samples.
 See <a href="#advanced-coverage-evidence">Coverage Evidence</a> for details on
 <code>N_NO_COVERAGE</code>.</p>
 <h3 id="reference-python-api-variantkey">VariantKey</h3>
@@ -8608,9 +8631,9 @@ Not <code>CAST(pos / 1000000 AS BIGINT)</code> — the <code>/</code> operator d
 <hr />
 <h2 id="advanced-ploidy-and-sex-chroms-genotype-counting">Genotype Counting</h2>
 <h3 id="advanced-ploidy-and-sex-chroms-counting-identity">Counting Identity</h3>
-<p>For every query result, the following identity holds:</p>
+<p>For every query result at a biallelic site, the following identity holds:</p>
 <p><strong>N_HET + N_HOM_ALT + N_HOM_REF + N_FAIL + N_NO_COVERAGE = n_eligible</strong></p>
-<p>This can be used to validate results. N_HOM_REF is the number of eligible samples that are homozygous reference (i.e., do not carry the alt allele and passed quality filters). N_NO_COVERAGE is 0 unless a coverage-evidence filter is active — see <a href="#advanced-coverage-evidence">Coverage Evidence</a>.</p>
+<p>This can be used to validate results. At a multi-allelic site, eligible samples that carry only another ALT allele at the position fall in none of these categories, so the sum is lower by exactly that number of samples (see <a href="#getting-started-understanding-output-multi-allelic-sites">Multi-allelic sites</a>). N_HOM_REF is the number of eligible samples that are homozygous reference (i.e., carry no ALT allele at the position and passed quality filters). N_NO_COVERAGE is 0 unless a coverage-evidence filter is active — see <a href="#advanced-coverage-evidence">Coverage Evidence</a>.</p>
 <div class="admonition note">
 <p class="admonition-title">Mutual exclusivity</p>
 <p>N_HET, N_HOM_ALT, N_HOM_REF, N_FAIL, and N_NO_COVERAGE are mutually exclusive. A sample with a non-ref allele but FILTER≠PASS is counted in N_FAIL only — it does not appear in N_HET or N_HOM_ALT. Likewise, N_HOM_REF counts only PASS-filtered samples.</p>
@@ -8759,9 +8782,12 @@ into <code>N_HOM_REF</code>. The flags below decide <em>which</em> samples land 
 <hr />
 <h2 id="advanced-coverage-evidence-what-n_no_coverage-represents">What <code>N_NO_COVERAGE</code> represents</h2>
 <p><code>N_NO_COVERAGE</code> counts eligible samples whose hom-ref status is not trusted
-under the active criteria. The genotype invariant becomes:</p>
+under the active criteria. At a biallelic site the genotype invariant becomes:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#advanced-coverage-evidence-__codelineno-0-1"></a>N_HET + N_HOM_ALT + N_HOM_REF + N_FAIL + N_NO_COVERAGE = n_eligible
 </code></pre></div>
+<p>At a multi-allelic site, eligible samples that carry only another ALT allele at
+the position fall in none of these categories for this allele, so the sum is
+lower than <code>n_eligible</code> by exactly that number of samples.</p>
 <p>Samples in <code>N_NO_COVERAGE</code> remain in <code>eligible</code> and contribute to <code>AN</code> (just
 like <code>N_FAIL</code>), so AC/AN/AF stay conservative — the field never inflates
 allele frequencies. Two rules always hold:</p>
@@ -8789,7 +8815,7 @@ position. They run at query time, so no database rebuild is needed.</p>
 <tbody>
 <tr>
 <td><code>--min-pass K</code></td>
-<td>A partially-covered tech must have ≥K PASS carriers (<code>het ∪ hom</code>) at the position. If it falls short, all of its non-carrier samples move from <code>N_HOM_REF</code> to <code>N_NO_COVERAGE</code>.</td>
+<td>A partially-covered tech must have ≥K PASS carriers (<code>het ∪ hom</code>) at the position. Carriers of any ALT allele there count, since each shows the position was sequenced. If it falls short, all of its non-carrier samples move from <code>N_HOM_REF</code> to <code>N_NO_COVERAGE</code>.</td>
 </tr>
 <tr>
 <td><code>--min-observed K</code></td>
@@ -8848,7 +8874,7 @@ coverage decision is baked in.</p>
 </tr>
 <tr>
 <td><code>--min-covered K</code></td>
-<td>Per partially-covered tech, the position is "trusted" only if at least K of its carriers pass the quality thresholds. Non-carriers of failing positions are recorded as <code>N_NO_COVERAGE</code>.</td>
+<td>Per partially-covered tech, the position is "trusted" only if at least K of its carriers pass the quality thresholds. Non-carriers of failing positions are recorded as <code>N_NO_COVERAGE</code>. The gate is evaluated at build time for each ALT allele separately; samples carrying another allele at the position are never counted as <code>N_NO_COVERAGE</code>.</td>
 </tr>
 </tbody>
 </table>
@@ -8878,7 +8904,7 @@ query time without rebuilding:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#advanced-coverage-evidence-__codelineno-6-1"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--locus<span class="w"> </span>chr1:925952<span class="w"> </span>--min-quality-evidence<span class="w"> </span><span class="m">5</span>
 </code></pre></div>
 <p><code>--min-quality-evidence K</code> requires each partially-covered tech to have ≥K
-quality-passing carriers at the position. Non-carriers of failing techs
+quality-passing carriers of any ALT allele at the position. Non-carriers of failing techs
 (other than those already filtered at build time) move to <code>N_NO_COVERAGE</code>.</p>
 <p>Running the flag against a database that was not built with quality data
 exits with a clear error:</p>
@@ -9337,8 +9363,8 @@ exits with a clear error:</p>
 </tr>
 <tr>
 <td>WES samples missing from AN</td>
-<td>Compare <code>variant-info</code> carriers against <code>query</code> counts</td>
-<td>If <code>variant-info</code> shows many WES carriers but AN reflects only the WGS samples, that technology's capture index is not matching the position. <code>afquery</code> warns on open when a capture BED is empty or matches no known chromosome, naming the offending contigs.</td>
+<td><code>afquery query --db ./db/ --locus chr1:12345678 --tech WES_kit_A</code></td>
+<td>If this prints <code>No variants found for the given filters.</code> for a technology whose kit should cover the position, while the unfiltered query returns the variant, that technology's capture index is not matching the position. <code>afquery</code> warns on open when a capture BED is empty or matches no known chromosome, naming the offending contigs.</td>
 </tr>
 <tr>
 <td>AN=0 only on chrM</td>

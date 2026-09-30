@@ -857,6 +857,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#multi-allelic-sites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multi-allelic sites
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#warnings" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2262,7 +2273,7 @@
 <tr>
 <td><strong>N_HOM_REF</strong></td>
 <td>int</td>
-<td>Number of eligible samples homozygous reference (GT=0/0 or GT=0)</td>
+<td>Number of eligible samples homozygous reference (GT=0/0 or GT=0). Samples carrying another ALT allele at the same position are not counted (see <a href="#multi-allelic-sites">Multi-allelic sites</a>).</td>
 </tr>
 <tr>
 <td><strong>n_eligible</strong></td>
@@ -2326,6 +2337,16 @@
 <p class="admonition-title">AN=0 does not mean the variant is absent</p>
 <p>AN=0 means AFQuery has no data to compute frequency. It is not evidence of rarity.</p>
 </div>
+<h3 id="multi-allelic-sites">Multi-allelic sites</h3>
+<p>Each ALT allele at a position is reported on its own line, and its counts refer to
+that allele only. A sample carrying a different ALT allele at the same position
+(for example <code>G/T</code> on the <code>G&gt;A</code> line) is neither a carrier nor homozygous
+reference for this allele, so it appears in none of <code>N_HET</code>, <code>N_HOM_ALT</code>,
+<code>N_HOM_REF</code>, <code>N_FAIL</code> or <code>N_NO_COVERAGE</code>. The five counts add up to
+<code>n_eligible</code> at biallelic sites; at a multi-allelic site they fall short by the
+number of such samples. AC, AN and AF are not affected.</p>
+<p>A sample with two different ALT alleles (<code>GT=1/2</code>) is counted as heterozygous on
+both lines.</p>
 <h3 id="warnings">Warnings</h3>
 <p>afquery emits a <code>AfqueryWarning</code> to stderr when a query may silently return fewer or no results. Common causes:</p>
 <table>
@@ -2410,7 +2431,7 @@
 <tr>
 <td><code>AFQUERY_N_HOM_REF</code></td>
 <td>A (per ALT)</td>
-<td>Homozygous ref sample count per ALT allele</td>
+<td>Homozygous ref sample count per ALT allele, excluding carriers of other ALT alleles at the position</td>
 </tr>
 <tr>
 <td><code>AFQUERY_N_FAIL</code></td>

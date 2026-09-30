@@ -2866,8 +2866,11 @@ Variants not found in the database are omitted.</p>
 <a id="__codelineno-29-11" name="__codelineno-29-11" href="#__codelineno-29-11"></a>    <span class="n">N_FAIL</span><span class="p">:</span> <span class="nb">int</span>              <span class="c1"># Eligible samples whose call had FILTER≠PASS (excluded from AC, kept in AN)</span>
 <a id="__codelineno-29-12" name="__codelineno-29-12" href="#__codelineno-29-12"></a>    <span class="n">N_NO_COVERAGE</span><span class="p">:</span> <span class="nb">int</span>       <span class="c1"># Eligible samples whose tech lacks evidence (excluded from N_HOM_REF)</span>
 </code></pre></div>
-<p>The new genotype invariant is
+<p>At a biallelic site the genotype categories partition the eligible samples:
 <code>N_HET + N_HOM_ALT + N_HOM_REF + N_FAIL + N_NO_COVERAGE == n_samples_eligible</code>.
+At a multi-allelic site, eligible samples that carry only another ALT allele at
+the position fall in none of these categories for this allele, so the sum is
+lower than <code>n_samples_eligible</code> by exactly that number of samples.
 See <a href="../../advanced/coverage-evidence/">Coverage Evidence</a> for details on
 <code>N_NO_COVERAGE</code>.</p>
 <h3 id="variantkey">VariantKey</h3>
