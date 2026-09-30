@@ -17,11 +17,15 @@ into `N_HOM_REF`. The flags below decide *which* samples land there.
 ## What `N_NO_COVERAGE` represents
 
 `N_NO_COVERAGE` counts eligible samples whose hom-ref status is not trusted
-under the active criteria. The genotype invariant becomes:
+under the active criteria. At a biallelic site the genotype invariant becomes:
 
 ```
 N_HET + N_HOM_ALT + N_HOM_REF + N_FAIL + N_NO_COVERAGE = n_eligible
 ```
+
+At a multi-allelic site, eligible samples that carry only another ALT allele at
+the position fall in none of these categories for this allele, so the sum is
+lower than `n_eligible` by exactly that number of samples.
 
 Samples in `N_NO_COVERAGE` remain in `eligible` and contribute to `AN` (just
 like `N_FAIL`), so AC/AN/AF stay conservative — the field never inflates
@@ -45,7 +49,7 @@ position. They run at query time, so no database rebuild is needed.
 
 | Flag | Effect |
 |------|--------|
-| `--min-pass K`     | A partially-covered tech must have ≥K PASS carriers (`het ∪ hom`) at the position. If it falls short, all of its non-carrier samples move from `N_HOM_REF` to `N_NO_COVERAGE`. |
+| `--min-pass K`     | A partially-covered tech must have ≥K PASS carriers (`het ∪ hom`) at the position. Carriers of any ALT allele there count, since each shows the position was sequenced. If it falls short, all of its non-carrier samples move from `N_HOM_REF` to `N_NO_COVERAGE`. |
 | `--min-observed K` | Same shape, but counts every recorded carrier (`het ∪ hom ∪ fail`). Useful when a non-PASS call still proves the position was sequenced. |
 
 When both flags are >0, both must hold (AND). The default `0` disables the
@@ -98,7 +102,7 @@ coverage decision is baked in.
 | `--min-dp D`     | Minimum `FORMAT/DP` per carrier. |
 | `--min-gq G`     | Minimum `FORMAT/GQ` per carrier. |
 | `--min-qual Q`   | Minimum VCF `QUAL` per carrier. |
-| `--min-covered K`| Per partially-covered tech, the position is "trusted" only if at least K of its carriers pass the quality thresholds. Non-carriers of failing positions are recorded as `N_NO_COVERAGE`. |
+| `--min-covered K`| Per partially-covered tech, the position is "trusted" only if at least K of its carriers pass the quality thresholds. Non-carriers of failing positions are recorded as `N_NO_COVERAGE`. The gate is evaluated at build time for each ALT allele separately; samples carrying another allele at the position are never counted as `N_NO_COVERAGE`. |
 
 A carrier counts as quality-passing only if **all** active thresholds hold
 (unset thresholds are simply ignored). At least one of these flags must be
@@ -133,7 +137,7 @@ afquery query --db ./db/ --locus chr1:925952 --min-quality-evidence 5
 ```
 
 `--min-quality-evidence K` requires each partially-covered tech to have ≥K
-quality-passing carriers at the position. Non-carriers of failing techs
+quality-passing carriers of any ALT allele at the position. Non-carriers of failing techs
 (other than those already filtered at build time) move to `N_NO_COVERAGE`.
 
 Running the flag against a database that was not built with quality data

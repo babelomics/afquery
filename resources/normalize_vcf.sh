@@ -25,6 +25,17 @@ REF="$3"
 GENDER="$4"
 THREADS="${5:-4}"
 
+# -----------------------------
+# bcftools version (< 1.20 refuses to combine -m and -d in bcftools norm)
+# -----------------------------
+MIN_BCFTOOLS="1.20"
+BCFTOOLS_VERSION=$(bcftools --version | head -n1 | awk '{print $2}')
+if [[ "$(printf '%s\n' "${MIN_BCFTOOLS}" "${BCFTOOLS_VERSION}" | sort -V | head -n1)" != "${MIN_BCFTOOLS}" ]]
+then
+    echo "ERROR: bcftools >= ${MIN_BCFTOOLS} is required (found ${BCFTOOLS_VERSION})"
+    exit 1
+fi
+
 OUT="${VCF_ID}_norm.vcf.gz"
 CHR_MAP="chr_list.txt"
 GENDER_FILE="${VCF_ID}_gender.txt"
@@ -88,8 +99,8 @@ bcftools annotate \
     --rename-chrs "${CHR_MAP}" \
     "${VCF}" | \
 bcftools norm \
+    -m -both \
     -d exact \
-    -d both \
     -f "${REF}" \
     --check-ref ws \
     --targets "${TARGETS}" | \

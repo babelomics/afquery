@@ -2,6 +2,7 @@ import json
 import sqlite3
 import warnings
 from pathlib import Path
+from typing import NamedTuple
 
 import duckdb
 from pyroaring import BitMap
@@ -14,6 +15,22 @@ from .models import AfqueryWarning, QueryParams, QueryResult, SampleCarrier, Var
 from .ploidy import compute_AN, split_ploidy
 
 BATCH_IN_THRESHOLD = 10_000
+
+
+class SiteEvidence(NamedTuple):
+    """Carriers of any allele at one position, pooled across its Parquet rows."""
+    pass_bm: BitMap
+    carrier_bm: BitMap
+    quality_pass_bm: "BitMap | None"
+
+
+class VariantStats(NamedTuple):
+    AC: int
+    N_HET: int
+    N_HOM_ALT: int
+    N_HOM_REF: int
+    N_FAIL: int
+    N_NO_COVERAGE: int
 
 
 def _parse_schema_version(s: str) -> tuple[int, ...]:
@@ -203,12 +220,14 @@ class QueryEngine:
         filtered_bm: "BitMap | None" = None,
         quality_pass_bm: "BitMap | None" = None,
         min_quality_evidence: int = 0,
+        site: "SiteEvidence | None" = None,
     ) -> BitMap:
         """Return bitmap of WES non-carrier samples that should not be assumed hom-ref.
 
         Phase 1 (query-time): count-based per-tech gate using existing bitmaps.
         Phase 2 (build-time): stored filtered_bitmap + optional quality_pass gate.
-        Results are unioned; carriers (het/hom/fail) are never included.
+        Results are unioned; carriers (het/hom/fail) are never included, nor are
+        carriers of any other allele at the position when ``site`` is given.
         """
         if min_quality_evidence > 0 and not self._has_coverage_data:
             raise ValueError(
@@ -216,7 +235,15 @@ class QueryEngine:
                 "Re-create with --min-dp / --min-gq to use --min-quality-evidence."
             )
         no_cov = BitMap()
+        pass_carriers = het_bm | hom_bm
         all_carriers = het_bm | hom_bm | fail_bm
+        # Coverage evidence is a property of the position: a call for any
+        # allele there shows it was sequenced, and that sample is not uncovered.
+        if site is not None:
+            pass_carriers = pass_carriers | site.pass_bm
+            all_carriers = all_carriers | site.carrier_bm
+            if site.quality_pass_bm is not None:
+                quality_pass_bm = site.quality_pass_bm
 
         # Phase 1: count-based gate
         if min_pass > 0 or min_observed > 0:
@@ -225,14 +252,15 @@ class QueryEngine:
                 tech_eligible = eligible & tech_bm
                 if len(tech_eligible) == 0:
                     continue
-                pass_count     = len((het_bm | hom_bm) & tech_eligible)
+                pass_count     = len(pass_carriers & tech_eligible)
                 observed_count = len(all_carriers & tech_eligible)
                 if pass_count < min_pass or observed_count < min_observed:
                     no_cov |= tech_eligible - (all_carriers & tech_eligible)
 
-        # Phase 2: stored filtered_bitmap
+        # Phase 2: stored filtered_bitmap (built per allele, so it may hold
+        # carriers of another allele at the same position)
         if filtered_bm is not None:
-            no_cov |= filtered_bm & eligible
+            no_cov |= (filtered_bm & eligible) - all_carriers
 
         # Phase 2: quality_pass gate (--min-quality-evidence K)
         if quality_pass_bm is not None and min_quality_evidence > 0:
@@ -281,6 +309,94 @@ class QueryEngine:
             filtered_bm = None
             quality_pass_bm = None
         return het_bm, hom_bm, fail_bm, filtered_bm, quality_pass_bm
+
+    @staticmethod
+    def _site_evidence(unpacked_rows: list[tuple]) -> SiteEvidence:
+        """Pool the unpacked bitmaps of every allele stored at one position."""
+        pass_bm = BitMap()
+        carrier_bm = BitMap()
+        quality_pass_bm = None
+        for het_bm, hom_bm, fail_bm, _filtered_bm, qp_bm in unpacked_rows:
+            pass_bm |= het_bm | hom_bm
+            carrier_bm |= het_bm | hom_bm | fail_bm
+            if qp_bm is not None:
+                quality_pass_bm = qp_bm if quality_pass_bm is None else quality_pass_bm | qp_bm
+        return SiteEvidence(pass_bm, carrier_bm, quality_pass_bm)
+
+    @classmethod
+    def _site_evidence_by_pos(
+        cls, positions: list[int], unpacked_rows: list[tuple],
+    ) -> dict[int, "SiteEvidence | None"]:
+        """Group unpacked rows by position and pool each group.
+
+        Single-allele positions map to None: there is nothing to pool.
+        """
+        by_pos: dict[int, list[tuple]] = {}
+        for pos, bitmaps in zip(positions, unpacked_rows):
+            by_pos.setdefault(pos, []).append(bitmaps)
+        return {
+            pos: cls._site_evidence(group) if len(group) > 1 else None
+            for pos, group in by_pos.items()
+        }
+
+    def _variant_stats(
+        self,
+        chrom: str,
+        pos: int,
+        eligible: BitMap,
+        bitmaps: tuple,
+        site: "SiteEvidence | None",
+        min_pass: int,
+        min_observed: int,
+        min_quality_evidence: int,
+    ) -> VariantStats:
+        """Genotype tallies for one allele among the eligible samples.
+
+        ``site`` pools every allele at the position (None when this is the only
+        one). Eligible samples carrying only another allele are in none of the
+        returned categories, so at a multi-allelic site
+        N_HET + N_HOM_ALT + N_HOM_REF + N_FAIL + N_NO_COVERAGE falls short of
+        n_eligible by exactly that number of samples.
+        """
+        het_bm, hom_bm, fail_bm, filtered_bm, quality_pass_bm = bitmaps
+        haploid_elig, diploid_elig = split_ploidy(
+            eligible, self._male_bm, self._female_bm, chrom, pos, self._genome_build
+        )
+        het_elig = het_bm & eligible
+        hom_elig = hom_bm & eligible
+        AC = (len((het_elig | hom_elig) & haploid_elig)
+              + len(het_elig & diploid_elig)
+              + 2 * len(hom_elig & diploid_elig))
+        N_HET = len(het_elig & diploid_elig)
+        N_HOM_ALT = len(hom_elig & diploid_elig) + len((het_elig | hom_elig) & haploid_elig)
+        N_FAIL = len(fail_bm & eligible)
+        no_cov_bm = self._compute_no_coverage_bm(
+            eligible, het_bm, hom_bm, fail_bm,
+            min_pass, min_observed,
+            filtered_bm=filtered_bm,
+            quality_pass_bm=quality_pass_bm,
+            min_quality_evidence=min_quality_evidence,
+            site=site,
+        )
+        N_NO_COVERAGE = len(no_cov_bm)
+        N_OTHER = 0
+        if site is not None:
+            N_OTHER = len((site.carrier_bm - (het_bm | hom_bm | fail_bm)) & eligible)
+        N_HOM_REF = len(eligible) - N_HET - N_HOM_ALT - N_FAIL - N_NO_COVERAGE - N_OTHER
+        return VariantStats(AC, N_HET, N_HOM_ALT, N_HOM_REF, N_FAIL, N_NO_COVERAGE)
+
+    @staticmethod
+    def _make_result(
+        chrom: str, pos: int, ref: str, alt: str,
+        AN: int, eligible: BitMap, stats: VariantStats,
+    ) -> QueryResult:
+        return QueryResult(
+            variant=VariantKey(chrom=chrom, pos=pos, ref=ref, alt=alt),
+            AC=stats.AC, AN=AN, AF=stats.AC / AN if AN > 0 else None,
+            n_samples_eligible=len(eligible),
+            N_HET=stats.N_HET, N_HOM_ALT=stats.N_HOM_ALT, N_HOM_REF=stats.N_HOM_REF,
+            N_FAIL=stats.N_FAIL, N_NO_COVERAGE=stats.N_NO_COVERAGE,
+        )
 
     def _compute_eligible(
         self,
@@ -364,38 +480,17 @@ class QueryEngine:
         if not rows:
             return []
 
-        results = []
         sf = params.filter
-        for row in rows:
-            ref, alt = row[0], row[1]
-            het_bm, hom_bm, fail_bm, filtered_bm, quality_pass_bm = self._unpack_bitmaps(row[2:])
-            haploid_elig, diploid_elig = split_ploidy(
-                eligible, self._male_bm, self._female_bm, chrom, pos, self._genome_build
+        unpacked = [(row[0], row[1], self._unpack_bitmaps(row[2:])) for row in rows]
+        site = (self._site_evidence([bitmaps for _ref, _alt, bitmaps in unpacked])
+                if len(unpacked) > 1 else None)
+        results = []
+        for ref, alt, bitmaps in unpacked:
+            stats = self._variant_stats(
+                chrom, pos, eligible, bitmaps, site,
+                sf.min_pass, sf.min_observed, sf.min_quality_evidence,
             )
-            het_elig = het_bm & eligible
-            hom_elig = hom_bm & eligible
-            AC = (len((het_elig | hom_elig) & haploid_elig)
-                  + len(het_elig & diploid_elig)
-                  + 2 * len(hom_elig & diploid_elig))
-            N_HET = len(het_elig & diploid_elig)
-            N_HOM_ALT = len(hom_elig & diploid_elig) + len((het_elig | hom_elig) & haploid_elig)
-            AF = AC / AN if AN > 0 else None
-            N_FAIL = len(fail_bm & eligible)
-            no_cov_bm = self._compute_no_coverage_bm(
-                eligible, het_bm, hom_bm, fail_bm,
-                sf.min_pass, sf.min_observed,
-                filtered_bm=filtered_bm,
-                quality_pass_bm=quality_pass_bm,
-                min_quality_evidence=sf.min_quality_evidence,
-            )
-            N_NO_COVERAGE = len(no_cov_bm)
-            N_HOM_REF = len(eligible) - N_HET - N_HOM_ALT - N_FAIL - N_NO_COVERAGE
-            results.append(QueryResult(
-                variant=VariantKey(chrom=chrom, pos=pos, ref=ref, alt=alt),
-                AC=AC, AN=AN, AF=AF, n_samples_eligible=len(eligible),
-                N_HET=N_HET, N_HOM_ALT=N_HOM_ALT, N_HOM_REF=N_HOM_REF,
-                N_FAIL=N_FAIL, N_NO_COVERAGE=N_NO_COVERAGE,
-            ))
+            results.append(self._make_result(chrom, pos, ref, alt, AN, eligible, stats))
         if params.ref is not None:
             results = [r for r in results if r.variant.ref == params.ref]
         if params.alt is not None:
@@ -566,40 +661,18 @@ class QueryEngine:
                 eligible, AN = self._compute_eligible(chrom, pos, sample_bm)
                 pos_data[pos] = (eligible, AN)
 
+        rows = [row for row in rows if pos_data[row[0]][1] > 0]
+        unpacked = [self._unpack_bitmaps(row[3:]) for row in rows]
+        sites = self._site_evidence_by_pos([row[0] for row in rows], unpacked)
         results = []
-        for row in rows:
+        for row, bitmaps in zip(rows, unpacked):
             pos, ref, alt = row[0], row[1], row[2]
             eligible, AN = pos_data[pos]
-            if AN == 0:
-                continue
-            het_bm, hom_bm, fail_bm, filtered_bm, quality_pass_bm = self._unpack_bitmaps(row[3:])
-            haploid_elig, diploid_elig = split_ploidy(
-                eligible, self._male_bm, self._female_bm, chrom, pos, self._genome_build
+            stats = self._variant_stats(
+                chrom, pos, eligible, bitmaps, sites[pos],
+                min_pass, min_observed, min_quality_evidence,
             )
-            het_elig = het_bm & eligible
-            hom_elig = hom_bm & eligible
-            AC = (len((het_elig | hom_elig) & haploid_elig)
-                  + len(het_elig & diploid_elig)
-                  + 2 * len(hom_elig & diploid_elig))
-            N_HET = len(het_elig & diploid_elig)
-            N_HOM_ALT = len(hom_elig & diploid_elig) + len((het_elig | hom_elig) & haploid_elig)
-            AF = AC / AN if AN > 0 else None
-            N_FAIL = len(fail_bm & eligible)
-            no_cov_bm = self._compute_no_coverage_bm(
-                eligible, het_bm, hom_bm, fail_bm,
-                min_pass, min_observed,
-                filtered_bm=filtered_bm,
-                quality_pass_bm=quality_pass_bm,
-                min_quality_evidence=min_quality_evidence,
-            )
-            N_NO_COVERAGE = len(no_cov_bm)
-            N_HOM_REF = len(eligible) - N_HET - N_HOM_ALT - N_FAIL - N_NO_COVERAGE
-            results.append(QueryResult(
-                variant=VariantKey(chrom=chrom, pos=pos, ref=ref, alt=alt),
-                AC=AC, AN=AN, AF=AF, n_samples_eligible=len(eligible),
-                N_HET=N_HET, N_HOM_ALT=N_HOM_ALT, N_HOM_REF=N_HOM_REF,
-                N_FAIL=N_FAIL, N_NO_COVERAGE=N_NO_COVERAGE,
-            ))
+            results.append(self._make_result(chrom, pos, ref, alt, AN, eligible, stats))
         results.sort(key=lambda r: (r.variant.pos, r.variant.alt))
         return results
 
@@ -658,40 +731,21 @@ class QueryEngine:
             ).fetchall()
         con.close()
 
+        # Pooled before the request filter: an allele nobody asked for still
+        # has carriers who must not be counted as hom-ref for the others.
+        unpacked = [self._unpack_bitmaps(row[3:]) for row in rows]
+        sites = self._site_evidence_by_pos([row[0] for row in rows], unpacked)
         results = []
-        for row in rows:
+        for row, bitmaps in zip(rows, unpacked):
             pos, ref, alt = row[0], row[1], row[2]
             if (pos, ref, alt) not in requested_variants:
                 continue
             eligible, AN = pos_data[pos]
-            het_bm, hom_bm, fail_bm, filtered_bm, quality_pass_bm = self._unpack_bitmaps(row[3:])
-            haploid_elig, diploid_elig = split_ploidy(
-                eligible, self._male_bm, self._female_bm, chrom, pos, self._genome_build
+            stats = self._variant_stats(
+                chrom, pos, eligible, bitmaps, sites[pos],
+                min_pass, min_observed, min_quality_evidence,
             )
-            het_elig = het_bm & eligible
-            hom_elig = hom_bm & eligible
-            AC = (len((het_elig | hom_elig) & haploid_elig)
-                  + len(het_elig & diploid_elig)
-                  + 2 * len(hom_elig & diploid_elig))
-            N_HET = len(het_elig & diploid_elig)
-            N_HOM_ALT = len(hom_elig & diploid_elig) + len((het_elig | hom_elig) & haploid_elig)
-            AF = AC / AN if AN > 0 else None
-            N_FAIL = len(fail_bm & eligible)
-            no_cov_bm = self._compute_no_coverage_bm(
-                eligible, het_bm, hom_bm, fail_bm,
-                min_pass, min_observed,
-                filtered_bm=filtered_bm,
-                quality_pass_bm=quality_pass_bm,
-                min_quality_evidence=min_quality_evidence,
-            )
-            N_NO_COVERAGE = len(no_cov_bm)
-            N_HOM_REF = len(eligible) - N_HET - N_HOM_ALT - N_FAIL - N_NO_COVERAGE
-            results.append(QueryResult(
-                variant=VariantKey(chrom=chrom, pos=pos, ref=ref, alt=alt),
-                AC=AC, AN=AN, AF=AF, n_samples_eligible=len(eligible),
-                N_HET=N_HET, N_HOM_ALT=N_HOM_ALT, N_HOM_REF=N_HOM_REF,
-                N_FAIL=N_FAIL, N_NO_COVERAGE=N_NO_COVERAGE,
-            ))
+            results.append(self._make_result(chrom, pos, ref, alt, AN, eligible, stats))
         results.sort(key=lambda r: (r.variant.pos, r.variant.alt))
         return results
 
@@ -764,6 +818,8 @@ class QueryEngine:
         if not rows:
             return []
 
+        site = (self._site_evidence([self._unpack_bitmaps(r[3:]) for r in rows])
+                if len(rows) > 1 else None)
         if params.ref is not None:
             rows = [r for r in rows if r[1] == params.ref]
         if params.alt is not None:
@@ -780,7 +836,8 @@ class QueryEngine:
                 AfqueryWarning, stacklevel=3,
             )
 
-        # Compute eligible (BED-aware) for no_coverage assessment
+        # Same eligible set as query(): a call outside the sample's capture
+        # region is not counted there, so it is not listed here either.
         eligible, _AN = self._compute_eligible(chrom, pos, sample_bm)
         sf = params.filter
 
@@ -788,17 +845,18 @@ class QueryEngine:
         for row in rows:
             row_pos, ref, alt = row[0], row[1], row[2]
             het_bm, hom_bm, fail_bm, filtered_bm, quality_pass_bm = self._unpack_bitmaps(row[3:])
-            het_elig = het_bm & sample_bm
-            hom_elig = hom_bm & sample_bm
-            fail_elig = fail_bm & sample_bm
+            het_elig = het_bm & eligible
+            hom_elig = hom_bm & eligible
+            fail_elig = fail_bm & eligible
             no_cov_bm = self._compute_no_coverage_bm(
                 eligible, het_bm, hom_bm, fail_bm,
                 sf.min_pass, sf.min_observed,
                 filtered_bm=filtered_bm,
                 quality_pass_bm=quality_pass_bm,
                 min_quality_evidence=sf.min_quality_evidence,
+                site=site,
             )
-            no_cov_elig = no_cov_bm & sample_bm
+            no_cov_elig = no_cov_bm & eligible
 
             seen: set[int] = set()
             for sid in sorted(hom_elig):

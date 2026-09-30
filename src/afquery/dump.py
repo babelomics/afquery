@@ -11,7 +11,6 @@ from . import storage
 from .bitmaps import deserialize
 from .constants import normalize_chrom, ALL_CHROMS
 from .models import SampleFilter
-from .ploidy import split_ploidy
 
 logger = logging.getLogger(__name__)
 
@@ -180,10 +179,12 @@ def _dump_bucket_worker(
     pos_cache: dict[int, tuple] = {}
     group_pos_cache: dict[tuple, tuple] = {}
 
+    unpacked = [engine._unpack_bitmaps(row[3:]) for row in rows]
+    sites = engine._site_evidence_by_pos([row[0] for row in rows], unpacked)
+
     result_rows = []
-    for row in rows:
+    for row, bitmaps in zip(rows, unpacked):
         pos, ref, alt = row[0], row[1], row[2]
-        het_bm, hom_bm, fail_bm, filtered_bm, quality_pass_bm = engine._unpack_bitmaps(row[3:])
 
         # Base eligible / AN
         if pos not in pos_cache:
@@ -193,49 +194,27 @@ def _dump_bucket_worker(
         if AN == 0:
             continue
 
-        haploid_elig, diploid_elig = split_ploidy(
-            eligible, engine._male_bm, engine._female_bm, chrom, pos, engine._genome_build
-        )
-        het_elig = het_bm & eligible
-        hom_elig = hom_bm & eligible
-        AC = (
-            len((het_elig | hom_elig) & haploid_elig)
-            + len(het_elig & diploid_elig)
-            + 2 * len(hom_elig & diploid_elig)
+        s = engine._variant_stats(
+            chrom, pos, eligible, bitmaps, sites[pos],
+            base_sf.min_pass, base_sf.min_observed, base_sf.min_quality_evidence,
         )
 
-        if AC == 0 and not include_ac_zero:
+        if s.AC == 0 and not include_ac_zero:
             continue  # main row filter
-
-        N_HET = len(het_elig & diploid_elig)
-        N_HOM_ALT = (
-            len(hom_elig & diploid_elig) + len((het_elig | hom_elig) & haploid_elig)
-        )
-        AF = AC / AN
-        N_FAIL = len(fail_bm & eligible)
-        no_cov_bm = engine._compute_no_coverage_bm(
-            eligible, het_bm, hom_bm, fail_bm,
-            base_sf.min_pass, base_sf.min_observed,
-            filtered_bm=filtered_bm,
-            quality_pass_bm=quality_pass_bm,
-            min_quality_evidence=base_sf.min_quality_evidence,
-        )
-        N_NO_COVERAGE = len(no_cov_bm)
-        N_HOM_REF = len(eligible) - N_HET - N_HOM_ALT - N_FAIL - N_NO_COVERAGE
 
         out_row: dict = {
             "chrom": chrom,
             "pos": pos,
             "ref": ref,
             "alt": alt,
-            "AC": AC,
+            "AC": s.AC,
             "AN": AN,
-            "AF": AF,
-            "N_HET": N_HET,
-            "N_HOM_ALT": N_HOM_ALT,
-            "N_HOM_REF": N_HOM_REF,
-            "N_FAIL": N_FAIL,
-            "N_NO_COVERAGE": N_NO_COVERAGE,
+            "AF": s.AC / AN,
+            "N_HET": s.N_HET,
+            "N_HOM_ALT": s.N_HOM_ALT,
+            "N_HOM_REF": s.N_HOM_REF,
+            "N_FAIL": s.N_FAIL,
+            "N_NO_COVERAGE": s.N_NO_COVERAGE,
         }
 
         # Per-group columns
@@ -246,42 +225,19 @@ def _dump_bucket_worker(
                 group_pos_cache[cache_key] = engine._compute_eligible(chrom, pos, g_bm)
             g_eligible, g_AN = group_pos_cache[cache_key]
 
-            g_haploid, g_diploid = split_ploidy(
-                g_eligible, engine._male_bm, engine._female_bm, chrom, pos, engine._genome_build
-            )
-            g_het_elig = het_bm & g_eligible
-            g_hom_elig = hom_bm & g_eligible
-            g_AC = (
-                len((g_het_elig | g_hom_elig) & g_haploid)
-                + len(g_het_elig & g_diploid)
-                + 2 * len(g_hom_elig & g_diploid)
-            )
-            g_N_HET = len(g_het_elig & g_diploid)
-            g_N_HOM_ALT = (
-                len(g_hom_elig & g_diploid) + len((g_het_elig | g_hom_elig) & g_haploid)
-            )
-            g_AF = g_AC / g_AN if g_AN > 0 else 0.0
-            g_N_FAIL = len(fail_bm & g_eligible)
-            g_no_cov_bm = engine._compute_no_coverage_bm(
-                g_eligible, het_bm, hom_bm, fail_bm,
-                g_sf.min_pass, g_sf.min_observed,
-                filtered_bm=filtered_bm,
-                quality_pass_bm=quality_pass_bm,
-                min_quality_evidence=g_sf.min_quality_evidence,
-            )
-            g_N_NO_COVERAGE = len(g_no_cov_bm)
-            g_N_HOM_REF = (
-                len(g_eligible) - g_N_HET - g_N_HOM_ALT - g_N_FAIL - g_N_NO_COVERAGE
+            g = engine._variant_stats(
+                chrom, pos, g_eligible, bitmaps, sites[pos],
+                g_sf.min_pass, g_sf.min_observed, g_sf.min_quality_evidence,
             )
 
-            out_row[f"AC_{label}"] = g_AC
+            out_row[f"AC_{label}"] = g.AC
             out_row[f"AN_{label}"] = g_AN
-            out_row[f"AF_{label}"] = g_AF
-            out_row[f"N_HET_{label}"] = g_N_HET
-            out_row[f"N_HOM_ALT_{label}"] = g_N_HOM_ALT
-            out_row[f"N_HOM_REF_{label}"] = g_N_HOM_REF
-            out_row[f"N_FAIL_{label}"] = g_N_FAIL
-            out_row[f"N_NO_COVERAGE_{label}"] = g_N_NO_COVERAGE
+            out_row[f"AF_{label}"] = g.AC / g_AN if g_AN > 0 else 0.0
+            out_row[f"N_HET_{label}"] = g.N_HET
+            out_row[f"N_HOM_ALT_{label}"] = g.N_HOM_ALT
+            out_row[f"N_HOM_REF_{label}"] = g.N_HOM_REF
+            out_row[f"N_FAIL_{label}"] = g.N_FAIL
+            out_row[f"N_NO_COVERAGE_{label}"] = g.N_NO_COVERAGE
 
         result_rows.append(out_row)
 

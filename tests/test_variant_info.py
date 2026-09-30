@@ -433,3 +433,109 @@ def test_empty_result_no_warning(test_db):
         # Should not warn about multiple alleles when explicitly filtered
         warns = [x for x in w if "alleles" in str(x.message).lower()]
         assert len(warns) == 0
+
+
+# ---------------------------------------------------------------------------
+# 15. Capture regions: carriers outside the sample's BED are not listed
+# ---------------------------------------------------------------------------
+
+def test_out_of_capture_carrier_excluded_chrY(test_db):
+    """chrY:500000 hom=[4]: S04 is WES_kit_A, whose BED does not cover chrY."""
+    db = Database(test_db)
+    carriers = db.variant_info("chrY", 500000, ref="T", alt="C")
+    assert {c.sample_id for c in carriers} == {0, 1}
+
+
+def test_out_of_capture_carrier_excluded_chrM(test_db):
+    """chrM:100 het=[0,2,5]: S05 is WES_kit_A, whose BED does not cover chrM."""
+    db = Database(test_db)
+    carriers = db.variant_info("chrM", 100, ref="C", alt="A")
+    assert {c.sample_id for c in carriers} == {0, 2}
+
+
+def _write_vcf(path, sample_name, records):
+    contigs = sorted({r[0] for r in records}) or ["chr1"]
+    with open(path, "w") as f:
+        f.write("##fileformat=VCFv4.2\n")
+        f.write('##FILTER=<ID=PASS,Description="All filters passed">\n')
+        f.write('##FILTER=<ID=LowQual,Description="Low quality">\n')
+        for contig in contigs:
+            f.write(f"##contig=<ID={contig}>\n")
+        f.write('##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">\n')
+        f.write(f"#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{sample_name}\n")
+        for rec in records:
+            chrom, pos, ref, alt, gt = rec[:5]
+            flt = rec[5] if len(rec) > 5 else "PASS"
+            f.write(f"{chrom}\t{pos}\t.\t{ref}\t{alt}\t.\t{flt}\t.\tGT\t{gt}\n")
+
+
+def _build_db(tmp_path, sample_defs, beds=None):
+    """sample_defs = [(name, sex, tech, records)]; beds = {tech: bed_text}."""
+    from afquery.preprocess import run_preprocess
+
+    bed_dir = tmp_path / "beds"
+    bed_dir.mkdir()
+    for tech, text in (beds or {}).items():
+        (bed_dir / f"{tech}.bed").write_text(text)
+    rows = ["sample_name\tsex\ttech_name\tvcf_path\tphenotype_codes"]
+    for name, sex, tech, records in sample_defs:
+        vcf_path = tmp_path / f"{name}.vcf"
+        _write_vcf(vcf_path, name, records)
+        rows.append(f"{name}\t{sex}\t{tech}\t{vcf_path}\tE11.9")
+    manifest = tmp_path / "manifest.tsv"
+    manifest.write_text("\n".join(rows) + "\n")
+    db_path = tmp_path / "db"
+    db_path.mkdir()
+    run_preprocess(
+        manifest_path=str(manifest), output_dir=str(db_path),
+        genome_build="GRCh37", threads=1, bed_dir=str(bed_dir),
+    )
+    return Database(str(db_path))
+
+
+def test_off_target_call_not_listed(tmp_path):
+    """A panel sample with a call outside its BED is neither counted nor listed."""
+    db = _build_db(tmp_path, [
+        ("WGS_HET", "female", "WGS", [("chr1", 5000, "G", "A", "0/1")]),
+        ("PANEL_OFF", "female", "PANEL", [("chr1", 5000, "G", "A", "0/1")]),
+        ("PANEL_IN", "female", "PANEL", [("chr1", 500, "C", "T", "0/1")]),
+    ], beds={"PANEL": "chr1\t0\t1000\n"})
+    [r] = db.query("chr1", 5000)
+    assert r.n_samples_eligible == 1
+    carriers = db.variant_info("chr1", 5000, ref="G", alt="A")
+    assert [c.sample_name for c in carriers] == ["WGS_HET"]
+
+
+def test_carrier_counts_match_query(tmp_path):
+    """variant_info het/hom/alt counts equal query N_HET/N_HOM_ALT/N_FAIL."""
+    db = _build_db(tmp_path, [
+        ("W1", "female", "WGS", [("chr1", 5000, "G", "A", "0/1")]),
+        ("W2", "male",   "WGS", [("chr1", 5000, "G", "A", "1/1")]),
+        ("W3", "female", "WGS", [("chr1", 5000, "G", "A", "0/1", "LowQual")]),
+        ("P1", "female", "PANEL", [("chr1", 5000, "G", "A", "1/1")]),
+        ("P2", "male",   "PANEL", [("chr1", 5000, "G", "A", "0/1", "LowQual")]),
+        ("P3", "female", "PANEL", [("chr1", 500, "G", "A", "0/1")]),
+        ("P4", "female", "PANEL", [("chr1", 500, "G", "A", "1/1")]),
+    ], beds={"PANEL": "chr1\t0\t1000\n"})
+    for pos in (500, 5000):
+        [r] = db.query("chr1", pos)
+        genotypes = [c.genotype for c in db.variant_info("chr1", pos, ref="G", alt="A")]
+        assert genotypes.count("het") == r.N_HET
+        assert genotypes.count("hom") == r.N_HOM_ALT
+        assert genotypes.count("alt") == r.N_FAIL
+
+
+def test_multiallelic_1_2_sample_listed_for_each_allele(tmp_path):
+    """A 1/2 sample carries both alleles and is listed once per allele."""
+    db = _build_db(tmp_path, [
+        ("S12", "female", "WGS", [("chr1", 5000, "G", "A,T", "1/2")]),
+        ("SA",  "female", "WGS", [("chr1", 5000, "G", "A", "0/1")]),
+    ])
+    names_a = [c.sample_name for c in db.variant_info("chr1", 5000, alt="A")]
+    names_t = [c.sample_name for c in db.variant_info("chr1", 5000, alt="T")]
+    assert names_a == ["S12", "SA"]
+    assert names_t == ["S12"]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", AfqueryWarning)
+        both = [c.sample_name for c in db.variant_info("chr1", 5000)]
+    assert sorted(both) == ["S12", "S12", "SA"]
