@@ -2,7 +2,15 @@
 
 AFQuery ingests single-sample, normalized VCF files. While AFQuery itself does not perform VCF normalization, the accuracy of your allele frequency estimates depends on the quality and consistency of your input VCFs. This page explains why normalization matters and provides a reference pipeline.
 
-A ready-to-use normalization script is provided at [`resources/normalize_vcf.sh`](https://github.com/babelomics/afquery/blob/master/resources/normalize_vcf.sh).
+A ready-to-use normalization script is provided at [`resources/normalize_vcf.sh`](https://github.com/babelomics/afquery/blob/master/resources/normalize_vcf.sh). It requires **bcftools 1.20 or later**: older releases refuse to split multi-allelic records and remove duplicates in the same `bcftools norm` call, and the script exits with an error if it finds one.
+
+!!! warning "VCFs normalized with the script from afquery 0.4.2 or earlier"
+    Those versions of the script did not split multi-allelic records, and removed
+    one of two different indels at the same position as a duplicate. Indels from
+    multi-allelic sites could therefore be stored untrimmed (e.g. `CAAAAAAA>CAAAAAAAAAAAA`
+    instead of `C>CAAAAA`), so the same variant appeared under two representations, or
+    were dropped. Re-normalize those VCFs with the current script and rebuild the
+    database to correct them.
 
 
 ---
@@ -17,7 +25,7 @@ Multi-allelic variants and complex indels can be represented in multiple equival
 - Multi-allelic sites may not be decomposed into biallelic records
 - Duplicate records can inflate AC
 
-`bcftools norm` left-aligns indels against the reference genome and decomposes multi-allelic sites, ensuring consistent representation across samples.
+`bcftools norm -m -both` decomposes multi-allelic sites into biallelic records, and left-aligns and trims each allele against the reference genome, ensuring consistent representation across samples. `-d exact` then drops only records whose alleles are identical, so two different alleles at the same position are both kept.
 
 ### Ploidy correction for sex chromosomes
 
