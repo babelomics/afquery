@@ -25,7 +25,7 @@ afquery annotate \
 | `AFQUERY_AF` | Float | A (per ALT) | Allele frequency (`AC / AN`) |
 | `AFQUERY_N_HET` | Integer | A (per ALT) | Heterozygous sample count |
 | `AFQUERY_N_HOM_ALT` | Integer | A (per ALT) | Homozygous alt sample count |
-| `AFQUERY_N_HOM_REF` | Integer | A (per ALT) | Homozygous ref sample count |
+| `AFQUERY_N_HOM_REF` | Integer | A (per ALT) | Homozygous ref sample count, excluding carriers of other ALT alleles at the position (including alleles stored in the database but absent from the input record) |
 | `AFQUERY_N_FAIL` | Integer | 1 (per site) | Eligible samples whose call had FILTER≠PASS. Excluded from AC, but still counted in AN. Mutually exclusive with N_HET/N_HOM_ALT/N_HOM_REF. |
 | `AFQUERY_N_NO_COVERAGE` | Integer | A (per ALT) | Eligible samples whose tech lacks coverage evidence at this position. Excluded from `N_HOM_REF` to keep AC/AN conservative. Always `0` unless a coverage-evidence filter is active. See [Coverage Evidence](../advanced/coverage-evidence.md). |
 

@@ -13,7 +13,7 @@ This page explains what each field in AFQuery output means and how to interpret 
 | **AF** | float | Allele frequency — `AC / AN`. `None` when AN=0 |
 | **N_HET** | int | Number of eligible samples heterozygous for the alt allele (GT=0/1) |
 | **N_HOM_ALT** | int | Number of eligible samples homozygous for the alt allele (GT=1/1 or GT=1). Includes haploid carriers on sex chromosomes and chrM. See [Ploidy](../advanced/ploidy-and-sex-chroms.md#genotype-counting). |
-| **N_HOM_REF** | int | Number of eligible samples homozygous reference (GT=0/0 or GT=0) |
+| **N_HOM_REF** | int | Number of eligible samples homozygous reference (GT=0/0 or GT=0). Samples carrying another ALT allele at the same position are not counted (see [Multi-allelic sites](#multi-allelic-sites)). |
 | **n_eligible** | int | Number of eligible samples — those passing the sex/phenotype/tech filters *and* covered at this position |
 | **N_FAIL** | int | Number of eligible samples whose call at this position had FILTER≠PASS. These samples are counted *only* in N_FAIL — not in N_HET, N_HOM_ALT, or N_HOM_REF — but they stay eligible and still count toward AN. |
 | **N_NO_COVERAGE** | int | Number of eligible samples whose tech lacks coverage evidence at this position. Excluded from `N_HOM_REF` to keep AC/AN conservative. Always `0` unless a coverage-evidence filter is active. See [Coverage Evidence](../advanced/coverage-evidence.md). |
@@ -84,6 +84,19 @@ AN=0 means no eligible samples have coverage at this position. This happens when
 !!! warning "AN=0 does not mean the variant is absent"
     AN=0 means AFQuery has no data to compute frequency. It is not evidence of rarity.
 
+### Multi-allelic sites
+
+Each ALT allele at a position is reported on its own line, and its counts refer to
+that allele only. A sample carrying a different ALT allele at the same position
+(for example `G/T` on the `G>A` line) is neither a carrier nor homozygous
+reference for this allele, so it appears in none of `N_HET`, `N_HOM_ALT`,
+`N_HOM_REF`, `N_FAIL` or `N_NO_COVERAGE`. The five counts add up to
+`n_eligible` at biallelic sites; at a multi-allelic site they fall short by the
+number of such samples. AC, AN and AF are not affected.
+
+A sample with two different ALT alleles (`GT=1/2`) is counted as heterozygous on
+both lines.
+
 ### Warnings
 
 afquery emits a `AfqueryWarning` to stderr when a query may silently return fewer or no results. Common causes:
@@ -126,7 +139,7 @@ When using `afquery annotate`, the following INFO fields are added to each varia
 | `AFQUERY_AF` | A (per ALT) | Allele frequency — one value per ALT allele |
 | `AFQUERY_N_HET` | A (per ALT) | Heterozygous sample count per ALT allele |
 | `AFQUERY_N_HOM_ALT` | A (per ALT) | Homozygous alt sample count per ALT allele |
-| `AFQUERY_N_HOM_REF` | A (per ALT) | Homozygous ref sample count per ALT allele |
+| `AFQUERY_N_HOM_REF` | A (per ALT) | Homozygous ref sample count per ALT allele, excluding carriers of other ALT alleles at the position |
 | `AFQUERY_N_FAIL` | 1 (per site) | Fail sample count — shared across all ALT alleles |
 | `AFQUERY_N_NO_COVERAGE` | A (per ALT) | Eligible samples whose tech lacks coverage evidence at this position. Always `0` unless a coverage-evidence filter is active. See [Coverage Evidence](../advanced/coverage-evidence.md). |
 

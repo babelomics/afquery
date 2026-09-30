@@ -162,3 +162,62 @@ def test_after_add_samples_new_phenotype_matches_oracle(grown_db, data_dir, tmp_
     cohort = oracle.Cohort(grow_manifest, bed_dir=data_dir / "beds")
     _assert_matches(db, cohort, samples=["S10", "S11"],
                     phenotype=["ZZNEW"], label="added-only")
+
+
+# ---------------------------------------------------------------------------
+# Multi-allelic cohort
+# ---------------------------------------------------------------------------
+
+def test_multiallelic_cohort_matches_oracle(tmp_path):
+    """Two ALT alleles at one position, a 1/2 carrier, partial capture and a
+    FILTER failure: every allele's tallies agree with the oracle."""
+    calls = {
+        # name: (sex, tech, [(chrom, pos, ref, alt, gt, filter)])
+        "A_HET":  ("female", "WGS",   [("chr1", 5000, "G", "A", "0/1", "PASS")]),
+        "A_HOM":  ("male",   "WGS",   [("chr1", 5000, "G", "A", "1/1", "PASS")]),
+        "T_HET":  ("female", "WGS",   [("chr1", 5000, "G", "T", "0/1", "PASS")]),
+        "AT_HET": ("male",   "WGS",   [("chr1", 5000, "G", "A,T", "1/2", "PASS")]),
+        "T_FAIL": ("female", "WGS",   [("chr1", 5000, "G", "T", "0/1", "LowQual")]),
+        "REF":    ("female", "WGS",   [("chr1", 100, "C", "G", "0/1", "PASS")]),
+        "P_T":    ("female", "PANEL", [("chr1", 5000, "G", "T", "1/1", "PASS")]),
+        "P_REF":  ("male",   "PANEL", [("chr1", 100, "C", "G", "0/1", "PASS")]),
+        "P_OFF":  ("female", "PANEL", [("chr1", 9000, "C", "G", "0/1", "PASS"),
+                                       ("chr1", 9000, "C", "T", "0/1", "PASS")]),
+        "X_A":    ("male",   "WGS",   [("chrX", 5000000, "A", "G,C", "1", "PASS")]),
+        "X_C":    ("female", "WGS",   [("chrX", 5000000, "A", "C", "0/1", "PASS")]),
+    }
+    beds = tmp_path / "beds"
+    beds.mkdir()
+    (beds / "PANEL.bed").write_text("chr1\t0\t6000\n")
+    manifest = ["sample_name\tsex\ttech_name\tvcf_path\tphenotype_codes"]
+    for name, (sex, tech, records) in calls.items():
+        vcf = tmp_path / f"{name}.vcf"
+        with open(vcf, "w") as f:
+            f.write("##fileformat=VCFv4.2\n")
+            f.write('##FILTER=<ID=LowQual,Description="Low quality">\n')
+            for contig in sorted({r[0] for r in records}):
+                f.write(f"##contig=<ID={contig}>\n")
+            f.write('##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">\n')
+            f.write(f"#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{name}\n")
+            for chrom, pos, ref, alt, gt, flt in records:
+                f.write(f"{chrom}\t{pos}\t.\t{ref}\t{alt}\t.\t{flt}\t.\tGT\t{gt}\n")
+        manifest.append(f"{name}\t{sex}\t{tech}\t{vcf}\tE11.9")
+    manifest_path = tmp_path / "manifest.tsv"
+    manifest_path.write_text("\n".join(manifest) + "\n")
+
+    db = tmp_path / "db"
+    run_preprocess(
+        manifest_path=str(manifest_path), output_dir=str(db),
+        genome_build="GRCh37", bed_dir=str(beds), threads=1,
+    )
+    cohort = oracle.Cohort(manifest_path, bed_dir=beds)
+    _assert_matches(db, cohort, label="multiallelic")
+
+    # Spot-check chr1:5000, where all 11 samples are eligible (the panel BED
+    # covers it). Hom-ref for both alleles: REF, P_REF, P_OFF, X_A, X_C.
+    got = {r.variant.alt: r for r in Database(str(db)).query("chr1", 5000)}
+    assert got["A"].n_samples_eligible == 11
+    # A: A_HET, AT_HET het; A_HOM hom; T_HET, T_FAIL, P_T carry only T.
+    assert (got["A"].N_HET, got["A"].N_HOM_ALT, got["A"].N_HOM_REF) == (2, 1, 5)
+    # T: T_HET, AT_HET het; P_T hom; T_FAIL failed; A_HET, A_HOM carry only A.
+    assert (got["T"].N_HET, got["T"].N_HOM_ALT, got["T"].N_FAIL, got["T"].N_HOM_REF) == (2, 1, 1, 5)

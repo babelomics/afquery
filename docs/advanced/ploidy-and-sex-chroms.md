@@ -103,11 +103,11 @@ afquery query --db ./db/ --locus chrM:3243
 
 ### Counting Identity
 
-For every query result, the following identity holds:
+For every query result at a biallelic site, the following identity holds:
 
 **N_HET + N_HOM_ALT + N_HOM_REF + N_FAIL + N_NO_COVERAGE = n_eligible**
 
-This can be used to validate results. N_HOM_REF is the number of eligible samples that are homozygous reference (i.e., do not carry the alt allele and passed quality filters). N_NO_COVERAGE is 0 unless a coverage-evidence filter is active — see [Coverage Evidence](coverage-evidence.md).
+This can be used to validate results. At a multi-allelic site, eligible samples that carry only another ALT allele at the position fall in none of these categories, so the sum is lower by exactly that number of samples (see [Multi-allelic sites](../getting-started/understanding-output.md#multi-allelic-sites)). N_HOM_REF is the number of eligible samples that are homozygous reference (i.e., carry no ALT allele at the position and passed quality filters). N_NO_COVERAGE is 0 unless a coverage-evidence filter is active — see [Coverage Evidence](coverage-evidence.md).
 
 !!! note "Mutual exclusivity"
     N_HET, N_HOM_ALT, N_HOM_REF, N_FAIL, and N_NO_COVERAGE are mutually exclusive. A sample with a non-ref allele but FILTER≠PASS is counted in N_FAIL only — it does not appear in N_HET or N_HOM_ALT. Likewise, N_HOM_REF counts only PASS-filtered samples.

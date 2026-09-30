@@ -457,8 +457,11 @@ class QueryResult:
     N_NO_COVERAGE: int       # Eligible samples whose tech lacks evidence (excluded from N_HOM_REF)
 ```
 
-The new genotype invariant is
+At a biallelic site the genotype categories partition the eligible samples:
 `N_HET + N_HOM_ALT + N_HOM_REF + N_FAIL + N_NO_COVERAGE == n_samples_eligible`.
+At a multi-allelic site, eligible samples that carry only another ALT allele at
+the position fall in none of these categories for this allele, so the sum is
+lower than `n_samples_eligible` by exactly that number of samples.
 See [Coverage Evidence](../advanced/coverage-evidence.md) for details on
 `N_NO_COVERAGE`.
 

@@ -7,7 +7,6 @@ from . import storage
 from .bitmaps import deserialize
 from .constants import normalize_chrom
 from .models import AfqueryWarning, SampleFilter
-from .ploidy import split_ploidy
 
 logger = logging.getLogger(__name__)
 
@@ -33,8 +32,6 @@ def _compute_chunk_annotations(
             AfqueryWarning, stacklevel=2,
         )
     sample_bm = engine._build_sample_bitmap(sf)
-    male_bm = engine._male_bm
-    female_bm = engine._female_bm
 
     unique_positions = list({pos for pos, _ref, _alts in records})
 
@@ -83,6 +80,9 @@ def _compute_chunk_annotations(
                 if pos in valid_pos_set:
                     variant_data[(pos, ref, alt)] = tuple(bytes(b) for b in row[3:3 + n_bitmap_cols])
 
+    unpacked = {key: engine._unpack_bitmaps(raw) for key, raw in variant_data.items()}
+    sites = engine._site_evidence_by_pos([key[0] for key in unpacked], list(unpacked.values()))
+
     result: dict[tuple[int, str, str], tuple[int, int, bool, int, int, int, int, int]] = {}
     for pos, ref, alts in records:
         eligible, AN = pos_data[pos]
@@ -92,38 +92,19 @@ def _compute_chunk_annotations(
                 continue  # dedup
             if AN == 0:
                 result[key] = (0, 0, False, 0, 0, 0, 0, 0)
-            elif key in variant_data:
-                het_bm, hom_bm, fail_bm, filtered_bm, quality_pass_bm = engine._unpack_bitmaps(
-                    variant_data[key]
+            elif key in unpacked:
+                s = engine._variant_stats(
+                    chrom, pos, eligible, unpacked[key], sites[pos],
+                    sf.min_pass, sf.min_observed, sf.min_quality_evidence,
                 )
-                haploid_elig, diploid_elig = split_ploidy(
-                    eligible, male_bm, female_bm, chrom, pos, engine._genome_build
-                )
-                het_elig = het_bm & eligible
-                hom_elig = hom_bm & eligible
-                AC = (len((het_elig | hom_elig) & haploid_elig)
-                      + len(het_elig & diploid_elig)
-                      + 2 * len(hom_elig & diploid_elig))
-                N_HET = len(het_elig & diploid_elig)
-                N_HOM_ALT = (
-                    len(hom_elig & diploid_elig) + len((het_elig | hom_elig) & haploid_elig)
-                )
-                N_FAIL: int = len(fail_bm & eligible)
-                no_cov_bm = engine._compute_no_coverage_bm(
-                    eligible, het_bm, hom_bm, fail_bm,
-                    sf.min_pass, sf.min_observed,
-                    filtered_bm=filtered_bm,
-                    quality_pass_bm=quality_pass_bm,
-                    min_quality_evidence=sf.min_quality_evidence,
-                )
-                N_NO_COVERAGE = len(no_cov_bm)
-                N_HOM_REF = len(eligible) - N_HET - N_HOM_ALT - N_FAIL - N_NO_COVERAGE
-                result[key] = (AC, AN, True, N_FAIL, N_HET, N_HOM_ALT, N_HOM_REF, N_NO_COVERAGE)
+                result[key] = (s.AC, AN, True, s.N_FAIL, s.N_HET, s.N_HOM_ALT,
+                               s.N_HOM_REF, s.N_NO_COVERAGE)
             else:
-                # Position covered (AN>0) but variant not in Parquet → assume hom-ref
-                # for all eligible samples. Phase 1/2 filters do not apply because
-                # there are no carriers at all to evaluate against.
-                result[key] = (0, AN, False, 0, 0, 0, len(eligible), 0)
+                # Allele not in Parquet: eligible samples are hom-ref unless they
+                # carry another allele stored at this position. Phase 1/2 filters
+                # do not apply because this allele has no carriers to evaluate.
+                n_other = len(sites[pos].carrier_bm & eligible) if pos in sites else 0
+                result[key] = (0, AN, False, 0, 0, 0, len(eligible) - n_other, 0)
 
     return result
 
@@ -170,7 +151,8 @@ def annotate_vcf(
     })
     vcf.add_info_to_header({
         "ID": "AFQUERY_N_HOM_REF", "Number": "A", "Type": "Integer",
-        "Description": "Count of homozygous ref eligible samples per alt allele",
+        "Description": "Count of homozygous ref eligible samples per alt allele, "
+                       "excluding carriers of other alt alleles at the position",
     })
     vcf.add_info_to_header({
         "ID": "AFQUERY_N_FAIL", "Number": "1", "Type": "Integer",

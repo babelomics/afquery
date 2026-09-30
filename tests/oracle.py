@@ -162,13 +162,25 @@ class Cohort:
                     AC += 2
                 n_hom_alt += 1
 
+        # A sample carrying only another allele at this position is not hom-ref
+        # for this one: at a multi-allelic site the tallies do not add up to
+        # n_eligible.
+        n_other = sum(
+            1 for s in elig
+            if s not in calls and any(
+                s in other_calls
+                for (c, p, _r, a), other_calls in self.calls.items()
+                if c == chrom and p == pos and (_r, a) != (ref, alt)
+            )
+        )
+
         return {
             "AC": AC,
             "AN": AN,
             "N_HET": n_het,
             "N_HOM_ALT": n_hom_alt,
             "N_FAIL": n_fail,
-            "N_HOM_REF": len(elig) - n_het - n_hom_alt - n_fail,
+            "N_HOM_REF": len(elig) - n_het - n_hom_alt - n_fail - n_other,
         }
 
     def variants(self) -> list[tuple[str, int, str, str]]:
