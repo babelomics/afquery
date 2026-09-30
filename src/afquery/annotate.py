@@ -81,7 +81,13 @@ def _compute_chunk_annotations(
                     variant_data[(pos, ref, alt)] = tuple(bytes(b) for b in row[3:3 + n_bitmap_cols])
 
     unpacked = {key: engine._unpack_bitmaps(raw) for key, raw in variant_data.items()}
-    sites = engine._site_evidence_by_pos([key[0] for key in unpacked], list(unpacked.values()))
+    stored_by_pos: dict[int, list[tuple]] = {}
+    for (pos, _ref, _alt), bitmaps in unpacked.items():
+        stored_by_pos.setdefault(pos, []).append(bitmaps)
+    sites = {
+        pos: engine._site_evidence(group) if len(group) > 1 else None
+        for pos, group in stored_by_pos.items()
+    }
 
     result: dict[tuple[int, str, str], tuple[int, int, bool, int, int, int, int, int]] = {}
     for pos, ref, alts in records:
@@ -103,7 +109,9 @@ def _compute_chunk_annotations(
                 # Allele not in Parquet: eligible samples are hom-ref unless they
                 # carry another allele stored at this position. Phase 1/2 filters
                 # do not apply because this allele has no carriers to evaluate.
-                n_other = len(sites[pos].carrier_bm & eligible) if pos in sites else 0
+                stored = stored_by_pos.get(pos)
+                n_other = (len(engine._site_evidence(stored).carrier_bm & eligible)
+                           if stored else 0)
                 result[key] = (0, AN, False, 0, 0, 0, len(eligible) - n_other, 0)
 
     return result

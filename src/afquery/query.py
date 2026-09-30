@@ -326,12 +326,18 @@ class QueryEngine:
     @classmethod
     def _site_evidence_by_pos(
         cls, positions: list[int], unpacked_rows: list[tuple],
-    ) -> dict[int, SiteEvidence]:
-        """Group unpacked rows by position and pool each group."""
+    ) -> dict[int, "SiteEvidence | None"]:
+        """Group unpacked rows by position and pool each group.
+
+        Single-allele positions map to None: there is nothing to pool.
+        """
         by_pos: dict[int, list[tuple]] = {}
         for pos, bitmaps in zip(positions, unpacked_rows):
             by_pos.setdefault(pos, []).append(bitmaps)
-        return {pos: cls._site_evidence(group) for pos, group in by_pos.items()}
+        return {
+            pos: cls._site_evidence(group) if len(group) > 1 else None
+            for pos, group in by_pos.items()
+        }
 
     def _variant_stats(
         self,
@@ -339,15 +345,16 @@ class QueryEngine:
         pos: int,
         eligible: BitMap,
         bitmaps: tuple,
-        site: SiteEvidence,
+        site: "SiteEvidence | None",
         min_pass: int,
         min_observed: int,
         min_quality_evidence: int,
     ) -> VariantStats:
         """Genotype tallies for one allele among the eligible samples.
 
-        Eligible samples carrying only another allele at this position are in
-        none of the returned categories, so at a multi-allelic site
+        ``site`` pools every allele at the position (None when this is the only
+        one). Eligible samples carrying only another allele are in none of the
+        returned categories, so at a multi-allelic site
         N_HET + N_HOM_ALT + N_HOM_REF + N_FAIL + N_NO_COVERAGE falls short of
         n_eligible by exactly that number of samples.
         """
@@ -372,9 +379,10 @@ class QueryEngine:
             site=site,
         )
         N_NO_COVERAGE = len(no_cov_bm)
-        other_allele = (site.carrier_bm - (het_bm | hom_bm | fail_bm)) & eligible
-        N_HOM_REF = (len(eligible) - N_HET - N_HOM_ALT - N_FAIL - N_NO_COVERAGE
-                     - len(other_allele))
+        N_OTHER = 0
+        if site is not None:
+            N_OTHER = len((site.carrier_bm - (het_bm | hom_bm | fail_bm)) & eligible)
+        N_HOM_REF = len(eligible) - N_HET - N_HOM_ALT - N_FAIL - N_NO_COVERAGE - N_OTHER
         return VariantStats(AC, N_HET, N_HOM_ALT, N_HOM_REF, N_FAIL, N_NO_COVERAGE)
 
     @staticmethod
@@ -474,7 +482,8 @@ class QueryEngine:
 
         sf = params.filter
         unpacked = [(row[0], row[1], self._unpack_bitmaps(row[2:])) for row in rows]
-        site = self._site_evidence([bitmaps for _ref, _alt, bitmaps in unpacked])
+        site = (self._site_evidence([bitmaps for _ref, _alt, bitmaps in unpacked])
+                if len(unpacked) > 1 else None)
         results = []
         for ref, alt, bitmaps in unpacked:
             stats = self._variant_stats(
@@ -809,7 +818,8 @@ class QueryEngine:
         if not rows:
             return []
 
-        site = self._site_evidence([self._unpack_bitmaps(r[3:]) for r in rows])
+        site = (self._site_evidence([self._unpack_bitmaps(r[3:]) for r in rows])
+                if len(rows) > 1 else None)
         if params.ref is not None:
             rows = [r for r in rows if r[1] == params.ref]
         if params.alt is not None:
