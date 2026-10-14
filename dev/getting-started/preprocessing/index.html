@@ -2161,15 +2161,11 @@ database to correct them.</p>
 </ul>
 <p><code>bcftools norm -m -both</code> decomposes multi-allelic sites into biallelic records, and left-aligns and trims each allele against the reference genome, ensuring consistent representation across samples. <code>-d exact</code> then drops only records whose alleles are identical, so two different alleles at the same position are both kept.</p>
 <h3 id="ploidy-correction-for-sex-chromosomes">Ploidy correction for sex chromosomes</h3>
-<p>Male samples should have haploid genotype calls at chrX non-PAR regions (GT=<code>1</code>, not GT=<code>0/1</code> or <code>1/1</code>). Many variant callers output diploid genotypes for males at chrX by default. Without ploidy correction:</p>
-<ul>
-<li>Males at chrX are counted as diploid → AN is inflated by up to 50%</li>
-<li>AF estimates for X-linked variants are systematically underestimated</li>
-</ul>
+<p>Male samples should have haploid genotype calls at chrX non-PAR regions (GT=<code>1</code>, not GT=<code>0/1</code> or <code>1/1</code>). Many variant callers output diploid genotypes for males at chrX by default. AFQuery takes ploidy from the sample's sex, so a diploid-coded male call still counts as one allele; but a male call carrying two different ALT alleles (<code>1/2</code>) cannot be counted at all and is recorded as a failed call, with a warning during ingestion (see <a href="../../advanced/ploidy-and-sex-chroms/#genotypes-inconsistent-with-ploidy">Genotypes inconsistent with ploidy</a>). <code>bcftools +fixploidy</code> rewrites these genotypes as haploid calls.</p>
 <p><code>bcftools +fixploidy</code> corrects genotype ploidy based on a sex file.</p>
 <h3 id="filtering-and-stripping">Filtering and stripping</h3>
 <ul>
-<li><strong>Non-PASS genotypes</strong>: Masking them as missing ensures that low-quality calls do not inflate AC. AFQuery tracks these as N_FAIL.</li>
+<li><strong>Non-PASS genotypes</strong>: Masking every genotype at a failed site as missing ensures that low-quality calls do not inflate AC, and that no sample there is taken for hom-ref. AFQuery tracks these samples as N_FAIL and leaves them out of AN.</li>
 <li><strong>Homozygous reference calls</strong>: Removing ref/ref genotypes reduces file size and speeds ingestion; they contribute AC=0 and are not needed</li>
 <li><strong>INFO fields</strong>: Stripping INFO reduces file size and speeds ingestion. Additionally, malformed or non-standard INFO fields produced by some variant callers can break downstream parsing; stripping them pre-emptively prevents these errors.</li>
 <li><strong>FORMAT fields</strong>: Only <code>GT</code>, <code>DP</code>, and <code>GQ</code> are preserved. <code>GT</code> is the genotype required by AFQuery for all queries. <code>DP</code> and <code>GQ</code> are read by the <a href="../../advanced/coverage-evidence/">coverage-evidence</a> quality flags (<code>afquery create-db --min-dp / --min-gq / --min-qual / --min-covered</code>). VCFs without <code>DP</code>/<code>GQ</code> are still valid; their carriers simply contribute no quality evidence to the cohort. All other FORMAT fields (<code>PL</code>, <code>AD</code>, etc.) are dropped to reduce file size.</li>

@@ -2281,7 +2281,7 @@
 <h2 id="af-allele-frequency">AF (Allele Frequency)</h2>
 <p>Ratio of AC to AN (<code>AC / AN</code>). Represents the proportion of alleles that are the alternate allele among eligible samples. Returns <code>None</code> when AN=0. See <a href="../../getting-started/concepts/#allele-frequency-ac-an-af">Key Concepts</a>.</p>
 <h2 id="an-allele-number">AN (Allele Number)</h2>
-<p>Total number of alleles examined across eligible samples. For autosomes, AN = 2 × number of eligible diploid samples. For sex chromosomes, AN depends on ploidy. See <a href="../../advanced/ploidy-and-sex-chroms/">Ploidy &amp; Sex Chromosomes</a>.</p>
+<p>Total number of alleles examined across eligible samples, leaving out samples with a failed call at the position (<a href="#n_fail">N_FAIL</a>). For autosomes, AN = 2 × (eligible samples − N_FAIL), or 2 × eligible samples with <code>--fail-as-ref</code>. For sex chromosomes, AN depends on ploidy. See <a href="../../advanced/ploidy-and-sex-chroms/">Ploidy &amp; Sex Chromosomes</a>.</p>
 <h2 id="bitmap">Bitmap</h2>
 <p>See <a href="#roaring-bitmap">Roaring Bitmap</a>.</p>
 <h2 id="bucket">Bucket</h2>
@@ -2291,11 +2291,11 @@
 <h2 id="capture-index">Capture Index</h2>
 <p>An interval tree (stored as a <code>.pkl</code> file) built from a BED file that defines the genomic regions covered by a whole-exome sequencing (WES) technology. Used to determine which WES samples are eligible at a given position. WGS samples do not require a capture index. See <a href="../../getting-started/concepts/#capture-index-wes">Key Concepts</a>.</p>
 <h2 id="eligible-sample">Eligible Sample</h2>
-<p>A sample that passes all query filters (sex, phenotype, technology) and has coverage at the queried position. Only eligible samples contribute to AC and AN. See <a href="../../guides/sample-filtering/">Sample Filtering</a>.</p>
+<p>A sample that passes all query filters (sex, phenotype, technology) and has coverage at the queried position. Only eligible samples contribute to AC and AN, and only if their call there did not fail. See <a href="../../guides/sample-filtering/">Sample Filtering</a>.</p>
 <h2 id="n_fail">N_FAIL</h2>
-<p>The count of eligible samples whose call at a position had FILTER≠PASS in the source VCF. These samples are excluded from AC, but they remain eligible and so still count toward AN. See <a href="../../advanced/filter-pass-tracking/">FILTER=PASS Tracking</a>.</p>
+<p>The count of eligible samples with a failed call (FILTER≠PASS) for any allele at a position. Their genotype there is unknown, so they are left out of AC and AN for every allele at the position. See <a href="../../advanced/filter-pass-tracking/">FILTER=PASS Tracking</a>.</p>
 <h2 id="n_no_coverage">N_NO_COVERAGE</h2>
-<p>The count of eligible samples whose tech lacks coverage evidence at this position. Excluded from <code>N_HOM_REF</code> to keep AC/AN conservative. Always <code>0</code> unless a coverage-evidence filter (<code>--min-pass</code>, <code>--min-observed</code>, <code>--min-quality-evidence</code>, or build-time <code>--min-covered</code>) is active. See <a href="../../advanced/coverage-evidence/">Coverage Evidence</a>.</p>
+<p>The count of eligible samples whose tech lacks coverage evidence at this position. Excluded from <code>N_HOM_REF</code>; they still count in AN. Always <code>0</code> unless a coverage-evidence filter (<code>--min-pass</code>, <code>--min-observed</code>, <code>--min-quality-evidence</code>, or build-time <code>--min-covered</code>) is active. See <a href="../../advanced/coverage-evidence/">Coverage Evidence</a>.</p>
 <h2 id="manifest">Manifest</h2>
 <p>A TSV file that maps each sample to its VCF path, sex, sequencing technology, and phenotype codes. The manifest drives database creation and is parsed into <code>metadata.sqlite</code>. See <a href="../../guides/manifest-format/">Manifest Format</a>.</p>
 <h2 id="metadata-code">Metadata Code</h2>

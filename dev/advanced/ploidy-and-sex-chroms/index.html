@@ -1909,6 +1909,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#genotypes-inconsistent-with-ploidy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Genotypes inconsistent with ploidy
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2410,7 +2421,7 @@
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="c1"># chrY:2787758 — no results (AN=0 for all variants)</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--locus<span class="w"> </span>chrY:2787758<span class="w"> </span>--sex<span class="w"> </span>male
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="c1"># chrY:2787758 C&gt;T  AC=3  AN=856  AF=0.0035  n_eligible=856  N_HET=0  N_HOM_ALT=3  N_HOM_REF=853  N_FAIL=0</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="c1"># chrY:2787758 C&gt;T  AC=3  AN=856  AF=0.0035  n_eligible=856  N_HET=0  N_HOM_ALT=3  N_HOM_REF=853  N_FAIL=0  N_NO_COVERAGE=0</span>
 </code></pre></div>
 <h3 id="chrx-non-par">chrX non-PAR</h3>
 <p>Male samples contribute AN=1, female samples contribute AN=2. This means a cohort of 500 females and 500 males has AN = 500×2 + 500×1 = 1500 at a non-PAR X position.</p>
@@ -2427,10 +2438,10 @@
 <h3 id="counting-identity">Counting Identity</h3>
 <p>For every query result at a biallelic site, the following identity holds:</p>
 <p><strong>N_HET + N_HOM_ALT + N_HOM_REF + N_FAIL + N_NO_COVERAGE = n_eligible</strong></p>
-<p>This can be used to validate results. At a multi-allelic site, eligible samples that carry only another ALT allele at the position fall in none of these categories, so the sum is lower by exactly that number of samples (see <a href="../../getting-started/understanding-output/#multi-allelic-sites">Multi-allelic sites</a>). N_HOM_REF is the number of eligible samples that are homozygous reference (i.e., carry no ALT allele at the position and passed quality filters). N_NO_COVERAGE is 0 unless a coverage-evidence filter is active — see <a href="../coverage-evidence/">Coverage Evidence</a>.</p>
+<p>This can be used to validate results. At a multi-allelic site, eligible samples that carry only another ALT allele at the position fall in none of these categories, so the sum is lower by exactly that number of samples (see <a href="../../getting-started/understanding-output/#multi-allelic-sites">Multi-allelic sites</a>). N_HOM_REF is the number of eligible samples that are homozygous reference (i.e., carry no ALT allele at the position and have no failed call there). N_NO_COVERAGE is 0 unless a coverage-evidence filter is active — see <a href="../coverage-evidence/">Coverage Evidence</a>.</p>
 <div class="admonition note">
 <p class="admonition-title">Mutual exclusivity</p>
-<p>N_HET, N_HOM_ALT, N_HOM_REF, N_FAIL, and N_NO_COVERAGE are mutually exclusive. A sample with a non-ref allele but FILTER≠PASS is counted in N_FAIL only — it does not appear in N_HET or N_HOM_ALT. Likewise, N_HOM_REF counts only PASS-filtered samples.</p>
+<p>N_HET, N_HOM_ALT, N_HOM_REF, N_FAIL, and N_NO_COVERAGE are mutually exclusive. A sample with a failed call (FILTER≠PASS) for any allele at the position is counted in N_FAIL only — it does not appear in N_HET, N_HOM_ALT or N_HOM_REF, and is left out of AC and AN.</p>
 </div>
 <h3 id="chrx-non-par_1">chrX non-PAR</h3>
 <ul>
@@ -2459,6 +2470,13 @@
 <p class="admonition-title">N_HET is always 0 on haploid regions</p>
 <p>On chrY, chrM, and chrX non-PAR for males, all carriers are counted in N_HOM_ALT. N_HET is 0 because haploid samples have only one allele copy — there is no heterozygous state. This is correct behavior, not a bug.</p>
 </div>
+<h3 id="genotypes-inconsistent-with-ploidy">Genotypes inconsistent with ploidy</h3>
+<p>Ploidy comes from each sample's sex and the position, not from how the VCF writes the genotype: a male carrier on chrX non-PAR counts as one allele whether its GT is <code>1</code>, <code>0/1</code> or <code>1/1</code>. Calls that carry more alleles than the sample has cannot be counted that way:</p>
+<ul>
+<li>on a haploid position, two different ALT alleles (e.g. GT=<code>1/2</code> on chrM, or on chrX non-PAR in a male);</li>
+<li>on a diploid position, more than two copies across the records at that position (e.g. <code>1/1</code> for one ALT and <code>0/1</code> for another).</li>
+</ul>
+<p><code>create-db</code> and <code>update-db --add-samples</code> record every call of the sample at such a position as a failed call, so it counts in <code>N_FAIL</code> and is left out of AC and AN, and log a warning naming the sample and the positions. Running <code>bcftools +fixploidy</code> during <a href="../../getting-started/preprocessing/">preprocessing</a> avoids most of these cases on chrX.</p>
 <hr />
 <h2 id="sex-filter-interaction">Sex Filter Interaction</h2>
 <p>When <code>--sex female</code> is used on chrX (non-PAR), AN is purely diploid:</p>

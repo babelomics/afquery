@@ -2253,12 +2253,12 @@
 <tr>
 <td><strong>AN</strong></td>
 <td>int</td>
-<td>Allele number — total alleles examined (adjusted for ploidy and eligible samples)</td>
+<td>Allele number — alleles of the eligible samples with a usable call at this position, adjusted for ploidy. Samples in <code>N_FAIL</code> are left out (counted as hom-ref with <code>--fail-as-ref</code>)</td>
 </tr>
 <tr>
 <td><strong>AF</strong></td>
 <td>float</td>
-<td>Allele frequency — <code>AC / AN</code>. <code>None</code> when AN=0</td>
+<td>Allele frequency — <code>AC / AN</code>. <code>NA</code> (text/TSV) or <code>null</code> (JSON) when AN=0</td>
 </tr>
 <tr>
 <td><strong>N_HET</strong></td>
@@ -2283,12 +2283,12 @@
 <tr>
 <td><strong>N_FAIL</strong></td>
 <td>int</td>
-<td>Number of eligible samples whose call at this position had FILTER≠PASS. These samples are counted <em>only</em> in N_FAIL — not in N_HET, N_HOM_ALT, or N_HOM_REF — but they stay eligible and still count toward AN.</td>
+<td>Number of eligible samples with a failed call (FILTER≠PASS) for any allele at this position — the same value for every allele there. These samples are counted <em>only</em> in N_FAIL, not in N_HET, N_HOM_ALT or N_HOM_REF, and are left out of AC and AN. See <a href="../../advanced/filter-pass-tracking/">FILTER=PASS Tracking</a>.</td>
 </tr>
 <tr>
 <td><strong>N_NO_COVERAGE</strong></td>
 <td>int</td>
-<td>Number of eligible samples whose tech lacks coverage evidence at this position. Excluded from <code>N_HOM_REF</code> to keep AC/AN conservative. Always <code>0</code> unless a coverage-evidence filter is active. See <a href="../../advanced/coverage-evidence/">Coverage Evidence</a>.</td>
+<td>Number of eligible samples whose tech lacks coverage evidence at this position. Excluded from <code>N_HOM_REF</code>; they still count in AN. Always <code>0</code> unless a coverage-evidence filter is active. See <a href="../../advanced/coverage-evidence/">Coverage Evidence</a>.</td>
 </tr>
 </tbody>
 </table>
@@ -2327,12 +2327,14 @@
 <hr />
 <h2 id="special-cases">Special Cases</h2>
 <h3 id="an0-and-afnone">AN=0 and AF=None</h3>
-<p>AN=0 means no eligible samples have coverage at this position. This happens when:</p>
+<p>AN=0 means no eligible sample has a usable call at this position. This happens when:</p>
 <ul>
 <li>All eligible samples are WES or panels and the position is outside capture regions</li>
 <li>The phenotype/sex/technology filter excludes all samples</li>
 <li>The chromosome is not in the database</li>
+<li>Every eligible sample has a failed call there (<code>N_FAIL</code> = <code>n_eligible</code>)</li>
 </ul>
+<p>In the first three cases <code>query</code> returns no line for the position; in the last one it reports the variant with AN=0.</p>
 <div class="admonition warning">
 <p class="admonition-title">AN=0 does not mean the variant is absent</p>
 <p>AN=0 means AFQuery has no data to compute frequency. It is not evidence of rarity.</p>
@@ -2345,6 +2347,10 @@ reference for this allele, so it appears in none of <code>N_HET</code>, <code>N_
 <code>N_HOM_REF</code>, <code>N_FAIL</code> or <code>N_NO_COVERAGE</code>. The five counts add up to
 <code>n_eligible</code> at biallelic sites; at a multi-allelic site they fall short by the
 number of such samples. AC, AN and AF are not affected.</p>
+<p>AN and <code>N_FAIL</code> describe the position, so they are the same on every line of a
+multi-allelic site, and AN equals the reference alleles plus the AC of all its
+ALT alleles. A sample with a failed call for any of the alleles is counted in
+<code>N_FAIL</code> on every line.</p>
 <p>A sample with two different ALT alleles (<code>GT=1/2</code>) is counted as heterozygous on
 both lines.</p>
 <h3 id="warnings">Warnings</h3>
@@ -2390,7 +2396,7 @@ both lines.</p>
 <h3 id="ac0-with-high-an">AC=0 with High AN</h3>
 <p>AC=0 with a high AN (e.g., AN=4000) means the variant was <strong>genuinely not observed</strong> in a well-covered cohort. This is meaningful evidence that the variant is rare or absent in your population.</p>
 <h3 id="n_fail-0">N_FAIL &gt; 0</h3>
-<p>When N_FAIL &gt; 0, some eligible samples had a non-PASS filter at this position in their source VCF. A high N_FAIL relative to AN may indicate a problematic site (e.g., systematic sequencing artifacts). Consider filtering positions with more than 10% of failing (<code>N_FAIL / (AN / 2) &gt; 0.1</code>).</p>
+<p>When N_FAIL &gt; 0, some eligible samples had a non-PASS filter at this position in their source VCF, and AF is computed over the remaining samples. A high N_FAIL relative to <code>n_eligible</code> may indicate a problematic site (e.g., systematic sequencing artifacts). Consider filtering positions where more than 10% of eligible samples failed (<code>N_FAIL / n_eligible &gt; 0.1</code>).</p>
 <hr />
 <h2 id="vcf-annotation-fields">VCF Annotation Fields</h2>
 <p>When using <code>afquery annotate</code>, the following INFO fields are added to each variant:</p>
@@ -2411,12 +2417,12 @@ both lines.</p>
 <tr>
 <td><code>AFQUERY_AN</code></td>
 <td>1 (per site)</td>
-<td>Allele number — shared across all ALT alleles</td>
+<td>Allele number — shared across all ALT alleles; excludes samples in <code>AFQUERY_N_FAIL</code></td>
 </tr>
 <tr>
 <td><code>AFQUERY_AF</code></td>
 <td>A (per ALT)</td>
-<td>Allele frequency — one value per ALT allele</td>
+<td>Allele frequency — one value per ALT allele; <code>.</code> when <code>AFQUERY_AN=0</code></td>
 </tr>
 <tr>
 <td><code>AFQUERY_N_HET</code></td>
@@ -2436,7 +2442,7 @@ both lines.</p>
 <tr>
 <td><code>AFQUERY_N_FAIL</code></td>
 <td>1 (per site)</td>
-<td>Fail sample count — shared across all ALT alleles</td>
+<td>Samples with a failed call for any ALT allele at the position, each counted once</td>
 </tr>
 <tr>
 <td><code>AFQUERY_N_NO_COVERAGE</code></td>

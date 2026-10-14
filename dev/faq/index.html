@@ -2400,7 +2400,7 @@ log reports which ones it dropped.</p>
 <p>On chrX non-PAR positions, males contribute AN=1 and females contribute AN=2. When you filter by <code>--sex female</code>, AN increases (purely diploid denominator) and AF may change. This is correct ploidy-aware behavior. See <a href="../advanced/ploidy-and-sex-chroms/">Ploidy &amp; Special Chromosomes</a>.</p>
 <hr />
 <h2 id="what-does-n_fail-mean-in-query-output">What does N_FAIL mean in query output?</h2>
-<p><code>N_FAIL</code> is the count of eligible samples whose call had <code>FILTER≠PASS</code> at the position. Shown as <code>N_FAIL=N</code> in text output. These samples are excluded from AC, but they stay eligible and still count toward AN. See <a href="../advanced/filter-pass-tracking/">FILTER=PASS Tracking</a>.</p>
+<p><code>N_FAIL</code> is the count of eligible samples whose call had <code>FILTER≠PASS</code> at the position. Shown as <code>N_FAIL=N</code> in text output. These samples are left out of AC and AN, because their genotype there is unknown. See <a href="../advanced/filter-pass-tracking/">FILTER=PASS Tracking</a>.</p>
 <hr />
 <h2 id="can-i-use-any-strings-as-phenotype-codes">Can I use any strings as phenotype codes?</h2>
 <p>Yes. The <code>phenotype_codes</code> column in the manifest accepts arbitrary comma-separated strings. Common choices include ICD-10 codes (<code>E11.9</code>), HPO terms (<code>HP:0001250</code>), or project-specific tags (<code>control</code>, <code>pilot</code>). There is no controlled vocabulary — you define the coding scheme for your cohort.</p>

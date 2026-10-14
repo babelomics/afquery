@@ -2197,9 +2197,8 @@ under the active criteria. At a biallelic site the genotype invariant becomes:</
 <p>At a multi-allelic site, eligible samples that carry only another ALT allele at
 the position fall in none of these categories for this allele, so the sum is
 lower than <code>n_eligible</code> by exactly that number of samples.</p>
-<p>Samples in <code>N_NO_COVERAGE</code> remain in <code>eligible</code> and contribute to <code>AN</code> (just
-like <code>N_FAIL</code>), so AC/AN/AF stay conservative — the field never inflates
-allele frequencies. Two rules always hold:</p>
+<p>Samples in <code>N_NO_COVERAGE</code> remain in <code>eligible</code> and contribute to <code>AN</code>, so
+AC/AN/AF stay conservative — the field never inflates allele frequencies. Two rules always hold:</p>
 <ul>
 <li><strong>Carriers are never reclassified.</strong> A sample with a <code>het</code>, <code>hom</code>, or
   <code>fail</code> call at the position stays in its category. <code>N_NO_COVERAGE</code> only
@@ -2234,6 +2233,10 @@ position. They run at query time, so no database rebuild is needed.</p>
 </table>
 <p>When both flags are &gt;0, both must hold (AND). The default <code>0</code> disables the
 gate.</p>
+<p><code>afquery annotate</code> applies the same gates to input alleles that are not in the
+database. At a position where no sample has any call, no tech has evidence, so
+under any active gate the non-carriers of partially-covered techs are reported
+as <code>N_NO_COVERAGE</code>.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>If your VCFs do not carry <code>FORMAT/DP</code> or <code>FORMAT/GQ</code>, these are the
@@ -2283,7 +2286,7 @@ coverage decision is baked in.</p>
 </tr>
 <tr>
 <td><code>--min-covered K</code></td>
-<td>Per partially-covered tech, the position is "trusted" only if at least K of its carriers pass the quality thresholds. Non-carriers of failing positions are recorded as <code>N_NO_COVERAGE</code>. The gate is evaluated at build time for each ALT allele separately; samples carrying another allele at the position are never counted as <code>N_NO_COVERAGE</code>.</td>
+<td>Per partially-covered tech, the position is "trusted" only if at least K of its carriers pass the quality thresholds. Non-carriers of failing positions are recorded as <code>N_NO_COVERAGE</code>. Carriers of any ALT allele at the position count, so every allele of a multi-allelic site gets the same verdict; samples carrying another allele there are never counted as <code>N_NO_COVERAGE</code>.</td>
 </tr>
 </tbody>
 </table>

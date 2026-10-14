@@ -2234,13 +2234,13 @@
 <td><code>AFQUERY_AN</code></td>
 <td>Integer</td>
 <td>1 (per site)</td>
-<td>Allele number (total alleles examined)</td>
+<td>Allele number (total alleles examined, excluding samples in <code>AFQUERY_N_FAIL</code>)</td>
 </tr>
 <tr>
 <td><code>AFQUERY_AF</code></td>
 <td>Float</td>
 <td>A (per ALT)</td>
-<td>Allele frequency (<code>AC / AN</code>)</td>
+<td>Allele frequency (<code>AC / AN</code>); <code>.</code> when <code>AFQUERY_AN=0</code></td>
 </tr>
 <tr>
 <td><code>AFQUERY_N_HET</code></td>
@@ -2264,13 +2264,13 @@
 <td><code>AFQUERY_N_FAIL</code></td>
 <td>Integer</td>
 <td>1 (per site)</td>
-<td>Eligible samples whose call had FILTER≠PASS. Excluded from AC, but still counted in AN. Mutually exclusive with N_HET/N_HOM_ALT/N_HOM_REF.</td>
+<td>Eligible samples with a failed call (FILTER≠PASS) for any ALT allele at the position, each counted once. Excluded from AC and AN. Mutually exclusive with N_HET/N_HOM_ALT/N_HOM_REF.</td>
 </tr>
 <tr>
 <td><code>AFQUERY_N_NO_COVERAGE</code></td>
 <td>Integer</td>
 <td>A (per ALT)</td>
-<td>Eligible samples whose tech lacks coverage evidence at this position. Excluded from <code>N_HOM_REF</code> to keep AC/AN conservative. Always <code>0</code> unless a coverage-evidence filter is active. See <a href="../../advanced/coverage-evidence/">Coverage Evidence</a>.</td>
+<td>Eligible samples whose tech lacks coverage evidence at this position. Excluded from <code>N_HOM_REF</code>; still counted in AN. Always <code>0</code> unless a coverage-evidence filter is active. See <a href="../../advanced/coverage-evidence/">Coverage Evidence</a>.</td>
 </tr>
 </tbody>
 </table>

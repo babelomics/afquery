@@ -2215,7 +2215,7 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./my_db/<span class="w"> </span>--locus<span class="w"> </span>chr1:925952
 </code></pre></div>
 <p>Example output:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>chr1:925952 G&gt;A  AC=2  AN=6  AF=0.3333  n_eligible=3  N_HET=2  N_HOM_ALT=0  N_HOM_REF=1  N_FAIL=0
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>chr1:925952 G&gt;A  AC=2  AN=6  AF=0.3333  n_eligible=3  N_HET=2  N_HOM_ALT=0  N_HOM_REF=1  N_FAIL=0  N_NO_COVERAGE=0
 </code></pre></div></p>
 <p>Filter to female samples with a specific phenotype:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>afquery<span class="w"> </span>query<span class="w"> </span><span class="se">\</span>
@@ -2293,7 +2293,7 @@
 <tr>
 <td><code>AFQUERY_N_FAIL</code></td>
 <td>1 (per site)</td>
-<td>Samples with FILTER≠PASS</td>
+<td>Samples with a failed call (FILTER≠PASS), left out of AN</td>
 </tr>
 <tr>
 <td><code>AFQUERY_N_NO_COVERAGE</code></td>

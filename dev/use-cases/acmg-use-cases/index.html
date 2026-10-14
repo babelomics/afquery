@@ -2349,7 +2349,7 @@
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span>--phenotype<span class="w"> </span>controls
 </code></pre></div>
 <p>Example output:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>chr7:117559590 C&gt;T  AC=160  AN=2000  AF=0.0800  n_eligible=1000  N_HET=140  N_HOM_ALT=10  N_HOM_REF=850  N_FAIL=0
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>chr7:117559590 C&gt;T  AC=160  AN=2000  AF=0.0800  n_eligible=1000  N_HET=140  N_HOM_ALT=10  N_HOM_REF=850  N_FAIL=0  N_NO_COVERAGE=0
 </code></pre></div>
 <p><strong>Interpretation</strong>: AF=0.08 (8%) with AN=2000 → BA1 criterion met. This variant is benign in the controls subgroup of your cohort.</p>
 <p><strong>Minimum AN for BA1</strong>: An AF estimate is only reliable with sufficient AN. With AN=20, two carriers would give AF=0.10 — this is noise, not evidence.</p>
@@ -2505,11 +2505,11 @@
 <h3 id="step-3-check-ps4">Step 3: Check PS4</h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Cases: 300 samples tagged with the disease</span>
 <a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--locus<span class="w"> </span>chr15:48762884<span class="w"> </span>--ref<span class="w"> </span>C<span class="w"> </span>--alt<span class="w"> </span>T<span class="w"> </span>--phenotype<span class="w"> </span>DISEASE_X
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="c1"># chr15:48762884 C&gt;T  AC=3  AN=580  AF=0.005172  n_eligible=290  N_HET=3  N_HOM_ALT=0  N_HOM_REF=287  N_FAIL=0</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="c1"># chr15:48762884 C&gt;T  AC=3  AN=580  AF=0.005172  n_eligible=290  N_HET=3  N_HOM_ALT=0  N_HOM_REF=287  N_FAIL=0  N_NO_COVERAGE=0</span>
 <a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>
 <a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="c1"># Controls: remaining 2200 samples</span>
 <a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--locus<span class="w"> </span>chr15:48762884<span class="w"> </span>--ref<span class="w"> </span>C<span class="w"> </span>--alt<span class="w"> </span>T<span class="w"> </span>--phenotype<span class="w"> </span>^DISEASE_X
-<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="c1"># chr15:48762884 C&gt;T  AC=0  AN=4220  AF=0.000000  n_eligible=2110  N_HET=0  N_HOM_ALT=0  N_HOM_REF=2110  N_FAIL=0</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="c1"># chr15:48762884 C&gt;T  AC=0  AN=4220  AF=0.000000  n_eligible=2110  N_HET=0  N_HOM_ALT=0  N_HOM_REF=2110  N_FAIL=0  N_NO_COVERAGE=0</span>
 </code></pre></div>
 <p>All 3 carriers are in the disease group. Enrichment is significant (AF=0.005 vs AF=0.000, Fisher's exact p &lt; 0.001). <strong>PS4 applicable</strong> — the variant is enriched in affected individuals.</p>
 <h3 id="summary">Summary</h3>
@@ -2546,7 +2546,7 @@
 <h3 id="chrx-ploidy-effects">chrX Ploidy Effects</h3>
 <p>On chrX non-PAR regions, males contribute AN=1 and females AN=2. A cohort with 80% males has lower AN than expected from sample count alone, and hemizygous males who carry the variant contribute AC=1 as homozygotes. See <a href="../../advanced/ploidy-and-sex-chroms/">Ploidy &amp; Sex Chromosomes</a>.</p>
 <h3 id="high-n_fail-at-the-variant-site">High N_FAIL at the Variant Site</h3>
-<p><code>N_FAIL</code> counts eligible samples whose call at the site failed quality filters (<code>FILTER≠PASS</code>). These samples are excluded from AC but stay in AN, so they cannot inflate AF — if anything they make it slightly more conservative. A high N_FAIL still indicates the site has systematic QC problems, and warrants caution before applying ACMG criteria.</p>
+<p><code>N_FAIL</code> counts eligible samples whose call at the site failed quality filters (<code>FILTER≠PASS</code>). These samples are left out of both AC and AN, so AF is computed over the samples with a usable call. A high N_FAIL means that AF rests on fewer samples and that the site may have systematic QC problems, which warrants caution before applying ACMG criteria.</p>
 <table>
 <thead>
 <tr>

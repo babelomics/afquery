@@ -2334,7 +2334,7 @@
 </tbody>
 </table>
 <h3 id="4-unexpected-n_fail-0">4. Unexpected N_FAIL &gt; 0</h3>
-<p><code>N_FAIL &gt; 0</code> means some eligible samples had a call with <code>FILTER≠PASS</code> at this position. These samples are excluded from AC, but they remain eligible and still count in AN. This is usually benign (1–2 samples), but a high N_FAIL warrants investigation:</p>
+<p><code>N_FAIL &gt; 0</code> means some eligible samples had a call with <code>FILTER≠PASS</code> at this position. These samples are left out of AC and AN. This is usually benign (1–2 samples), but a high N_FAIL warrants investigation:</p>
 <table>
 <thead>
 <tr>
@@ -2353,7 +2353,7 @@
 </tr>
 <tr>
 <td>All eligible samples</td>
-<td>Site-wide QC failure — AF=0 but variant is present in source VCFs</td>
+<td>Site-wide QC failure — AN=0 and AF is <code>NA</code>, although the variant is present in source VCFs</td>
 </tr>
 </tbody>
 </table>

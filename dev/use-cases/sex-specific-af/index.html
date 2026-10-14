@@ -2248,19 +2248,19 @@
 <h3 id="1-query-full-cohort-combined">1. Query full cohort (combined)</h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--locus<span class="w"> </span>chrX:153296777
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>chrX:153296777 C&gt;T  AC=15  AN=2500  AF=0.0060  n_eligible=1500  N_HET=5  N_HOM_ALT=10  N_HOM_REF=1485  N_FAIL=0
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>chrX:153296777 C&gt;T  AC=15  AN=2500  AF=0.0060  n_eligible=1500  N_HET=5  N_HOM_ALT=10  N_HOM_REF=1485  N_FAIL=0  N_NO_COVERAGE=0
 </code></pre></div>
 <p>AN=2500: 500 males × 1 + 1000 females × 2 = 2500 (mixed ploidy). The 10 hemizygous male carriers land in N_HOM_ALT, not N_HET — on haploid positions there is no heterozygous state.</p>
 <h3 id="2-query-males-only-hemizygous-frequency">2. Query males only (hemizygous frequency)</h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--locus<span class="w"> </span>chrX:153296777<span class="w"> </span>--sex<span class="w"> </span>male
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>chrX:153296777 C&gt;T  AC=10  AN=500  AF=0.0200  n_eligible=500  N_HET=0  N_HOM_ALT=10  N_HOM_REF=490  N_FAIL=0
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>chrX:153296777 C&gt;T  AC=10  AN=500  AF=0.0200  n_eligible=500  N_HET=0  N_HOM_ALT=10  N_HOM_REF=490  N_FAIL=0  N_NO_COVERAGE=0
 </code></pre></div>
 <p>Hemizygous rate: 2%. The carriers appear in N_HOM_ALT, not N_HET — males are haploid at chrX non-PAR, so <code>GT=1</code> carriers are counted as homozygous-alt.</p>
 <h3 id="3-query-females-only-carrier-frequency">3. Query females only (carrier frequency)</h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--locus<span class="w"> </span>chrX:153296777<span class="w"> </span>--sex<span class="w"> </span>female
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>chrX:153296777 C&gt;T  AC=5  AN=2000  AF=0.0025  n_eligible=1000  N_HET=5  N_HOM_ALT=0  N_HOM_REF=995  N_FAIL=0
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>chrX:153296777 C&gt;T  AC=5  AN=2000  AF=0.0025  n_eligible=1000  N_HET=5  N_HOM_ALT=0  N_HOM_REF=995  N_FAIL=0  N_NO_COVERAGE=0
 </code></pre></div>
 <p>Carrier rate: 0.25%</p>
 <h3 id="4-python-api-comparison">4. Python API comparison</h3>

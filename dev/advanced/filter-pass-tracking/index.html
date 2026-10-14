@@ -1782,10 +1782,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#background-vcf-filter-field" class="md-nav__link">
+  <a href="#what-counts-as-a-failed-call" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Background: VCF FILTER Field
+        What counts as a failed call
       
     </span>
   </a>
@@ -1793,66 +1793,22 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#fail_bitmap" class="md-nav__link">
+  <a href="#how-failed-calls-are-counted" class="md-nav__link">
     <span class="md-ellipsis">
       
-        fail_bitmap
+        How failed calls are counted
       
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#database-creation" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Database Creation
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#querying-n_fail" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Querying N_FAIL
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Querying N_FAIL">
+    <nav class="md-nav" aria-label="How failed calls are counted">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#cli" class="md-nav__link">
+  <a href="#when-every-eligible-sample-failed" class="md-nav__link">
     <span class="md-ellipsis">
       
-        CLI
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#python-api" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Python API
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#identifying-specific-fail-samples" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Identifying specific FAIL samples
+        When every eligible sample failed
       
     </span>
   </a>
@@ -1865,10 +1821,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#vcf-annotation" class="md-nav__link">
+  <a href="#counting-failed-calls-as-reference" class="md-nav__link">
     <span class="md-ellipsis">
       
-        VCF Annotation
+        Counting failed calls as reference
       
     </span>
   </a>
@@ -1876,10 +1832,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#pass-only-enforcement" class="md-nav__link">
+  <a href="#finding-the-failed-samples" class="md-nav__link">
     <span class="md-ellipsis">
       
-        PASS-Only Enforcement
+        Finding the failed samples
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#vcf-annotation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        VCF annotation
       
     </span>
   </a>
@@ -2194,83 +2161,49 @@
 
 
 <h1 id="filterpass-tracking">FILTER=PASS Tracking</h1>
-<p>AFQuery tracks variants that are called but fail quality filters (<code>FILTER≠PASS</code>). This allows distinguishing between "variant not present" and "variant present but low quality" in your cohort.</p>
+<p>AFQuery keeps the calls that fail quality filters (<code>FILTER≠PASS</code>) instead of discarding them. A failed call tells you the position was looked at but the sample's genotype there is unknown, which is different both from "variant not present" and from "variant present".</p>
 <hr />
-<h2 id="background-vcf-filter-field">Background: VCF FILTER Field</h2>
-<p>In VCF format, the FILTER column indicates whether a variant call passed quality filters:</p>
+<h2 id="what-counts-as-a-failed-call">What counts as a failed call</h2>
+<p>A sample has a failed call at a position when its VCF holds, for any ALT allele there:</p>
 <ul>
-<li><code>PASS</code> or <code>.</code> (missing) — the variant passed all filters</li>
-<li>Any other value (e.g., <code>LowQual</code>, <code>VQSRTrancheSNP99.90to100.00</code>) — the variant failed one or more filters</li>
+<li>a call carrying the ALT allele with <code>FILTER</code> other than <code>PASS</code> or <code>.</code>;</li>
+<li>a missing genotype (<code>./.</code>) at a site that failed a filter; or</li>
+<li>calls that carry more alleles than the sample has at the position, such as two ALT alleles on chrX in a male. These are detected when the VCF is ingested, which logs a warning (see <a href="../ploidy-and-sex-chroms/#genotypes-inconsistent-with-ploidy">Genotypes inconsistent with ploidy</a>).</li>
 </ul>
-<p>AFQuery's default behavior:</p>
-<ul>
-<li>Only <code>FILTER=PASS</code> calls contribute to <strong>AC</strong> (and therefore to <strong>AF</strong>). This is always enforced.</li>
-<li><strong>AN</strong> is not affected by the filter — it counts every eligible sample at the position, failed calls included.</li>
-</ul>
+<p>These samples are stored in the variant's <code>fail_bitmap</code> and reported as <code>N_FAIL</code>. A homozygous-reference call (<code>0/0</code>) is never stored, so at a failed site it would count as hom-ref; <a href="../../getting-started/preprocessing/"><code>normalize_vcf.sh</code></a> avoids this by masking every genotype at a failed site as missing.</p>
 <hr />
-<h2 id="fail_bitmap">fail_bitmap</h2>
-<p>AFQuery stores a third bitmap per variant alongside <code>het_bitmap</code> and <code>hom_bitmap</code>:</p>
+<h2 id="how-failed-calls-are-counted">How failed calls are counted</h2>
+<p>A failed call is judged per <strong>position</strong>, not per allele: a sample with a failed call for any ALT allele at a position has no reliable genotype there. For every allele at that position, the sample:</p>
 <ul>
-<li><strong><code>fail_bitmap</code></strong> — bit set for each sample whose call at this site has <code>FILTER≠PASS</code>. In practice this is two cases: a sample that carries the alt allele but whose call failed a filter, and a sample with a missing genotype (<code>./.</code>) at a site that itself failed a filter.</li>
+<li>adds nothing to <strong>AC</strong>, even if another record at the position called it with <code>FILTER=PASS</code>;</li>
+<li>is left out of <strong>AN</strong>, which counts only the alleles of samples with a usable call;</li>
+<li>is counted in <strong>N_FAIL</strong>, which therefore has the same value on every line of a multi-allelic site;</li>
+<li>stays in <strong>n_eligible</strong>, so <code>N_HET + N_HOM_ALT + N_HOM_REF + N_FAIL + N_NO_COVERAGE</code> still accounts for every eligible sample (see <a href="../../getting-started/understanding-output/#multi-allelic-sites">Multi-allelic sites</a> for the one exception).</li>
 </ul>
-<p>What this means for a sample in <code>fail_bitmap</code>:</p>
-<ul>
-<li>Its alt alleles are <strong>not</strong> counted in AC, so it does not raise AF.</li>
-<li>It is still an eligible sample, so it <strong>is</strong> counted in AN. The failed call lowers AF by sitting in the denominator without contributing to the numerator.</li>
-<li>Its count is exposed separately as <code>N_FAIL</code>.</li>
-</ul>
+<p>Leaving failed calls out of AN keeps AF an estimate over the genotypes that were actually observed. At every position, AN equals the reference alleles plus the AC of all its ALT alleles.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--locus<span class="w"> </span>chr1:925952
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>chr1:925952 G&gt;A  AC=142  AN=2728  AF=0.0521  n_eligible=1371  N_HET=138  N_HOM_ALT=2  N_HOM_REF=1224  N_FAIL=7  N_NO_COVERAGE=0
+</code></pre></div>
+<p>The 7 samples with a failed call are part of <code>n_eligible</code> (138 + 2 + 1224 + 7 = 1371) but not of AN: 2 × (1371 − 7) = 2728.</p>
+<h3 id="when-every-eligible-sample-failed">When every eligible sample failed</h3>
+<p>If all eligible samples have a failed call at a position, AN is 0 and AF is undefined: <code>NA</code> in text and TSV output, <code>null</code> in JSON and the Python API, an empty cell in <code>dump</code>, and <code>.</code> in <code>AFQUERY_AF</code>. <code>N_FAIL</code> still reports how many samples failed.</p>
 <hr />
-<h2 id="database-creation">Database Creation</h2>
-<p>The <code>fail_bitmap</code> is always written, regardless of build options:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>afquery<span class="w"> </span>create-db<span class="w"> </span>--manifest<span class="w"> </span>manifest.tsv<span class="w"> </span>--output-dir<span class="w"> </span>./db/<span class="w"> </span>--genome-build<span class="w"> </span>GRCh38
+<h2 id="counting-failed-calls-as-reference">Counting failed calls as reference</h2>
+<p><code>--fail-as-ref</code> (<code>fail_as_ref=True</code> in the Python API) keeps samples with a failed call in AN, counting them as homozygous reference. It is available on <code>query</code>, <code>annotate</code> and <code>dump</code>, and changes only AN and AF: the failed samples still add nothing to AC and are still reported in <code>N_FAIL</code>.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--locus<span class="w"> </span>chr1:925952<span class="w"> </span>--fail-as-ref
 </code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>chr1:925952 G&gt;A  AC=142  AN=2742  AF=0.0518  n_eligible=1371  N_HET=138  N_HOM_ALT=2  N_HOM_REF=1224  N_FAIL=7  N_NO_COVERAGE=0
+</code></pre></div>
+<p>Because every failed sample is then treated as a non-carrier, the AF is never higher than the default one, which makes it a conservative lower estimate when a site has many failures. AN then no longer equals the reference alleles plus the AC of all ALT alleles.</p>
 <hr />
-<h2 id="querying-n_fail">Querying N_FAIL</h2>
-<h3 id="cli">CLI</h3>
-<p>The <code>N_FAIL</code> count is shown automatically in query output:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--locus<span class="w"> </span>chr1:925952
-</code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>chr1:925952 G&gt;A  AC=142  AN=2742  AF=0.0518  n_eligible=1371  N_HET=138  N_HOM_ALT=2  N_HOM_REF=1224  N_FAIL=7
-</code></pre></div>
-<p><code>N_FAIL=7</code> means 7 eligible samples had a call with FILTER≠PASS at this site. They are part of <code>n_eligible</code> (and of AN), so the genotype counts still add up: 138 + 2 + 1224 + 7 = 1371.</p>
-<h3 id="python-api">Python API</h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">results</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">"chr1"</span><span class="p">,</span> <span class="n">pos</span><span class="o">=</span><span class="mi">925952</span><span class="p">)</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"AC=</span><span class="si">{</span><span class="n">r</span><span class="o">.</span><span class="n">AC</span><span class="si">}</span><span class="s2">  AN=</span><span class="si">{</span><span class="n">r</span><span class="o">.</span><span class="n">AN</span><span class="si">}</span><span class="s2">  FAIL=</span><span class="si">{</span><span class="n">r</span><span class="o">.</span><span class="n">N_FAIL</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">N_FAIL</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  Warning: </span><span class="si">{</span><span class="n">r</span><span class="o">.</span><span class="n">N_FAIL</span><span class="si">}</span><span class="s2"> samples have low-quality calls at this site"</span><span class="p">)</span>
-</code></pre></div>
-<p><code>N_FAIL</code> is always an <code>int</code> (default <code>0</code>).</p>
-<h3 id="identifying-specific-fail-samples">Identifying specific FAIL samples</h3>
-<p>To see which individual samples have FAIL status at a position, use <code>variant-info</code>:</p>
+<h2 id="finding-the-failed-samples">Finding the failed samples</h2>
+<p><code>afquery variant-info</code> lists each sample with a failed call at the position as genotype <code>alt</code> with filter <code>FAIL</code>, along with its technology and phenotypes. This shows whether failures cluster in one technology or sample group. See <a href="../../guides/variant-info/">Variant Info</a>.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>afquery<span class="w"> </span>variant-info<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--locus<span class="w"> </span>chr1:925952
 </code></pre></div>
-<p>Each carrier row shows its <code>filter</code> column as <code>PASS</code> or <code>FAIL</code>, along with sample metadata (technology, phenotype codes). This helps pinpoint whether failures cluster in a specific technology or sample group. See <a href="../../guides/variant-info/">Variant Info</a> for full options.</p>
 <hr />
-<h2 id="vcf-annotation">VCF Annotation</h2>
-<p>Among the INFO fields <code>afquery annotate</code> writes, one reports the failed-call count:</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>AFQUERY_N_FAIL</code></td>
-<td>Integer</td>
-<td>Eligible samples with <code>FILTER≠PASS</code> at this variant</td>
-</tr>
-</tbody>
-</table>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>afquery<span class="w"> </span>annotate<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--input<span class="w"> </span>variants.vcf<span class="w"> </span>--output<span class="w"> </span>annotated.vcf
-</code></pre></div>
-<p>See <a href="../../getting-started/understanding-output/#vcf-annotation-fields">Understanding Output</a> for the full set of <code>AFQUERY_*</code> fields.</p>
-<hr />
-<h2 id="pass-only-enforcement">PASS-Only Enforcement</h2>
-<p>PASS-only counting is always enforced and cannot be turned off. It applies to the numerator only: a failed call never adds an alt allele to AC, but the sample stays in the eligible set and so remains in AN. The result is a deliberately conservative AF — a failed carrier weighs on the denominator without lifting the numerator, which is the safe direction for clinical and research use.</p>
+<h2 id="vcf-annotation">VCF annotation</h2>
+<p><code>afquery annotate</code> writes the same per-position values: <code>AFQUERY_AN</code> excludes failed calls and <code>AFQUERY_N_FAIL</code> counts each failed sample once per site. See <a href="../../getting-started/understanding-output/#vcf-annotation-fields">Understanding Output</a> for the full set of <code>AFQUERY_*</code> fields.</p>
 <hr />
 <h2 id="next-steps">Next Steps</h2>
 <ul>

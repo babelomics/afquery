@@ -2447,6 +2447,12 @@ taken from the Git release tag at build time. In an editable install
 <td>Min quality-passing carriers per partially-covered tech. Requires a database built with <code>--min-dp</code>, <code>--min-gq</code>, <code>--min-qual</code>, or <code>--min-covered</code>. (0 = disabled)</td>
 </tr>
 <tr>
+<td><code>--fail-as-ref</code></td>
+<td>flag</td>
+<td>False</td>
+<td>Count samples with a failed call at the position (<code>N_FAIL</code>) as hom-ref in AN instead of leaving them out. See <a href="../../advanced/filter-pass-tracking/#counting-failed-calls-as-reference">FILTER=PASS Tracking</a>.</td>
+</tr>
+<tr>
 <td><code>--no-warn</code></td>
 <td>flag</td>
 <td>False</td>
@@ -2534,6 +2540,12 @@ taken from the Git release tag at build time. In an editable install
 <td>INTEGER</td>
 <td><code>0</code></td>
 <td>Min quality-passing carriers per partially-covered tech. Requires a database built with <code>--min-dp</code>, <code>--min-gq</code>, <code>--min-qual</code>, or <code>--min-covered</code>. (0 = disabled)</td>
+</tr>
+<tr>
+<td><code>--fail-as-ref</code></td>
+<td>flag</td>
+<td>False</td>
+<td>Count samples with a failed call at the position (<code>N_FAIL</code>) as hom-ref in AN instead of leaving them out. See <a href="../../advanced/filter-pass-tracking/#counting-failed-calls-as-reference">FILTER=PASS Tracking</a>.</td>
 </tr>
 <tr>
 <td><code>--no-warn</code></td>
@@ -2668,6 +2680,12 @@ and <code>AFQUERY_N_NO_COVERAGE</code> INFO fields.</p>
 <td>INTEGER</td>
 <td><code>0</code></td>
 <td>Min quality-passing carriers per partially-covered tech. Requires a database built with <code>--min-dp</code>, <code>--min-gq</code>, <code>--min-qual</code>, or <code>--min-covered</code>. (0 = disabled)</td>
+</tr>
+<tr>
+<td><code>--fail-as-ref</code></td>
+<td>flag</td>
+<td>False</td>
+<td>Count samples with a failed call at the position (<code>N_FAIL</code>) as hom-ref in AN instead of leaving them out. See <a href="../../advanced/filter-pass-tracking/#counting-failed-calls-as-reference">FILTER=PASS Tracking</a>.</td>
 </tr>
 </tbody>
 </table>

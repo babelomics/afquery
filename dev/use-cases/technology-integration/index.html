@@ -2330,7 +2330,7 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--locus<span class="w"> </span>chr1:925952
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="c1"># AN reflects WGS + WES_v1 samples only</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>chr1:925952 G&gt;A  AC=8  AN=200  AF=0.0400  n_eligible=100  N_HET=8  N_HOM_ALT=0  N_HOM_REF=92  N_FAIL=0
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>chr1:925952 G&gt;A  AC=8  AN=200  AF=0.0400  n_eligible=100  N_HET=8  N_HOM_ALT=0  N_HOM_REF=92  N_FAIL=0  N_NO_COVERAGE=0
 </code></pre></div>
 <p>Compare WGS-only vs WES_v1-only to check for technology-specific bias:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--locus<span class="w"> </span>chr1:925952<span class="w"> </span>--tech<span class="w"> </span>wgs
@@ -2342,7 +2342,7 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--locus<span class="w"> </span>chr1:12345678
 <a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="c1"># AN reflects WGS samples only</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>chr1:12345678 C&gt;T  AC=2  AN=80  AF=0.0250  n_eligible=40  N_HET=2  N_HOM_ALT=0  N_HOM_REF=38  N_FAIL=0
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>chr1:12345678 C&gt;T  AC=2  AN=80  AF=0.0250  n_eligible=40  N_HET=2  N_HOM_ALT=0  N_HOM_REF=38  N_FAIL=0  N_NO_COVERAGE=0
 </code></pre></div>
 <p>This is correct. WES samples are automatically excluded because their BED does not cover this position.</p>
 </div>

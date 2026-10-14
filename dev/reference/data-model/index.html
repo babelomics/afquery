@@ -2503,7 +2503,7 @@ every sample stored only in it.</p>
 <tr>
 <td><code>fail_bitmap</code></td>
 <td><code>large_binary</code></td>
-<td>Roaring Bitmap of sample IDs whose call has <code>FILTER≠PASS</code> at this site</td>
+<td>Roaring Bitmap of sample IDs whose call failed at this site</td>
 </tr>
 <tr>
 <td><code>filtered_bitmap</code></td>
@@ -2530,7 +2530,7 @@ every sample stored only in it.</p>
 <li>Bit position = sample ID (0-indexed integer)</li>
 <li><code>het_bitmap</code>: bit set iff the sample is heterozygous with <code>FILTER=PASS</code></li>
 <li><code>hom_bitmap</code>: bit set iff the sample is homozygous alt with <code>FILTER=PASS</code></li>
-<li><code>fail_bitmap</code>: bit set iff the sample's call has <code>FILTER≠PASS</code> — either a carrier whose call failed a filter, or a missing genotype (<code>./.</code>) at a failed site</li>
+<li><code>fail_bitmap</code>: bit set iff the sample's call failed — a carrier whose call has <code>FILTER≠PASS</code>, a missing genotype (<code>./.</code>) at a failed site, or a genotype carrying more alleles than the sample's ploidy. A sample set in the <code>fail_bitmap</code> of any allele at a position is left out of AC, and by default of AN, for every allele there</li>
 <li><code>filtered_bitmap</code>, <code>quality_pass_bitmap</code>: see the Parquet schema above; both are empty unless the database was built with coverage-quality filters</li>
 </ul>
 <p>To deserialize in Python:

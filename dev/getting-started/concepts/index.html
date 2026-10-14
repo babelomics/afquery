@@ -2255,7 +2255,7 @@
 <p>For each variant, AFQuery stores a compressed bitset recording which samples carry the alt allele. For each query, it intersects the carrier bitset with an eligible-sample bitset, counts bits, and returns AC/AN/AF.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Samples → Metadata → Filters → Eligible Bitmap
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>Variants → Genotypes → het/hom Bitmaps
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>Query: (eligible bitmap) AND (carrier bitmap) → AC; count(eligible) → AN; AC/AN → AF
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>Query: (eligible bitmap) AND (carrier bitmap) → AC; count(eligible − failed) → AN; AC/AN → AF
 </code></pre></div>
 <pre class="mermaid"><code>flowchart LR
     subgraph Input
@@ -2269,7 +2269,7 @@
     end
 
     subgraph Result
-        R["AC = popcount(eligible AND carrier)&lt;br/&gt;AN = popcount(eligible) × ploidy&lt;br/&gt;AF = AC / AN"]
+        R["AC = popcount(eligible AND carrier)&lt;br/&gt;AN = popcount(eligible − failed) × ploidy&lt;br/&gt;AF = AC / AN"]
     end
 
     S --&gt; E
@@ -2290,7 +2290,7 @@
 <p>For a given variant (chromosome, position, ref, alt):</p>
 <ul>
 <li><strong>AC</strong> (Allele Count) — number of copies of the alt allele observed across eligible samples</li>
-<li><strong>AN</strong> (Allele Number) — total number of alleles examined (2× diploid samples, 1× haploid)</li>
+<li><strong>AN</strong> (Allele Number) — total number of alleles examined (2× diploid samples, 1× haploid). Samples with a failed call (<code>FILTER≠PASS</code>) at the position are left out, as their genotype there is unknown; they are reported as <code>N_FAIL</code> (see <a href="../../advanced/filter-pass-tracking/">FILTER=PASS Tracking</a>)</li>
 <li><strong>AF</strong> (Allele Frequency) — <code>AC / AN</code> (None when AN = 0)</li>
 </ul>
 <p>A heterozygous carrier contributes AC=1; a homozygous alt carrier contributes AC=2.</p>
@@ -2414,7 +2414,7 @@
 <ul>
 <li><strong><code>het_bitmap</code></strong> — sample is heterozygous (<code>GT=0/1</code>) with <code>FILTER=PASS</code></li>
 <li><strong><code>hom_bitmap</code></strong> — sample is homozygous alt (<code>GT=1/1</code>, or <code>GT=1</code> on haploid regions) with <code>FILTER=PASS</code></li>
-<li><strong><code>fail_bitmap</code></strong> — the sample's call at this site has <code>FILTER≠PASS</code></li>
+<li><strong><code>fail_bitmap</code></strong> — the sample's call at this site failed (<code>FILTER≠PASS</code>, or a genotype inconsistent with its ploidy); see <a href="../../advanced/filter-pass-tracking/">FILTER=PASS Tracking</a></li>
 </ul>
 <p>Each sample has a stable integer ID (0-indexed). The bit position in the bitmap equals the sample ID. Databases built with coverage-quality filters carry two additional bitmaps — see <a href="../../reference/data-model/#parquet-schema">Data Model</a>.</p>
 <h3 id="parquet-storage">Parquet Storage</h3>
@@ -2495,7 +2495,7 @@
 <li>Trailing or leading spaces cause silent mismatch (always use <code>E11.9,I10</code>, never <code>E11.9, I10</code>)</li>
 </ul>
 <hr />
-<p>PASS-only ingestion is always enforced. See <a href="../../advanced/filter-pass-tracking/">FILTER=PASS Tracking</a> for details.</p>
+<p>Only <code>FILTER=PASS</code> calls count towards AC. Failed calls are stored too, and their samples are reported as <code>N_FAIL</code> and left out of AN. See <a href="../../advanced/filter-pass-tracking/">FILTER=PASS Tracking</a> for details.</p>
 <hr />
 <h2 id="next-steps">Next Steps</h2>
 <ul>

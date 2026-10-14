@@ -2285,7 +2285,7 @@
 </div>
 <hr />
 <h2 id="filterpass-behavior">FILTER=PASS Behavior</h2>
-<p>Only <code>FILTER=PASS</code> calls (or calls with no FILTER field) contribute to AC, and therefore to AF. AN is not affected — it counts every eligible sample, failed calls included. Calls that fail a filter are tracked in <code>fail_bitmap</code> and surfaced as <code>N_FAIL</code>. PASS-only counting is always enforced — there is currently no CLI option to change this behaviour.</p>
+<p>Only <code>FILTER=PASS</code> calls (or calls with no FILTER field) contribute to AC. Calls that fail a filter are stored in <code>fail_bitmap</code>; at query time those samples are left out of AC and AN and reported as <code>N_FAIL</code>. Genotypes that carry more alleles than the sample's ploidy (e.g. <code>1/2</code> on chrX in a male) are stored the same way, and ingestion logs a warning listing them.</p>
 <p>See <a href="../../advanced/filter-pass-tracking/">FILTER=PASS Tracking</a> for details.</p>
 <hr />
 <h2 id="coverage-evidence-filters">Coverage-Evidence Filters</h2>
