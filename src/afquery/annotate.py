@@ -36,12 +36,9 @@ def _compute_chunk_annotations(
 
     unique_positions = list({pos for pos, _ref, _alts in records})
 
-    pos_data: dict[int, tuple] = {}
-    for pos in unique_positions:
-        eligible, AN = engine._compute_eligible(chrom, pos, sample_bm)
-        pos_data[pos] = (eligible, AN)
+    pos_data = {pos: engine._compute_eligible(chrom, pos, sample_bm) for pos in unique_positions}
 
-    valid_positions = [p for p in unique_positions if pos_data[p][1] > 0]
+    valid_positions = [p for p in unique_positions if pos_data[p]]
 
     # Bitmap suffix length: 3 (legacy) or 5 (Phase 2)
     n_bitmap_cols = 5 if engine._has_coverage_data else 3
@@ -97,12 +94,12 @@ def _compute_chunk_annotations(
 
     result: dict[tuple[int, str, str], tuple[int, int, bool, int, int, int, int, int]] = {}
     for pos, ref, alts in records:
-        eligible, eligible_AN = pos_data[pos]
+        eligible = pos_data[pos]
         for alt in alts:
             key = (pos, ref, alt)
             if key in result:
                 continue  # dedup
-            if eligible_AN == 0:
+            if not eligible:
                 result[key] = (0, 0, False, 0, 0, 0, 0, 0)
             elif key in unpacked:
                 s = engine._variant_stats(

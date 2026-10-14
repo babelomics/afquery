@@ -12,7 +12,7 @@ from .bitmaps import deserialize
 from .capture import CaptureIndex, describe_capture_problem, load_capture_indices
 from .constants import normalize_chrom, ALL_CHROMS, CHROM_ORDER
 from .models import AfqueryWarning, QueryParams, QueryResult, SampleCarrier, VariantKey, Sample, Technology, SampleFilter
-from .ploidy import compute_AN, split_ploidy
+from .ploidy import split_ploidy
 
 BATCH_IN_THRESHOLD = 10_000
 
@@ -425,12 +425,10 @@ class QueryEngine:
         chrom: str,
         pos: int,
         sample_bitmap: BitMap,
-    ) -> tuple[BitMap, int]:
-        """Return (eligible_bitmap, AN of every eligible sample) for one position.
+    ) -> BitMap:
+        """Return the samples of sample_bitmap that can be genotyped at a position.
 
-        An AN of 0 marks a position where no selected sample can be genotyped.
-        The AN reported for a variant comes from _variant_stats, which leaves
-        out samples with a failed call at the position.
+        Empty when none can; AN is computed per variant by _variant_stats.
         """
         covered = BitMap(self._covered_all_bm)  # start with WGS samples (always covered)
         for tech_id, capture_idx in self._targeted_capture.items():
@@ -448,15 +446,7 @@ class QueryEngine:
         haploid, diploid = split_ploidy(
             eligible, self._male_bm, self._female_bm, chrom, pos, self._genome_build,
         )
-        eligible = haploid | diploid
-
-        AN = compute_AN(
-            eligible,
-            self._male_bm,
-            self._female_bm,
-            chrom, pos, self._genome_build,
-        )
-        return eligible, AN
+        return haploid | diploid
 
     def _parquet_path(self, chrom: str, pos: int) -> Path | None:
         """Resolve Parquet path for a point query. Partitioned takes priority over flat."""
@@ -487,9 +477,9 @@ class QueryEngine:
             return []
 
         sample_bm = self._build_sample_bitmap(params.filter)
-        eligible, AN = self._compute_eligible(chrom, pos, sample_bm)
+        eligible = self._compute_eligible(chrom, pos, sample_bm)
 
-        if AN == 0:
+        if not eligible:
             return []
 
         parquet_path = self._parquet_path(chrom, pos)
@@ -685,20 +675,19 @@ class QueryEngine:
         if not rows:
             return []
 
-        pos_data: dict[int, tuple[BitMap, int]] = {}
+        pos_data: dict[int, BitMap] = {}
         for row in rows:
             pos = row[0]
             if pos not in pos_data:
-                eligible, AN = self._compute_eligible(chrom, pos, sample_bm)
-                pos_data[pos] = (eligible, AN)
+                pos_data[pos] = self._compute_eligible(chrom, pos, sample_bm)
 
-        rows = [row for row in rows if pos_data[row[0]][1] > 0]
+        rows = [row for row in rows if pos_data[row[0]]]
         unpacked = [self._unpack_bitmaps(row[3:]) for row in rows]
         sites = self._site_evidence_by_pos([row[0] for row in rows], unpacked)
         results = []
         for row, bitmaps in zip(rows, unpacked):
             pos, ref, alt = row[0], row[1], row[2]
-            eligible = pos_data[pos][0]
+            eligible = pos_data[pos]
             stats = self._variant_stats(
                 chrom, pos, eligible, bitmaps, sites[pos],
                 min_pass, min_observed, min_quality_evidence, fail_as_ref,
@@ -723,12 +712,11 @@ class QueryEngine:
         """
         unique_positions = list(dict.fromkeys(pos for pos, _ref, _alt in unique_variants))
 
-        pos_data: dict[int, tuple[BitMap, int]] = {}
-        for pos in unique_positions:
-            eligible, AN = self._compute_eligible(chrom, pos, sample_bm)
-            pos_data[pos] = (eligible, AN)
+        pos_data: dict[int, BitMap] = {
+            pos: self._compute_eligible(chrom, pos, sample_bm) for pos in unique_positions
+        }
 
-        valid_positions = [p for p in unique_positions if pos_data[p][1] > 0]
+        valid_positions = [p for p in unique_positions if pos_data[p]]
         if not valid_positions:
             return []
 
@@ -772,7 +760,7 @@ class QueryEngine:
             pos, ref, alt = row[0], row[1], row[2]
             if (pos, ref, alt) not in requested_variants:
                 continue
-            eligible = pos_data[pos][0]
+            eligible = pos_data[pos]
             stats = self._variant_stats(
                 chrom, pos, eligible, bitmaps, sites[pos],
                 min_pass, min_observed, min_quality_evidence, fail_as_ref,
@@ -871,7 +859,7 @@ class QueryEngine:
 
         # Same eligible set as query(): a call outside the sample's capture
         # region is not counted there, so it is not listed here either.
-        eligible, _AN = self._compute_eligible(chrom, pos, sample_bm)
+        eligible = self._compute_eligible(chrom, pos, sample_bm)
         sf = params.filter
 
         carriers: list[SampleCarrier] = []

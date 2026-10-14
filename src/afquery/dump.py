@@ -195,9 +195,9 @@ def _dump_bucket_worker(
         # Base eligible set; a position with no eligible sample is skipped
         if pos not in pos_cache:
             pos_cache[pos] = engine._compute_eligible(chrom, pos, base_bm)
-        eligible, eligible_AN = pos_cache[pos]
+        eligible = pos_cache[pos]
 
-        if eligible_AN == 0:
+        if not eligible:
             continue
 
         s = engine._variant_stats(
@@ -230,7 +230,7 @@ def _dump_bucket_worker(
             cache_key = (g_idx, pos)
             if cache_key not in group_pos_cache:
                 group_pos_cache[cache_key] = engine._compute_eligible(chrom, pos, g_bm)
-            g_eligible = group_pos_cache[cache_key][0]
+            g_eligible = group_pos_cache[cache_key]
 
             g = engine._variant_stats(
                 chrom, pos, g_eligible, bitmaps, sites[pos],
