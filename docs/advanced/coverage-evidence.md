@@ -102,7 +102,7 @@ coverage decision is baked in.
 | `--min-dp D`     | Minimum `FORMAT/DP` per carrier. |
 | `--min-gq G`     | Minimum `FORMAT/GQ` per carrier. |
 | `--min-qual Q`   | Minimum VCF `QUAL` per carrier. |
-| `--min-covered K`| Per partially-covered tech, the position is "trusted" only if at least K of its carriers pass the quality thresholds. Non-carriers of failing positions are recorded as `N_NO_COVERAGE`. The gate is evaluated at build time for each ALT allele separately; samples carrying another allele at the position are never counted as `N_NO_COVERAGE`. |
+| `--min-covered K`| Per partially-covered tech, the position is "trusted" only if at least K of its carriers pass the quality thresholds. Non-carriers of failing positions are recorded as `N_NO_COVERAGE`. Carriers of any ALT allele at the position count, so every allele of a multi-allelic site gets the same verdict; samples carrying another allele there are never counted as `N_NO_COVERAGE`. |
 
 A carrier counts as quality-passing only if **all** active thresholds hold
 (unset thresholds are simply ignored). At least one of these flags must be

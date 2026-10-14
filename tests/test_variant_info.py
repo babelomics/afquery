@@ -469,8 +469,11 @@ def _write_vcf(path, sample_name, records):
             f.write(f"{chrom}\t{pos}\t.\t{ref}\t{alt}\t.\t{flt}\t.\tGT\t{gt}\n")
 
 
-def _build_db(tmp_path, sample_defs, beds=None):
-    """sample_defs = [(name, sex, tech, records)]; beds = {tech: bed_text}."""
+def _build_db(tmp_path, sample_defs, beds=None, **build_options):
+    """sample_defs = [(name, sex, tech, records)]; beds = {tech: bed_text}.
+
+    build_options are passed to run_preprocess (e.g. min_covered=1).
+    """
     from afquery.preprocess import run_preprocess
 
     bed_dir = tmp_path / "beds"
@@ -488,7 +491,7 @@ def _build_db(tmp_path, sample_defs, beds=None):
     db_path.mkdir()
     run_preprocess(
         manifest_path=str(manifest), output_dir=str(db_path),
-        genome_build="GRCh37", threads=1, bed_dir=str(bed_dir),
+        genome_build="GRCh37", threads=1, bed_dir=str(bed_dir), **build_options,
     )
     return Database(str(db_path))
 

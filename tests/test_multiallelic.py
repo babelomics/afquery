@@ -151,3 +151,35 @@ def test_min_pass_failure_never_marks_carriers_uncovered(panel_db):
         carriers = panel_db.variant_info(*SITE, alt="A", min_pass=2)
     no_cov = sorted(c.sample_name for c in carriers if c.genotype == "no_coverage")
     assert no_cov == ["P_R1", "P_R2"]
+
+
+def test_min_covered_judged_per_position(tmp_path):
+    """--min-covered counts quality-passing carriers of every allele at the
+    position: the panel carries A, so it was sequenced here for T as well."""
+    db = _build_db(tmp_path, [
+        ("W_T",  "female", "WGS",   [("chr1", 5000, "G", "T", "0/1")]),
+        ("W_R",  "female", "WGS",   [("chr1", 100, "C", "G", "0/1")]),
+        ("P_A1", "female", "PANEL", [("chr1", 5000, "G", "A", "0/1")]),
+        ("P_A2", "male",   "PANEL", [("chr1", 5000, "G", "A", "0/1")]),
+        ("P_R1", "female", "PANEL", [("chr1", 100, "C", "G", "0/1")]),
+        ("P_R2", "male",   "PANEL", [("chr1", 100, "C", "G", "0/1")]),
+    ], beds={"PANEL": "chr1\t0\t6000\n"}, min_covered=1)
+    by_alt = {r.variant.alt: r for r in db.query(*SITE)}
+    for alt in ("A", "T"):
+        assert by_alt[alt].N_NO_COVERAGE == 0, alt
+    assert by_alt["A"].N_HOM_REF == 3    # W_R, P_R1, P_R2
+    assert by_alt["T"].N_HOM_REF == 3
+
+
+def test_min_covered_still_flags_unevidenced_panel(tmp_path):
+    """With no quality-passing carrier of any allele in the panel, its
+    non-carriers stay uncovered for every allele at the position."""
+    db = _build_db(tmp_path, [
+        ("W_A",  "female", "WGS",   [("chr1", 5000, "G", "A", "0/1")]),
+        ("W_T",  "female", "WGS",   [("chr1", 5000, "G", "T", "0/1")]),
+        ("P_R1", "female", "PANEL", [("chr1", 100, "C", "G", "0/1")]),
+        ("P_R2", "male",   "PANEL", [("chr1", 100, "C", "G", "0/1")]),
+    ], beds={"PANEL": "chr1\t0\t6000\n"}, min_covered=1)
+    by_alt = {r.variant.alt: r for r in db.query(*SITE)}
+    for alt in ("A", "T"):
+        assert by_alt[alt].N_NO_COVERAGE == 2, alt

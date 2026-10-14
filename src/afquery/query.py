@@ -257,10 +257,18 @@ class QueryEngine:
                 if pass_count < min_pass or observed_count < min_observed:
                     no_cov |= tech_eligible - (all_carriers & tech_eligible)
 
-        # Phase 2: stored filtered_bitmap (built per allele, so it may hold
-        # carriers of another allele at the same position)
+        # Phase 2: build-time --min-covered. The stored filtered_bitmap counts the
+        # quality-passing carriers of its own allele only, so at a multi-allelic
+        # site the gate is recomputed from the carriers of every allele there.
         if filtered_bm is not None:
-            no_cov |= (filtered_bm & eligible) - all_carriers
+            min_covered = self._coverage_filter.get("min_covered", 0)
+            if site is None or site.quality_pass_bm is None:
+                no_cov |= (filtered_bm & eligible) - all_carriers
+            elif min_covered > 0:
+                for tech_id in self._targeted_capture:
+                    tech_bm = self._tech_bitmaps.get(str(tech_id), BitMap())
+                    if len(site.quality_pass_bm & tech_bm) < min_covered:
+                        no_cov |= (tech_bm & eligible) - all_carriers
 
         # Phase 2: quality_pass gate (--min-quality-evidence K)
         if quality_pass_bm is not None and min_quality_evidence > 0:
