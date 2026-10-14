@@ -60,16 +60,22 @@ def _read_format_int(variant, field: str) -> int | None:
     return v_int
 
 
-def _exceeds_ploidy(alts: list[str], gt_acs: list[int], ploidy: int) -> bool:
+def _exceeds_ploidy(
+    refs: list[str], alts: list[str], gt_acs: list[int], ploidy: int,
+) -> bool:
     """True if one sample's calls at a position carry more alleles than it has.
 
     A haploid sample can carry one ALT allele at most; a diploid one, two copies.
+    Alleles are told apart by REF and ALT, and a repeated record counts once.
     """
-    carried = [(alt, ac) for alt, ac in zip(alts, gt_acs) if ac > 0]
+    copies: dict[tuple[str, str], int] = {}
+    for ref, alt, ac in zip(refs, alts, gt_acs):
+        if ac > 0:
+            copies[(ref, alt)] = max(ac, copies.get((ref, alt), 0))
     if ploidy == 1:
-        return len({alt for alt, _ac in carried}) > 1
+        return len(copies) > 1
     if ploidy == 2:
-        return sum(ac for _alt, ac in carried) > 2
+        return sum(copies.values()) > 2
     return False  # no allele here (chrY in a female): never eligible
 
 
@@ -110,7 +116,7 @@ def ingest_sample(
         if site is None:
             return
         ploidy = sample_ploidy(site[0], site[1], sex, genome_build)
-        if _exceeds_ploidy(alts[site_start:], gt_acs[site_start:], ploidy):
+        if _exceeds_ploidy(refs[site_start:], alts[site_start:], gt_acs[site_start:], ploidy):
             for i in range(site_start, len(filter_passes)):
                 filter_passes[i] = False
             inconsistent.append(f"{site[0]}:{site[1]}")

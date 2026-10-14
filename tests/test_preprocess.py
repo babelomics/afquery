@@ -382,6 +382,25 @@ class TestIngest:
         _out, _, inconsistent = ingest_sample(0, str(vcf), str(tmp_path), "female", "GRCh37")
         assert inconsistent == []
 
+    def test_haploid_alleles_told_apart_by_ref(self, tmp_path):
+        """A SNV and a deletion with the same ALT string are two alleles."""
+        vcf = tmp_path / "s0.vcf"
+        _write_vcf(vcf, "S0", [
+            ("chrX", 5_000_000, "G", "A", "1"),
+            ("chrX", 5_000_000, "GA", "A", "1"),
+        ])
+        _out, _, inconsistent = ingest_sample(0, str(vcf), str(tmp_path), "male", "GRCh37")
+        assert inconsistent == ["chrX:5000000"]
+
+    def test_repeated_record_counted_once(self, tmp_path):
+        vcf = tmp_path / "s0.vcf"
+        _write_vcf(vcf, "S0", [
+            ("chr1", 1000, "A", "T", "1/1"),
+            ("chr1", 1000, "A", "T", "1/1"),
+        ])
+        _out, _, inconsistent = ingest_sample(0, str(vcf), str(tmp_path), "female", "GRCh37")
+        assert inconsistent == []
+
     def test_more_than_two_copies_recorded_as_failed(self, tmp_path):
         """1/1 for one ALT and 0/1 for another in separate records: three copies."""
         vcf = tmp_path / "s0.vcf"

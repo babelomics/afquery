@@ -118,7 +118,7 @@ class Cohort:
             if chrom == "chrY" and self.sex[sample] != "male":
                 continue
             if self.is_haploid(sample, chrom, pos):
-                over = len({k[3] for k in carried}) > 1
+                over = len({k[2:] for k in carried}) > 1
             else:
                 over = sum(2 if st == "hom" else 1 for st in states if st in ("het", "hom")) > 2
             if over:
