@@ -183,3 +183,20 @@ def test_min_covered_still_flags_unevidenced_panel(tmp_path):
     by_alt = {r.variant.alt: r for r in db.query(*SITE)}
     for alt in ("A", "T"):
         assert by_alt[alt].N_NO_COVERAGE == 2, alt
+
+
+def test_annotate_absent_allele_shares_site_coverage(panel_db, tmp_path):
+    """C is not stored: under --min-pass 2 the panel's non-carriers are as
+    uncovered for C as they are for the stored A and T."""
+    vcf_in = tmp_path / "in.vcf"
+    vcf_in.write_text(
+        "##fileformat=VCFv4.2\n"
+        "##contig=<ID=chr1>\n"
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+        "chr1\t5000\t.\tG\tA,T,C\t.\tPASS\t.\n"
+    )
+    out = tmp_path / "out.vcf"
+    panel_db.annotate_vcf(str(vcf_in), str(out), min_pass=2)
+    [v] = list(cyvcf2.VCF(str(out)))
+    assert tuple(v.INFO.get("AFQUERY_N_NO_COVERAGE")) == (2, 2, 2)
+    assert tuple(v.INFO.get("AFQUERY_N_HOM_REF")) == (2, 2, 2)

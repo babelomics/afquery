@@ -2,6 +2,7 @@ import logging
 import os
 import warnings
 import duckdb
+from pyroaring import BitMap
 
 from . import storage
 from .bitmaps import deserialize
@@ -89,6 +90,10 @@ def _compute_chunk_annotations(
         for pos, group in stored_by_pos.items()
     }
 
+    empty = BitMap()
+    stored_empty = empty if engine._has_coverage_data else None
+    no_carriers = (empty, empty, empty, stored_empty, stored_empty)
+
     result: dict[tuple[int, str, str], tuple[int, int, bool, int, int, int, int, int]] = {}
     for pos, ref, alts in records:
         eligible, AN = pos_data[pos]
@@ -105,14 +110,22 @@ def _compute_chunk_annotations(
                 )
                 result[key] = (s.AC, AN, True, s.N_FAIL, s.N_HET, s.N_HOM_ALT,
                                s.N_HOM_REF, s.N_NO_COVERAGE)
+            elif pos in stored_by_pos:
+                # Allele not in Parquet, but others are stored at this position:
+                # it has no carriers, and the rest of its tallies come from the
+                # site, as for the stored alleles.
+                s = engine._variant_stats(
+                    chrom, pos, eligible, no_carriers,
+                    engine._site_evidence(stored_by_pos[pos]),
+                    sf.min_pass, sf.min_observed, sf.min_quality_evidence,
+                )
+                result[key] = (s.AC, AN, False, s.N_FAIL, s.N_HET, s.N_HOM_ALT,
+                               s.N_HOM_REF, s.N_NO_COVERAGE)
             else:
-                # Allele not in Parquet: eligible samples are hom-ref unless they
-                # carry another allele stored at this position. Phase 1/2 filters
-                # do not apply because this allele has no carriers to evaluate.
-                stored = stored_by_pos.get(pos)
-                n_other = (len(engine._site_evidence(stored).carrier_bm & eligible)
-                           if stored else 0)
-                result[key] = (0, AN, False, 0, 0, 0, len(eligible) - n_other, 0)
+                # Nothing stored at this position: every eligible sample is
+                # hom-ref. Coverage-evidence filters do not apply, as there is
+                # no call to evaluate.
+                result[key] = (0, AN, False, 0, 0, 0, len(eligible), 0)
 
     return result
 
