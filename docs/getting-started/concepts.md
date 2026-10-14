@@ -214,7 +214,7 @@ When planning phenotype codes, consider:
 
 ---
 
-PASS-only ingestion is always enforced. See [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md) for details.
+Only `FILTER=PASS` calls count towards AC. Failed calls are stored too, and their samples are reported as `N_FAIL` and left out of AN. See [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md) for details.
 
 ---
 

@@ -70,7 +70,7 @@ afquery query --db ./my_db/ --locus chr1:925952
 
 Example output:
 ```
-chr1:925952 G>A  AC=2  AN=6  AF=0.3333  n_eligible=3  N_HET=2  N_HOM_ALT=0  N_HOM_REF=1  N_FAIL=0
+chr1:925952 G>A  AC=2  AN=6  AF=0.3333  n_eligible=3  N_HET=2  N_HOM_ALT=0  N_HOM_REF=1  N_FAIL=0  N_NO_COVERAGE=0
 ```
 
 Filter to female samples with a specific phenotype:

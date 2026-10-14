@@ -95,7 +95,7 @@ beds/
     ```
 
     ```
-    chr1:925952 G>A  AC=8  AN=200  AF=0.0400  n_eligible=100  N_HET=8  N_HOM_ALT=0  N_HOM_REF=92  N_FAIL=0
+    chr1:925952 G>A  AC=8  AN=200  AF=0.0400  n_eligible=100  N_HET=8  N_HOM_ALT=0  N_HOM_REF=92  N_FAIL=0  N_NO_COVERAGE=0
     ```
 
     Compare WGS-only vs WES_v1-only to check for technology-specific bias:
@@ -115,7 +115,7 @@ beds/
     ```
 
     ```
-    chr1:12345678 C>T  AC=2  AN=80  AF=0.0250  n_eligible=40  N_HET=2  N_HOM_ALT=0  N_HOM_REF=38  N_FAIL=0
+    chr1:12345678 C>T  AC=2  AN=80  AF=0.0250  n_eligible=40  N_HET=2  N_HOM_ALT=0  N_HOM_REF=38  N_FAIL=0  N_NO_COVERAGE=0
     ```
 
     This is correct. WES samples are automatically excluded because their BED does not cover this position.

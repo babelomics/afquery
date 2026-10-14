@@ -74,7 +74,7 @@ afquery query --db ./demo_db/ --locus chr1:925952
 Example output:
 
 ```
-chr1:925952 G>A  AC=6  AN=20  AF=0.3000  n_eligible=10  N_HET=4  N_HOM_ALT=1  N_HOM_REF=5  N_FAIL=0
+chr1:925952 G>A  AC=6  AN=20  AF=0.3000  n_eligible=10  N_HET=4  N_HOM_ALT=1  N_HOM_REF=5  N_FAIL=0  N_NO_COVERAGE=0
 ```
 
 ### Reading the output
@@ -176,7 +176,7 @@ afquery query --db ./demo_db/ --locus chr1:925952 --sex female
 Example output:
 
 ```
-chr1:925952 G>A  AC=3  AN=10  AF=0.3000  n_eligible=5  N_HET=3  N_HOM_ALT=0  N_HOM_REF=2  N_FAIL=0
+chr1:925952 G>A  AC=3  AN=10  AF=0.3000  n_eligible=5  N_HET=3  N_HOM_ALT=0  N_HOM_REF=2  N_FAIL=0  N_NO_COVERAGE=0
 ```
 
 Now query male samples:
@@ -188,7 +188,7 @@ afquery query --db ./demo_db/ --locus chr1:925952 --sex male
 Example output:
 
 ```
-chr1:925952 G>A  AC=3  AN=10  AF=0.3000  n_eligible=5  N_HET=1  N_HOM_ALT=1  N_HOM_REF=3  N_FAIL=0
+chr1:925952 G>A  AC=3  AN=10  AF=0.3000  n_eligible=5  N_HET=1  N_HOM_ALT=1  N_HOM_REF=3  N_FAIL=0  N_NO_COVERAGE=0
 ```
 
 AN drops from 20 to 10 in both cases because only 5 samples are eligible. The AF happens to be identical here (0.3000), but the genotype distributions differ: the male group has one homozygous-alt carrier while the female group has three heterozygous carriers.
@@ -206,7 +206,7 @@ afquery query --db ./demo_db/ --locus chr1:925952 --phenotype E11.9
 Example output:
 
 ```
-chr1:925952 G>A  AC=5  AN=8  AF=0.6250  n_eligible=4  N_HET=3  N_HOM_ALT=1  N_HOM_REF=0  N_FAIL=0
+chr1:925952 G>A  AC=5  AN=8  AF=0.6250  n_eligible=4  N_HET=3  N_HOM_ALT=1  N_HOM_REF=0  N_FAIL=0  N_NO_COVERAGE=0
 ```
 
 Exclude control samples:
@@ -218,7 +218,7 @@ afquery query --db ./demo_db/ --locus chr1:925952 --phenotype ^control
 Example output:
 
 ```
-chr1:925952 G>A  AC=6  AN=12  AF=0.5000  n_eligible=6  N_HET=4  N_HOM_ALT=1  N_HOM_REF=1  N_FAIL=0
+chr1:925952 G>A  AC=6  AN=12  AF=0.5000  n_eligible=6  N_HET=4  N_HOM_ALT=1  N_HOM_REF=1  N_FAIL=0  N_NO_COVERAGE=0
 ```
 
 The `^` prefix means "exclude". Excluding controls removes 4 samples, leaving 6. See [Sample Filtering](../guides/sample-filtering.md) for the full syntax.
@@ -236,7 +236,7 @@ afquery query --db ./demo_db/ --locus chr1:925952 --tech wgs
 Example output:
 
 ```
-chr1:925952 G>A  AC=4  AN=8  AF=0.5000  n_eligible=4  N_HET=2  N_HOM_ALT=1  N_HOM_REF=1  N_FAIL=0
+chr1:925952 G>A  AC=4  AN=8  AF=0.5000  n_eligible=4  N_HET=2  N_HOM_ALT=1  N_HOM_REF=1  N_FAIL=0  N_NO_COVERAGE=0
 ```
 
 Now query each WES technology separately:
@@ -246,7 +246,7 @@ afquery query --db ./demo_db/ --locus chr1:925952 --tech wes_v1
 ```
 
 ```
-chr1:925952 G>A  AC=1  AN=6  AF=0.1667  n_eligible=3  N_HET=1  N_HOM_ALT=0  N_HOM_REF=2  N_FAIL=0
+chr1:925952 G>A  AC=1  AN=6  AF=0.1667  n_eligible=3  N_HET=1  N_HOM_ALT=0  N_HOM_REF=2  N_FAIL=0  N_NO_COVERAGE=0
 ```
 
 ```bash
@@ -254,7 +254,7 @@ afquery query --db ./demo_db/ --locus chr1:925952 --tech wes_v2
 ```
 
 ```
-chr1:925952 G>A  AC=1  AN=6  AF=0.1667  n_eligible=3  N_HET=1  N_HOM_ALT=0  N_HOM_REF=2  N_FAIL=0
+chr1:925952 G>A  AC=1  AN=6  AF=0.1667  n_eligible=3  N_HET=1  N_HOM_ALT=0  N_HOM_REF=2  N_FAIL=0  N_NO_COVERAGE=0
 ```
 
 `chr1:925952` falls inside the `chr1:900000-950000` capture region shared by both WES kits. All 3 wes_v1 samples and all 3 wes_v2 samples are covered, so AN=6 (3 samples × 2 alleles) for both.
@@ -268,7 +268,7 @@ afquery query --db ./demo_db/ --locus chr1:1399914 --tech wgs
 ```
 
 ```
-chr1:1399914 G>T  AC=2  AN=8  AF=0.2500  n_eligible=4  N_HET=2  N_HOM_ALT=0  N_HOM_REF=2  N_FAIL=0
+chr1:1399914 G>T  AC=2  AN=8  AF=0.2500  n_eligible=4  N_HET=2  N_HOM_ALT=0  N_HOM_REF=2  N_FAIL=0  N_NO_COVERAGE=0
 ```
 
 ```bash
@@ -302,7 +302,7 @@ afquery query \
 Example output:
 
 ```
-chr1:925952 G>A  AC=1  AN=2  AF=0.5000  n_eligible=1  N_HET=1  N_HOM_ALT=0  N_HOM_REF=0  N_FAIL=0
+chr1:925952 G>A  AC=1  AN=2  AF=0.5000  n_eligible=1  N_HET=1  N_HOM_ALT=0  N_HOM_REF=0  N_FAIL=0  N_NO_COVERAGE=0
 ```
 
 Only one sample meets all three criteria (DEMO_001: female, wgs, E11.9). With n_eligible=1, AN=2 (one diploid sample on an autosome) and AC=1 (heterozygous carrier).
