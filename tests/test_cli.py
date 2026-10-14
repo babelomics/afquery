@@ -47,9 +47,9 @@ def test_query_text_format(runner, test_db):
         "--locus", "1:1500", "--phenotype", "E11.9",
     ])
     assert result.exit_code == 0
-    assert "AC=4" in result.output
-    assert "AN=10" in result.output
-    assert "AF=0.4000" in result.output
+    assert "AC=3" in result.output
+    assert "AN=8" in result.output
+    assert "AF=0.3750" in result.output
 
 
 def test_query_text_no_results(runner, test_db):
@@ -72,9 +72,9 @@ def test_query_json_format(runner, test_db):
     assert result.exit_code == 0
     data = json.loads(result.output)
     assert len(data) == 1
-    assert data[0]["AC"] == 4
-    assert data[0]["AN"] == 10
-    assert abs(data[0]["AF"] - 0.4) < 1e-9
+    assert data[0]["AC"] == 3
+    assert data[0]["AN"] == 8
+    assert abs(data[0]["AF"] - 0.375) < 1e-9
 
 
 def test_query_json_empty(runner, test_db):
@@ -100,8 +100,8 @@ def test_query_tsv_format(runner, test_db):
     assert lines[0].startswith("chrom\tpos\tref\talt")
     assert len(lines) == 2  # header + 1 variant
     fields = lines[1].split("\t")
-    assert fields[4] == "4"   # AC
-    assert fields[5] == "10"  # AN
+    assert fields[4] == "3"   # AC
+    assert fields[5] == "8"   # AN
 
 
 # --- sex filter ---

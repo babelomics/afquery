@@ -200,3 +200,86 @@ def test_annotate_absent_allele_shares_site_coverage(panel_db, tmp_path):
     [v] = list(cyvcf2.VCF(str(out)))
     assert tuple(v.INFO.get("AFQUERY_N_NO_COVERAGE")) == (2, 2, 2)
     assert tuple(v.INFO.get("AFQUERY_N_HOM_REF")) == (2, 2, 2)
+
+
+# ---------------------------------------------------------------------------
+# Failed calls are judged per position
+# ---------------------------------------------------------------------------
+
+FAIL_COHORT = [
+    ("AT",      "female", "WGS", [("chr1", 5000, "G", "A,T", "1/2")]),
+    ("AHET",    "female", "WGS", [("chr1", 5000, "G", "A", "0/1")]),
+    ("THOM",    "male",   "WGS", [("chr1", 5000, "G", "T", "1/1")]),
+    # As written by normalize_vcf.sh: split records, GT masked at a failed site
+    ("F_SPLIT", "male",   "WGS", [("chr1", 5000, "G", "A", "./.", "LowQual"),
+                                  ("chr1", 5000, "G", "T", "./.", "LowQual")]),
+    ("F_MULTI", "male",   "WGS", [("chr1", 5000, "G", "A,T", "1/2", "LowQual")]),
+    ("F_A",     "female", "WGS", [("chr1", 5000, "G", "A", "0/1", "LowQual")]),
+    ("REF1",    "female", "WGS", [("chr1", 100, "C", "G", "0/1")]),
+    ("REF2",    "male",   "WGS", [("chr1", 100, "C", "G", "0/1")]),
+]
+
+
+@pytest.fixture(scope="module")
+def fail_db(tmp_path_factory):
+    return _build_db(tmp_path_factory.mktemp("multiallelic_fail"), FAIL_COHORT)
+
+
+def test_failed_calls_leave_an_for_every_allele(fail_db):
+    """A failed call for any allele is out of AN: AN = AC_ref + sum of AC."""
+    by_alt = {r.variant.alt: r for r in fail_db.query(*SITE)}
+    assert (by_alt["A"].AC, by_alt["T"].AC) == (2, 3)
+    for r in by_alt.values():
+        assert r.AN == 10          # 5 called diploid samples
+        assert r.N_FAIL == 3       # F_SPLIT, F_MULTI, F_A: the same for both alleles
+        assert r.n_samples_eligible == 8
+    assert (by_alt["A"].N_HOM_REF, by_alt["T"].N_HOM_REF) == (2, 2)
+    ac_ref = 1 + 2 + 2             # AHET, REF1, REF2
+    assert by_alt["A"].AN == ac_ref + by_alt["A"].AC + by_alt["T"].AC
+
+
+def test_annotate_counts_each_failed_sample_once(fail_db, tmp_path):
+    vcf_in = tmp_path / "in.vcf"
+    vcf_in.write_text(
+        "##fileformat=VCFv4.2\n"
+        "##contig=<ID=chr1>\n"
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+        "chr1\t5000\t.\tG\tA,T\t.\tPASS\t.\n"
+    )
+    out = tmp_path / "out.vcf"
+    fail_db.annotate_vcf(str(vcf_in), str(out))
+    [v] = list(cyvcf2.VCF(str(out)))
+    assert v.INFO.get("AFQUERY_N_FAIL") == 3
+    assert v.INFO.get("AFQUERY_AN") == 10
+
+
+def test_variant_info_lists_site_failures_for_each_allele(fail_db):
+    """F_A failed at the position, so it is listed as alt/FAIL for T as well,
+    matching N_FAIL."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", AfqueryWarning)
+        carriers = fail_db.variant_info(*SITE, alt="T")
+    failed = sorted(c.sample_name for c in carriers if c.genotype == "alt")
+    assert failed == ["F_A", "F_MULTI", "F_SPLIT"]
+
+
+def test_all_eligible_failed_gives_an_zero(tmp_path):
+    db = _build_db(tmp_path, [
+        ("F1", "female", "WGS", [("chr1", 5000, "G", "A", "0/1", "LowQual")]),
+        ("F2", "male",   "WGS", [("chr1", 5000, "G", "A", "./.", "LowQual")]),
+    ])
+    [r] = db.query(*SITE)
+    assert (r.AC, r.AN, r.AF, r.N_FAIL) == (0, 0, None, 2)
+    vcf_in = tmp_path / "in.vcf"
+    vcf_in.write_text(
+        "##fileformat=VCFv4.2\n"
+        "##contig=<ID=chr1>\n"
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+        "chr1\t5000\t.\tG\tA\t.\tPASS\t.\n"
+    )
+    out = tmp_path / "out.vcf"
+    db.annotate_vcf(str(vcf_in), str(out))
+    [v] = list(cyvcf2.VCF(str(out)))
+    assert v.INFO.get("AFQUERY_AN") == 0
+    assert v.INFO.get("AFQUERY_N_FAIL") == 2
+    assert "AFQUERY_AF=." in str(v)

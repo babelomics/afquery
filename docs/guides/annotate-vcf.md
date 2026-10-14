@@ -21,13 +21,13 @@ afquery annotate \
 | Field | Type | Number | Description |
 |-------|------|--------|-------------|
 | `AFQUERY_AC` | Integer | A (per ALT) | Allele count in eligible samples |
-| `AFQUERY_AN` | Integer | 1 (per site) | Allele number (total alleles examined) |
-| `AFQUERY_AF` | Float | A (per ALT) | Allele frequency (`AC / AN`) |
+| `AFQUERY_AN` | Integer | 1 (per site) | Allele number (total alleles examined, excluding samples in `AFQUERY_N_FAIL`) |
+| `AFQUERY_AF` | Float | A (per ALT) | Allele frequency (`AC / AN`); `.` when `AFQUERY_AN=0` |
 | `AFQUERY_N_HET` | Integer | A (per ALT) | Heterozygous sample count |
 | `AFQUERY_N_HOM_ALT` | Integer | A (per ALT) | Homozygous alt sample count |
 | `AFQUERY_N_HOM_REF` | Integer | A (per ALT) | Homozygous ref sample count, excluding carriers of other ALT alleles at the position (including alleles stored in the database but absent from the input record) |
-| `AFQUERY_N_FAIL` | Integer | 1 (per site) | Eligible samples whose call had FILTER≠PASS. Excluded from AC, but still counted in AN. Mutually exclusive with N_HET/N_HOM_ALT/N_HOM_REF. |
-| `AFQUERY_N_NO_COVERAGE` | Integer | A (per ALT) | Eligible samples whose tech lacks coverage evidence at this position. Excluded from `N_HOM_REF` to keep AC/AN conservative. Always `0` unless a coverage-evidence filter is active. See [Coverage Evidence](../advanced/coverage-evidence.md). |
+| `AFQUERY_N_FAIL` | Integer | 1 (per site) | Eligible samples with a failed call (FILTER≠PASS) for any ALT allele at the position, each counted once. Excluded from AC and AN. Mutually exclusive with N_HET/N_HOM_ALT/N_HOM_REF. |
+| `AFQUERY_N_NO_COVERAGE` | Integer | A (per ALT) | Eligible samples whose tech lacks coverage evidence at this position. Excluded from `N_HOM_REF`; still counted in AN. Always `0` unless a coverage-evidence filter is active. See [Coverage Evidence](../advanced/coverage-evidence.md). |
 
 !!! note "Multi-allelic sites"
     Number=A fields have one value per ALT allele (comma-separated for multi-allelic sites). Number=1 fields are shared across all ALT alleles at the same position.

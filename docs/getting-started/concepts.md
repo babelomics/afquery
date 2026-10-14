@@ -9,7 +9,7 @@ For each variant, AFQuery stores a compressed bitset recording which samples car
 ```
 Samples → Metadata → Filters → Eligible Bitmap
 Variants → Genotypes → het/hom Bitmaps
-Query: (eligible bitmap) AND (carrier bitmap) → AC; count(eligible) → AN; AC/AN → AF
+Query: (eligible bitmap) AND (carrier bitmap) → AC; count(eligible − failed) → AN; AC/AN → AF
 ```
 
 ```mermaid
@@ -25,7 +25,7 @@ flowchart LR
     end
 
     subgraph Result
-        R["AC = popcount(eligible AND carrier)<br/>AN = popcount(eligible) × ploidy<br/>AF = AC / AN"]
+        R["AC = popcount(eligible AND carrier)<br/>AN = popcount(eligible − failed) × ploidy<br/>AF = AC / AN"]
     end
 
     S --> E
@@ -55,7 +55,7 @@ For a detailed discussion of the methodological gaps AFQuery addresses, includin
 For a given variant (chromosome, position, ref, alt):
 
 - **AC** (Allele Count) — number of copies of the alt allele observed across eligible samples
-- **AN** (Allele Number) — total number of alleles examined (2× diploid samples, 1× haploid)
+- **AN** (Allele Number) — total number of alleles examined (2× diploid samples, 1× haploid). Samples with a failed call (`FILTER≠PASS`) at the position are left out, as their genotype there is unknown; they are reported as `N_FAIL` (see [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md))
 - **AF** (Allele Frequency) — `AC / AN` (None when AN = 0)
 
 A heterozygous carrier contributes AC=1; a homozygous alt carrier contributes AC=2.
@@ -130,7 +130,7 @@ For each variant row, AFQuery stores per-sample genotype information as [Roaring
 
 - **`het_bitmap`** — sample is heterozygous (`GT=0/1`) with `FILTER=PASS`
 - **`hom_bitmap`** — sample is homozygous alt (`GT=1/1`, or `GT=1` on haploid regions) with `FILTER=PASS`
-- **`fail_bitmap`** — the sample's call at this site has `FILTER≠PASS`
+- **`fail_bitmap`** — the sample's call at this site has `FILTER≠PASS`; it counts in neither AC nor AN
 
 Each sample has a stable integer ID (0-indexed). The bit position in the bitmap equals the sample ID. Databases built with coverage-quality filters carry two additional bitmaps — see [Data Model](../reference/data-model.md#parquet-schema).
 

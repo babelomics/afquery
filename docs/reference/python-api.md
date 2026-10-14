@@ -447,13 +447,13 @@ Return all distinct phenotype codes present in the database.
 class QueryResult:
     variant: VariantKey      # chrom, pos, ref, alt
     AC: int                  # Allele count
-    AN: int                  # Allele number
+    AN: int                  # Allele number (samples in N_FAIL left out)
     AF: float | None         # Allele frequency (None if AN == 0)
     n_samples_eligible: int  # Number of eligible samples at this position
     N_HET: int               # Heterozygous count
     N_HOM_ALT: int           # Homozygous alt count
     N_HOM_REF: int           # Homozygous ref count
-    N_FAIL: int              # Eligible samples whose call had FILTER≠PASS (excluded from AC, kept in AN)
+    N_FAIL: int              # Eligible samples with a failed call at the position (out of AC and AN)
     N_NO_COVERAGE: int       # Eligible samples whose tech lacks evidence (excluded from N_HOM_REF)
 ```
 

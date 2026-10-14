@@ -21,11 +21,13 @@ class SiteEvidence(NamedTuple):
     """Carriers of any allele at one position, pooled across its Parquet rows."""
     pass_bm: BitMap
     carrier_bm: BitMap
+    fail_bm: BitMap
     quality_pass_bm: "BitMap | None"
 
 
 class VariantStats(NamedTuple):
     AC: int
+    AN: int
     N_HET: int
     N_HOM_ALT: int
     N_HOM_REF: int
@@ -323,13 +325,15 @@ class QueryEngine:
         """Pool the unpacked bitmaps of every allele stored at one position."""
         pass_bm = BitMap()
         carrier_bm = BitMap()
+        site_fail_bm = BitMap()
         quality_pass_bm = None
         for het_bm, hom_bm, fail_bm, _filtered_bm, qp_bm in unpacked_rows:
             pass_bm |= het_bm | hom_bm
             carrier_bm |= het_bm | hom_bm | fail_bm
+            site_fail_bm |= fail_bm
             if qp_bm is not None:
                 quality_pass_bm = qp_bm if quality_pass_bm is None else quality_pass_bm | qp_bm
-        return SiteEvidence(pass_bm, carrier_bm, quality_pass_bm)
+        return SiteEvidence(pass_bm, carrier_bm, site_fail_bm, quality_pass_bm)
 
     @classmethod
     def _site_evidence_by_pos(
@@ -358,26 +362,33 @@ class QueryEngine:
         min_observed: int,
         min_quality_evidence: int,
     ) -> VariantStats:
-        """Genotype tallies for one allele among the eligible samples.
+        """Genotype tallies, AC and AN for one allele among the eligible samples.
 
         ``site`` pools every allele at the position (None when this is the only
-        one). Eligible samples carrying only another allele are in none of the
+        one). A sample with a failed call for any allele at the position has no
+        reliable genotype there: it is counted in N_FAIL, shared by every allele
+        of the site, and left out of AC and AN.
+
+        Eligible samples carrying only another allele are in none of the
         returned categories, so at a multi-allelic site
         N_HET + N_HOM_ALT + N_HOM_REF + N_FAIL + N_NO_COVERAGE falls short of
         n_eligible by exactly that number of samples.
         """
         het_bm, hom_bm, fail_bm, filtered_bm, quality_pass_bm = bitmaps
+        site_fail = (site.fail_bm if site is not None else fail_bm) & eligible
+        called = eligible - site_fail
         haploid_elig, diploid_elig = split_ploidy(
-            eligible, self._male_bm, self._female_bm, chrom, pos, self._genome_build
+            called, self._male_bm, self._female_bm, chrom, pos, self._genome_build
         )
-        het_elig = het_bm & eligible
-        hom_elig = hom_bm & eligible
+        het_elig = het_bm & called
+        hom_elig = hom_bm & called
         AC = (len((het_elig | hom_elig) & haploid_elig)
               + len(het_elig & diploid_elig)
               + 2 * len(hom_elig & diploid_elig))
+        AN = len(haploid_elig) + 2 * len(diploid_elig)
         N_HET = len(het_elig & diploid_elig)
         N_HOM_ALT = len(hom_elig & diploid_elig) + len((het_elig | hom_elig) & haploid_elig)
-        N_FAIL = len(fail_bm & eligible)
+        N_FAIL = len(site_fail)
         no_cov_bm = self._compute_no_coverage_bm(
             eligible, het_bm, hom_bm, fail_bm,
             min_pass, min_observed,
@@ -389,18 +400,18 @@ class QueryEngine:
         N_NO_COVERAGE = len(no_cov_bm)
         N_OTHER = 0
         if site is not None:
-            N_OTHER = len((site.carrier_bm - (het_bm | hom_bm | fail_bm)) & eligible)
+            N_OTHER = len((site.carrier_bm - (het_bm | hom_bm | site.fail_bm)) & eligible)
         N_HOM_REF = len(eligible) - N_HET - N_HOM_ALT - N_FAIL - N_NO_COVERAGE - N_OTHER
-        return VariantStats(AC, N_HET, N_HOM_ALT, N_HOM_REF, N_FAIL, N_NO_COVERAGE)
+        return VariantStats(AC, AN, N_HET, N_HOM_ALT, N_HOM_REF, N_FAIL, N_NO_COVERAGE)
 
     @staticmethod
     def _make_result(
         chrom: str, pos: int, ref: str, alt: str,
-        AN: int, eligible: BitMap, stats: VariantStats,
+        eligible: BitMap, stats: VariantStats,
     ) -> QueryResult:
         return QueryResult(
             variant=VariantKey(chrom=chrom, pos=pos, ref=ref, alt=alt),
-            AC=stats.AC, AN=AN, AF=stats.AC / AN if AN > 0 else None,
+            AC=stats.AC, AN=stats.AN, AF=stats.AC / stats.AN if stats.AN > 0 else None,
             n_samples_eligible=len(eligible),
             N_HET=stats.N_HET, N_HOM_ALT=stats.N_HOM_ALT, N_HOM_REF=stats.N_HOM_REF,
             N_FAIL=stats.N_FAIL, N_NO_COVERAGE=stats.N_NO_COVERAGE,
@@ -412,7 +423,12 @@ class QueryEngine:
         pos: int,
         sample_bitmap: BitMap,
     ) -> tuple[BitMap, int]:
-        """Return (eligible_bitmap, AN) for a single position."""
+        """Return (eligible_bitmap, AN of every eligible sample) for one position.
+
+        An AN of 0 marks a position where no selected sample can be genotyped.
+        The AN reported for a variant comes from _variant_stats, which leaves
+        out samples with a failed call at the position.
+        """
         covered = BitMap(self._covered_all_bm)  # start with WGS samples (always covered)
         for tech_id, capture_idx in self._targeted_capture.items():
             if capture_idx.covers(chrom, pos):
@@ -498,7 +514,7 @@ class QueryEngine:
                 chrom, pos, eligible, bitmaps, site,
                 sf.min_pass, sf.min_observed, sf.min_quality_evidence,
             )
-            results.append(self._make_result(chrom, pos, ref, alt, AN, eligible, stats))
+            results.append(self._make_result(chrom, pos, ref, alt, eligible, stats))
         if params.ref is not None:
             results = [r for r in results if r.variant.ref == params.ref]
         if params.alt is not None:
@@ -675,12 +691,12 @@ class QueryEngine:
         results = []
         for row, bitmaps in zip(rows, unpacked):
             pos, ref, alt = row[0], row[1], row[2]
-            eligible, AN = pos_data[pos]
+            eligible = pos_data[pos][0]
             stats = self._variant_stats(
                 chrom, pos, eligible, bitmaps, sites[pos],
                 min_pass, min_observed, min_quality_evidence,
             )
-            results.append(self._make_result(chrom, pos, ref, alt, AN, eligible, stats))
+            results.append(self._make_result(chrom, pos, ref, alt, eligible, stats))
         results.sort(key=lambda r: (r.variant.pos, r.variant.alt))
         return results
 
@@ -748,12 +764,12 @@ class QueryEngine:
             pos, ref, alt = row[0], row[1], row[2]
             if (pos, ref, alt) not in requested_variants:
                 continue
-            eligible, AN = pos_data[pos]
+            eligible = pos_data[pos][0]
             stats = self._variant_stats(
                 chrom, pos, eligible, bitmaps, sites[pos],
                 min_pass, min_observed, min_quality_evidence,
             )
-            results.append(self._make_result(chrom, pos, ref, alt, AN, eligible, stats))
+            results.append(self._make_result(chrom, pos, ref, alt, eligible, stats))
         results.sort(key=lambda r: (r.variant.pos, r.variant.alt))
         return results
 
@@ -853,9 +869,11 @@ class QueryEngine:
         for row in rows:
             row_pos, ref, alt = row[0], row[1], row[2]
             het_bm, hom_bm, fail_bm, filtered_bm, quality_pass_bm = self._unpack_bitmaps(row[3:])
-            het_elig = het_bm & eligible
-            hom_elig = hom_bm & eligible
-            fail_elig = fail_bm & eligible
+            # As in _variant_stats, a failed call for any allele at the position
+            # makes the sample's genotype there unknown, for every allele.
+            fail_elig = (site.fail_bm if site is not None else fail_bm) & eligible
+            het_elig = (het_bm & eligible) - fail_elig
+            hom_elig = (hom_bm & eligible) - fail_elig
             no_cov_bm = self._compute_no_coverage_bm(
                 eligible, het_bm, hom_bm, fail_bm,
                 sf.min_pass, sf.min_observed,
@@ -869,17 +887,14 @@ class QueryEngine:
             seen: set[int] = set()
             for sid in sorted(hom_elig):
                 seen.add(sid)
-                is_fail = sid in fail_elig
-                carriers.append(self._make_carrier(sid, "alt" if is_fail else "hom", not is_fail))
+                carriers.append(self._make_carrier(sid, "hom", True))
             for sid in sorted(het_elig):
                 if sid not in seen:
                     seen.add(sid)
-                    is_fail = sid in fail_elig
-                    carriers.append(self._make_carrier(sid, "alt" if is_fail else "het", not is_fail))
+                    carriers.append(self._make_carrier(sid, "het", True))
             for sid in sorted(fail_elig):
-                if sid not in seen:
-                    seen.add(sid)
-                    carriers.append(self._make_carrier(sid, "alt", False))
+                seen.add(sid)
+                carriers.append(self._make_carrier(sid, "alt", False))
             for sid in sorted(no_cov_elig):
                 if sid not in seen:
                     seen.add(sid)

@@ -42,13 +42,13 @@ A variant you expect to find is not in the database:
 
 ### 4. Unexpected N_FAIL > 0
 
-`N_FAIL > 0` means some eligible samples had a call with `FILTER≠PASS` at this position. These samples are excluded from AC, but they remain eligible and still count in AN. This is usually benign (1–2 samples), but a high N_FAIL warrants investigation:
+`N_FAIL > 0` means some eligible samples had a call with `FILTER≠PASS` at this position. These samples are left out of AC and AN. This is usually benign (1–2 samples), but a high N_FAIL warrants investigation:
 
 | N_FAIL relative to n_eligible | Likely cause |
 |---|---|
 | 1–2 samples | Isolated low-quality calls — not concerning |
 | > 5% of n_eligible | Systematic sequencing artifact at this site |
-| All eligible samples | Site-wide QC failure — AF=0 but variant is present in source VCFs |
+| All eligible samples | Site-wide QC failure — AN=0 and AF is `NA`, although the variant is present in source VCFs |
 
 To inspect a site with high N_FAIL, query with `--format json` to see all fields:
 

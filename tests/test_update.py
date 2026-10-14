@@ -172,7 +172,7 @@ def test_add_samples_new_variant(fresh_db, tmp_path):
 
 
 def test_add_samples_existing_variant(fresh_db, tmp_path):
-    # chr1:1500 A>T has het=[0,5], hom=[2] in the base DB
+    # chr1:1500 A>T has het=[5], hom=[2], fail=[0] in the base DB
     # S10 (male, wgs, E11.9) also carries chr1:1500 het → AC should increase
     db_before = Database(fresh_db)
     results_before = db_before.query(chrom="chr1", pos=1500, phenotype=["E11.9"], sex="both")
@@ -257,18 +257,17 @@ def test_remove_samples_id_not_reused(fresh_db, tmp_path):
 
 
 def test_remove_samples_query_impact(fresh_db):
-    # S00 (id=0, male, wgs, E11.9+J45) is het-carrier of chr1:1500 A>T
+    # S00 (id=0, male, wgs, E11.9+J45) has a failed call at chr1:1500 A>T
     db_before = Database(fresh_db)
-    results_before = db_before.query(chrom="chr1", pos=1500, phenotype=["E11.9"], sex="both")
-    ac_before = results_before[0].AC if results_before else 0
+    [before] = db_before.query(chrom="chr1", pos=1500, phenotype=["E11.9"], sex="both")
 
     remove_samples(fresh_db, ["S00"])
 
     db_after = Database(fresh_db)
-    results_after = db_after.query(chrom="chr1", pos=1500, phenotype=["E11.9"], sex="both")
-    ac_after = results_after[0].AC if results_after else 0
+    [after] = db_after.query(chrom="chr1", pos=1500, phenotype=["E11.9"], sex="both")
 
-    assert ac_after < ac_before
+    assert after.N_FAIL == before.N_FAIL - 1
+    assert after.n_samples_eligible == before.n_samples_eligible - 1
 
 
 def test_remove_nonexistent_raises(fresh_db):

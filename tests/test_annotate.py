@@ -2,11 +2,14 @@
 
 Expected values for phenotype=["E11.9"], sex="both", GRCh37:
 
-  chr1:1500 A>T   — in DB    — eligible={0,1,2,5,6}  AN=10  AC=4   AF=0.4
+  chr1:1500 A>T   — in DB    — eligible={0,1,2,5,6}  AN=8   AC=3   AF=0.375
   chr1:2000 A>G   — absent   — eligible={0,1,2,5,6}  AN=10  AC=0   AF=0.0
   chr1:3500 G>C,T — C in DB, T absent
                              — eligible={0,1,2,7}    AN=8   AC=[1,0] AF=[0.125,0.0]
-  chr1:5000 T>G   — in DB    — eligible={0,1,2}      AN=6   AC=2   AF=0.333…
+  chr1:5000 T>G   — in DB    — eligible={0,1,2}      AN=4   AC=1   AF=0.25
+
+Samples with a failed call at a position (S00 at 1500, S01 at 5000) are left out
+of AC and AN there.
 
 Coverage derivation:
   WGS (tech 0, samples 0-3):   covers all positions
@@ -59,9 +62,10 @@ def test_annotate_known_variant_1500(test_db, tmp_path):
 
     records = _read_annotated(out)
     r = records[1500]
-    assert r["AN"] == 10
-    assert tuple(r["AC"]) == (4,)
-    assert abs(r["AF"][0] - 0.4) < 1e-6
+    assert r["AN"] == 8
+    assert tuple(r["AC"]) == (3,)
+    assert abs(r["AF"][0] - 0.375) < 1e-6
+    assert r["N_FAIL"] == 1
 
 
 def test_annotate_known_variant_5000(test_db, tmp_path):
@@ -72,9 +76,10 @@ def test_annotate_known_variant_5000(test_db, tmp_path):
 
     records = _read_annotated(out)
     r = records[5000]
-    assert r["AN"] == 6
-    assert tuple(r["AC"]) == (2,)
-    assert abs(r["AF"][0] - 2 / 6) < 1e-6
+    assert r["AN"] == 4
+    assert tuple(r["AC"]) == (1,)
+    assert abs(r["AF"][0] - 0.25) < 1e-6
+    assert r["N_FAIL"] == 1
 
 
 # ---------------------------------------------------------------------------
@@ -294,8 +299,8 @@ def test_annotate_single_chrom_multi_bucket_parallel(test_db, tmp_path):
     parallel = _read_annotated(out_parallel)
     assert serial == parallel
     # chr1:1500 (bucket 0) is in the DB → annotated
-    assert serial[1500]["AN"] == 10
-    assert tuple(serial[1500]["AC"]) == (4,)
+    assert serial[1500]["AN"] == 8
+    assert tuple(serial[1500]["AC"]) == (3,)
     # chr1:1500000 (bucket 1) is covered by WGS but not in Parquet → AC=0, AN>0
     assert serial[1500000]["AN"] == 6
     assert tuple(serial[1500000]["AC"]) == (0,)

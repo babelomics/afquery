@@ -27,9 +27,8 @@ At a multi-allelic site, eligible samples that carry only another ALT allele at
 the position fall in none of these categories for this allele, so the sum is
 lower than `n_eligible` by exactly that number of samples.
 
-Samples in `N_NO_COVERAGE` remain in `eligible` and contribute to `AN` (just
-like `N_FAIL`), so AC/AN/AF stay conservative — the field never inflates
-allele frequencies. Two rules always hold:
+Samples in `N_NO_COVERAGE` remain in `eligible` and contribute to `AN`, so
+AC/AN/AF stay conservative — the field never inflates allele frequencies. Two rules always hold:
 
 - **Carriers are never reclassified.** A sample with a `het`, `hom`, or
   `fail` call at the position stays in its category. `N_NO_COVERAGE` only

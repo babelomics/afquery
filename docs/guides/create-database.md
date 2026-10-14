@@ -93,7 +93,7 @@ afquery create-db --manifest manifest.tsv --output-dir ./db/ --genome-build GRCh
 
 ## FILTER=PASS Behavior
 
-Only `FILTER=PASS` calls (or calls with no FILTER field) contribute to AC, and therefore to AF. AN is not affected — it counts every eligible sample, failed calls included. Calls that fail a filter are tracked in `fail_bitmap` and surfaced as `N_FAIL`. PASS-only counting is always enforced — there is currently no CLI option to change this behaviour.
+Only `FILTER=PASS` calls (or calls with no FILTER field) contribute to AC. Calls that fail a filter are stored in `fail_bitmap`; at query time those samples are left out of AC and AN and reported as `N_FAIL`.
 
 See [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md) for details.
 

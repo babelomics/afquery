@@ -136,7 +136,7 @@ Bitmaps use the [Roaring Bitmap](https://roaringbitmap.org/) format, serialized 
 - Bit position = sample ID (0-indexed integer)
 - `het_bitmap`: bit set iff the sample is heterozygous with `FILTER=PASS`
 - `hom_bitmap`: bit set iff the sample is homozygous alt with `FILTER=PASS`
-- `fail_bitmap`: bit set iff the sample's call has `FILTER≠PASS` — either a carrier whose call failed a filter, or a missing genotype (`./.`) at a failed site
+- `fail_bitmap`: bit set iff the sample's call has `FILTER≠PASS` — either a carrier whose call failed a filter, or a missing genotype (`./.`) at a failed site. A sample set in the `fail_bitmap` of any allele at a position is left out of AC and AN for every allele there
 - `filtered_bitmap`, `quality_pass_bitmap`: see the Parquet schema above; both are empty unless the database was built with coverage-quality filters
 
 To deserialize in Python:
