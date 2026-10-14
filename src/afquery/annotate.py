@@ -106,7 +106,7 @@ def _compute_chunk_annotations(
             elif key in unpacked:
                 s = engine._variant_stats(
                     chrom, pos, eligible, unpacked[key], sites[pos],
-                    sf.min_pass, sf.min_observed, sf.min_quality_evidence,
+                    sf.min_pass, sf.min_observed, sf.min_quality_evidence, sf.fail_as_ref,
                 )
                 result[key] = (s.AC, s.AN, True, s.N_FAIL, s.N_HET, s.N_HOM_ALT,
                                s.N_HOM_REF, s.N_NO_COVERAGE)
@@ -117,7 +117,7 @@ def _compute_chunk_annotations(
                 s = engine._variant_stats(
                     chrom, pos, eligible, no_carriers,
                     engine._site_evidence(stored_by_pos[pos]),
-                    sf.min_pass, sf.min_observed, sf.min_quality_evidence,
+                    sf.min_pass, sf.min_observed, sf.min_quality_evidence, sf.fail_as_ref,
                 )
                 result[key] = (s.AC, s.AN, False, s.N_FAIL, s.N_HET, s.N_HOM_ALT,
                                s.N_HOM_REF, s.N_NO_COVERAGE)
@@ -156,8 +156,12 @@ def annotate_vcf(
     })
     vcf.add_info_to_header({
         "ID": "AFQUERY_AN", "Number": "1", "Type": "Integer",
-        "Description": "Allele number in eligible samples, excluding samples with a "
-                       "failed call at the position",
+        "Description": (
+            "Allele number in eligible samples, counting samples with a failed "
+            "call at the position as hom-ref" if sf.fail_as_ref else
+            "Allele number in eligible samples, excluding samples with a failed "
+            "call at the position"
+        ),
     })
     vcf.add_info_to_header({
         "ID": "AFQUERY_AF", "Number": "A", "Type": "Float",

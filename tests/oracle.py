@@ -134,8 +134,11 @@ class Cohort:
             out.append(s)
         return out
 
-    def expect(self, chrom, pos, ref, alt, samples=None) -> dict:
-        """Expected query counts for one variant."""
+    def expect(self, chrom, pos, ref, alt, samples=None, fail_as_ref=False) -> dict:
+        """Expected query counts for one variant.
+
+        fail_as_ref counts samples with a failed call as hom-ref in AN.
+        """
         elig = self.eligible(chrom, pos, samples)
         site = {
             (r, a): site_calls
@@ -154,10 +157,12 @@ class Cohort:
         AC = 0
         n_het = n_hom_alt = n_fail = 0
         for s in elig:
+            haploid = self.is_haploid(s, chrom, pos)
             if s in site_fail:
                 n_fail += 1
+                if fail_as_ref:
+                    AN += 1 if haploid else 2
                 continue
-            haploid = self.is_haploid(s, chrom, pos)
             AN += 1 if haploid else 2
             state = calls.get(s)
             if state == "het":

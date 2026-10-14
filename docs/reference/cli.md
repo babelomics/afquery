@@ -70,6 +70,7 @@ Exactly one of `--locus`, `--region`, or `--from-file` must be provided.
 | `--min-pass` | INTEGER | `0` | Min PASS carriers (`het\|hom`) per partially-covered tech for hom-ref to be assumed. Non-carriers move to `N_NO_COVERAGE` if a tech falls below the threshold. (0 = disabled) |
 | `--min-observed` | INTEGER | `0` | Min any-VCF entries (`het\|hom\|fail`) per partially-covered tech for hom-ref to be assumed. (0 = disabled) |
 | `--min-quality-evidence` | INTEGER | `0` | Min quality-passing carriers per partially-covered tech. Requires a database built with `--min-dp`, `--min-gq`, `--min-qual`, or `--min-covered`. (0 = disabled) |
+| `--fail-as-ref` | flag | False | Count samples with a failed call (FILTER≠PASS) as hom-ref in AN instead of leaving them out. See [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md#counting-failed-calls-as-reference). |
 | `--no-warn` | flag | False | Suppress warnings for unknown phenotypes, technologies, and chromosomes |
 
 ---
@@ -95,6 +96,7 @@ afquery annotate [OPTIONS]
 | `--min-pass` | INTEGER | `0` | Min PASS carriers per partially-covered tech for hom-ref to be assumed (0 = disabled) |
 | `--min-observed` | INTEGER | `0` | Min any-VCF entries per partially-covered tech (0 = disabled) |
 | `--min-quality-evidence` | INTEGER | `0` | Min quality-passing carriers per partially-covered tech. Requires a database built with `--min-dp`, `--min-gq`, `--min-qual`, or `--min-covered`. (0 = disabled) |
+| `--fail-as-ref` | flag | False | Count samples with a failed call (FILTER≠PASS) as hom-ref in AN instead of leaving them out. See [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md#counting-failed-calls-as-reference). |
 | `--no-warn` | flag | False | Suppress warnings for unknown phenotypes, technologies, and chromosomes |
 
 The annotated VCF gains `AFQUERY_AC`, `AFQUERY_AN`, `AFQUERY_AF`,
@@ -131,6 +133,7 @@ afquery dump [OPTIONS]
 | `--min-pass` | INTEGER | `0` | Min PASS carriers per partially-covered tech for hom-ref to be assumed (0 = disabled) |
 | `--min-observed` | INTEGER | `0` | Min any-VCF entries per partially-covered tech (0 = disabled) |
 | `--min-quality-evidence` | INTEGER | `0` | Min quality-passing carriers per partially-covered tech. Requires a database built with `--min-dp`, `--min-gq`, `--min-qual`, or `--min-covered`. (0 = disabled) |
+| `--fail-as-ref` | flag | False | Count samples with a failed call (FILTER≠PASS) as hom-ref in AN instead of leaving them out. See [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md#counting-failed-calls-as-reference). |
 
 CSV output adds an `N_NO_COVERAGE` column (and per-group variants
 `N_NO_COVERAGE_<label>` when disaggregating).

@@ -283,3 +283,38 @@ def test_all_eligible_failed_gives_an_zero(tmp_path):
     assert v.INFO.get("AFQUERY_AN") == 0
     assert v.INFO.get("AFQUERY_N_FAIL") == 2
     assert "AFQUERY_AF=." in str(v)
+
+
+def test_fail_as_ref_counts_failed_calls_in_an(fail_db):
+    """--fail-as-ref only changes AN: the 3 failed samples count as hom-ref."""
+    by_alt = {r.variant.alt: r for r in fail_db.query(*SITE, fail_as_ref=True)}
+    for r in by_alt.values():
+        assert r.AN == 16
+        assert r.N_FAIL == 3
+    assert (by_alt["A"].AC, by_alt["T"].AC) == (2, 3)
+    assert (by_alt["A"].N_HOM_REF, by_alt["T"].N_HOM_REF) == (2, 2)
+
+
+def test_fail_as_ref_in_annotate_and_dump(fail_db, tmp_path):
+    vcf_in = tmp_path / "in.vcf"
+    vcf_in.write_text(
+        "##fileformat=VCFv4.2\n"
+        "##contig=<ID=chr1>\n"
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+        "chr1\t5000\t.\tG\tA,T\t.\tPASS\t.\n"
+    )
+    out = tmp_path / "out.vcf"
+    fail_db.annotate_vcf(str(vcf_in), str(out), fail_as_ref=True)
+    [v] = list(cyvcf2.VCF(str(out)))
+    assert v.INFO.get("AFQUERY_AN") == 16
+    assert v.INFO.get("AFQUERY_N_FAIL") == 3
+
+    buf = io.StringIO()
+    fail_db.dump(output=buf, by_sex=True, fail_as_ref=True)
+    rows = [r for r in csv.DictReader(io.StringIO(buf.getvalue())) if r["pos"] == "5000"]
+    for row in rows:
+        [want] = fail_db.query(*SITE, alt=row["alt"], fail_as_ref=True)
+        assert int(row["AN"]) == want.AN == 16
+        for sex in ("male", "female"):
+            [g] = fail_db.query(*SITE, alt=row["alt"], sex=sex, fail_as_ref=True)
+            assert int(row[f"AN_{sex}"]) == g.AN

@@ -10,7 +10,7 @@ Ratio of AC to AN (`AC / AN`). Represents the proportion of alleles that are the
 
 ## AN (Allele Number)
 
-Total number of alleles examined across eligible samples, leaving out samples with a failed call at the position ([N_FAIL](#n_fail)). For autosomes, AN = 2 × (eligible samples − N_FAIL). For sex chromosomes, AN depends on ploidy. See [Ploidy & Sex Chromosomes](../advanced/ploidy-and-sex-chroms.md).
+Total number of alleles examined across eligible samples, leaving out samples with a failed call at the position ([N_FAIL](#n_fail)). For autosomes, AN = 2 × (eligible samples − N_FAIL), or 2 × eligible samples with `--fail-as-ref`. For sex chromosomes, AN depends on ploidy. See [Ploidy & Sex Chromosomes](../advanced/ploidy-and-sex-chroms.md).
 
 ## Bitmap
 

@@ -61,6 +61,18 @@ def test_query_text_no_results(runner, test_db):
     assert "No variants found" in result.output
 
 
+def test_query_fail_as_ref(runner, test_db):
+    """S00's failed call at chr1:1500 counts as hom-ref in AN with --fail-as-ref."""
+    result = runner.invoke(cli, [
+        "query", "--db", test_db,
+        "--locus", "1:1500", "--phenotype", "E11.9", "--fail-as-ref",
+    ])
+    assert result.exit_code == 0
+    assert "AC=3" in result.output
+    assert "AN=10" in result.output
+    assert "N_FAIL=1" in result.output
+
+
 # --- afquery query: json format ---
 
 def test_query_json_format(runner, test_db):

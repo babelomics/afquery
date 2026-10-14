@@ -9,7 +9,7 @@ This page explains what each field in AFQuery output means and how to interpret 
 | Field | Type | Description |
 |-------|------|-------------|
 | **AC** | int | Allele count — number of alt allele copies in eligible samples |
-| **AN** | int | Allele number — alleles of the eligible samples with a usable call at this position, adjusted for ploidy. Samples in `N_FAIL` are left out |
+| **AN** | int | Allele number — alleles of the eligible samples with a usable call at this position, adjusted for ploidy. Samples in `N_FAIL` are left out (counted as hom-ref with `--fail-as-ref`) |
 | **AF** | float | Allele frequency — `AC / AN`. `NA` (text/TSV) or `null` (JSON) when AN=0 |
 | **N_HET** | int | Number of eligible samples heterozygous for the alt allele (GT=0/1) |
 | **N_HOM_ALT** | int | Number of eligible samples homozygous for the alt allele (GT=1/1 or GT=1). Includes haploid carriers on sex chromosomes and chrM. See [Ploidy](../advanced/ploidy-and-sex-chroms.md#genotype-counting). |

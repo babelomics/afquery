@@ -17,12 +17,13 @@ import oracle
 from test_update import write_manifest, write_vcf
 
 
-def _assert_matches(db_dir, cohort, samples=None, phenotype=None, label=""):
+def _assert_matches(db_dir, cohort, samples=None, phenotype=None, label="",
+                    fail_as_ref=False):
     db = Database(str(db_dir))
     checked = 0
     for chrom, pos, ref, alt in cohort.variants():
-        want = cohort.expect(chrom, pos, ref, alt, samples)
-        kwargs = {"chrom": chrom, "pos": pos, "sex": "both"}
+        want = cohort.expect(chrom, pos, ref, alt, samples, fail_as_ref=fail_as_ref)
+        kwargs = {"chrom": chrom, "pos": pos, "sex": "both", "fail_as_ref": fail_as_ref}
         if phenotype is not None:
             kwargs["phenotype"] = phenotype
         got = [r for r in db.query(**kwargs)
@@ -65,6 +66,10 @@ def built_db(tmp_path_factory, data_dir):
 
 def test_partitioned_build_matches_oracle(built_db, fixture_cohort):
     _assert_matches(built_db, fixture_cohort, label="partitioned")
+
+
+def test_fail_as_ref_matches_oracle(built_db, fixture_cohort):
+    _assert_matches(built_db, fixture_cohort, label="fail as ref", fail_as_ref=True)
 
 
 def test_flat_build_matches_oracle(tmp_path, built_db, fixture_cohort, data_dir):
@@ -216,6 +221,7 @@ def test_multiallelic_cohort_matches_oracle(tmp_path):
     )
     cohort = oracle.Cohort(manifest_path, bed_dir=beds)
     _assert_matches(db, cohort, label="multiallelic")
+    _assert_matches(db, cohort, label="multiallelic, fail as ref", fail_as_ref=True)
 
     # Spot-check chr1:5000, where all 12 samples are eligible (the panel BED
     # covers it). Hom-ref for both alleles: REF, P_REF, P_OFF, X_A, X_C.

@@ -26,6 +26,20 @@ Opens an AFQuery database at the given path. The manifest and sample metadata ar
 db = Database("./my_db/")
 ```
 
+### Calculation options
+
+Besides the parameters listed for each method, `query`, `query_region`,
+`query_region_multi`, `query_batch`, `query_batch_multi`, `dump` and
+`annotate_vcf` accept these keyword arguments, with the same meaning as the
+CLI flags of the same name:
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `min_pass`, `min_observed`, `min_quality_evidence` | `0` | Coverage-evidence gates. See [Coverage Evidence](../advanced/coverage-evidence.md). |
+| `fail_as_ref` | `False` | Count samples with a failed call as hom-ref in AN. See [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md#counting-failed-calls-as-reference). |
+
+`variant_info` accepts the coverage-evidence gates only.
+
 ---
 
 ### query
@@ -519,6 +533,7 @@ class SampleFilter:
     min_pass: int = 0                     # partially-covered tech needs ≥K PASS carriers
     min_observed: int = 0                 # partially-covered tech needs ≥K any-VCF entries
     min_quality_evidence: int = 0         # partially-covered tech needs ≥K quality_pass carriers (DB built with --min-dp/--min-gq)
+    fail_as_ref: bool = False             # count samples with a failed call as hom-ref in AN
 
     @staticmethod
     def parse(
@@ -528,6 +543,7 @@ class SampleFilter:
         min_pass: int = 0,
         min_observed: int = 0,
         min_quality_evidence: int = 0,
+        fail_as_ref: bool = False,
     ) -> SampleFilter
 ```
 

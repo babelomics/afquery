@@ -91,6 +91,7 @@ def _build_groups(engine, base_sf, by_sex, by_tech, by_phenotype, all_groups):
             min_pass=base_sf.min_pass,
             min_observed=base_sf.min_observed,
             min_quality_evidence=base_sf.min_quality_evidence,
+            fail_as_ref=base_sf.fail_as_ref,
         )
         groups.append((label, sf))
 
@@ -202,6 +203,7 @@ def _dump_bucket_worker(
         s = engine._variant_stats(
             chrom, pos, eligible, bitmaps, sites[pos],
             base_sf.min_pass, base_sf.min_observed, base_sf.min_quality_evidence,
+            base_sf.fail_as_ref,
         )
 
         if s.AC == 0 and not include_ac_zero:
@@ -233,6 +235,7 @@ def _dump_bucket_worker(
             g = engine._variant_stats(
                 chrom, pos, g_eligible, bitmaps, sites[pos],
                 g_sf.min_pass, g_sf.min_observed, g_sf.min_quality_evidence,
+                g_sf.fail_as_ref,
             )
 
             out_row[f"AC_{label}"] = g.AC

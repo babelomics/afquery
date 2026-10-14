@@ -20,6 +20,7 @@ class Database:
     def _make_filter(
         self, phenotype, sex, tech=None,
         min_pass: int = 0, min_observed: int = 0, min_quality_evidence: int = 0,
+        fail_as_ref: bool = False,
     ) -> SampleFilter:
         return SampleFilter.parse(
             phenotype_tokens=phenotype or [],
@@ -28,6 +29,7 @@ class Database:
             min_pass=min_pass,
             min_observed=min_observed,
             min_quality_evidence=min_quality_evidence,
+            fail_as_ref=fail_as_ref,
         )
 
     def query(
@@ -42,8 +44,11 @@ class Database:
         min_pass: int = 0,
         min_observed: int = 0,
         min_quality_evidence: int = 0,
+        fail_as_ref: bool = False,
     ) -> list[QueryResult]:
-        sf = self._make_filter(phenotype, sex, tech, min_pass, min_observed, min_quality_evidence)
+        sf = self._make_filter(
+            phenotype, sex, tech, min_pass, min_observed, min_quality_evidence, fail_as_ref,
+        )
         params = QueryParams(chrom=chrom, pos=pos, filter=sf, ref=ref, alt=alt)
         return self._engine.query(params)
 
@@ -57,8 +62,11 @@ class Database:
         min_pass: int = 0,
         min_observed: int = 0,
         min_quality_evidence: int = 0,
+        fail_as_ref: bool = False,
     ) -> list[QueryResult]:
-        sf = self._make_filter(phenotype, sex, tech, min_pass, min_observed, min_quality_evidence)
+        sf = self._make_filter(
+            phenotype, sex, tech, min_pass, min_observed, min_quality_evidence, fail_as_ref,
+        )
         return self._engine.query_batch(chrom, variants, sf)
 
     def query_batch_multi(
@@ -70,6 +78,7 @@ class Database:
         min_pass: int = 0,
         min_observed: int = 0,
         min_quality_evidence: int = 0,
+        fail_as_ref: bool = False,
     ) -> list[QueryResult]:
         """Query variants across multiple chromosomes, preserving input order.
 
@@ -86,7 +95,9 @@ class Database:
             List of :class:`~afquery.models.QueryResult` objects in input order
             (by original index). Variants not found in the database are omitted.
         """
-        sf = self._make_filter(phenotype, sex, tech, min_pass, min_observed, min_quality_evidence)
+        sf = self._make_filter(
+            phenotype, sex, tech, min_pass, min_observed, min_quality_evidence, fail_as_ref,
+        )
         return self._engine.query_batch_multi(variants, sf)
 
     def query_region(
@@ -100,8 +111,11 @@ class Database:
         min_pass: int = 0,
         min_observed: int = 0,
         min_quality_evidence: int = 0,
+        fail_as_ref: bool = False,
     ) -> list[QueryResult]:
-        sf = self._make_filter(phenotype, sex, tech, min_pass, min_observed, min_quality_evidence)
+        sf = self._make_filter(
+            phenotype, sex, tech, min_pass, min_observed, min_quality_evidence, fail_as_ref,
+        )
         return self._engine.query_region(chrom, start, end, sf)
 
     def variant_info(
@@ -150,6 +164,7 @@ class Database:
         min_pass: int = 0,
         min_observed: int = 0,
         min_quality_evidence: int = 0,
+        fail_as_ref: bool = False,
     ) -> list[QueryResult]:
         """Query variants across multiple genomic regions (may span chromosomes).
 
@@ -164,7 +179,9 @@ class Database:
             genomic order (chr1, chr2, …, chr22, chrX, chrY, chrM).
             Overlapping regions are deduplicated.
         """
-        sf = self._make_filter(phenotype, sex, tech, min_pass, min_observed, min_quality_evidence)
+        sf = self._make_filter(
+            phenotype, sex, tech, min_pass, min_observed, min_quality_evidence, fail_as_ref,
+        )
         return self._engine.query_region_multi(regions, sf)
 
     def dump(
@@ -185,9 +202,12 @@ class Database:
         min_pass: int = 0,
         min_observed: int = 0,
         min_quality_evidence: int = 0,
+        fail_as_ref: bool = False,
     ) -> dict:
         from .dump import dump_database, _build_groups
-        base_sf = self._make_filter(phenotype, sex, tech, min_pass, min_observed, min_quality_evidence)
+        base_sf = self._make_filter(
+            phenotype, sex, tech, min_pass, min_observed, min_quality_evidence, fail_as_ref,
+        )
         groups = _build_groups(
             self._engine, base_sf, by_sex, by_tech,
             by_phenotype or [], all_groups,
@@ -208,8 +228,11 @@ class Database:
         min_pass: int = 0,
         min_observed: int = 0,
         min_quality_evidence: int = 0,
+        fail_as_ref: bool = False,
     ) -> dict:
-        sf = self._make_filter(phenotype, sex, tech, min_pass, min_observed, min_quality_evidence)
+        sf = self._make_filter(
+            phenotype, sex, tech, min_pass, min_observed, min_quality_evidence, fail_as_ref,
+        )
         from .annotate import annotate_vcf as _annotate
         return _annotate(self._engine, input_vcf, output_vcf, sf, n_workers=n_workers)
 

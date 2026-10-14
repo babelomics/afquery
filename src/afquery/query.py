@@ -361,13 +361,15 @@ class QueryEngine:
         min_pass: int,
         min_observed: int,
         min_quality_evidence: int,
+        fail_as_ref: bool = False,
     ) -> VariantStats:
         """Genotype tallies, AC and AN for one allele among the eligible samples.
 
         ``site`` pools every allele at the position (None when this is the only
         one). A sample with a failed call for any allele at the position has no
         reliable genotype there: it is counted in N_FAIL, shared by every allele
-        of the site, and left out of AC and AN.
+        of the site, and left out of AC. It is also left out of AN unless
+        ``fail_as_ref``, which counts it as homozygous reference there.
 
         Eligible samples carrying only another allele are in none of the
         returned categories, so at a multi-allelic site
@@ -378,14 +380,15 @@ class QueryEngine:
         site_fail = (site.fail_bm if site is not None else fail_bm) & eligible
         called = eligible - site_fail
         haploid_elig, diploid_elig = split_ploidy(
-            called, self._male_bm, self._female_bm, chrom, pos, self._genome_build
+            eligible, self._male_bm, self._female_bm, chrom, pos, self._genome_build
         )
         het_elig = het_bm & called
         hom_elig = hom_bm & called
         AC = (len((het_elig | hom_elig) & haploid_elig)
               + len(het_elig & diploid_elig)
               + 2 * len(hom_elig & diploid_elig))
-        AN = len(haploid_elig) + 2 * len(diploid_elig)
+        in_AN = eligible if fail_as_ref else called
+        AN = len(haploid_elig & in_AN) + 2 * len(diploid_elig & in_AN)
         N_HET = len(het_elig & diploid_elig)
         N_HOM_ALT = len(hom_elig & diploid_elig) + len((het_elig | hom_elig) & haploid_elig)
         N_FAIL = len(site_fail)
@@ -512,7 +515,7 @@ class QueryEngine:
         for ref, alt, bitmaps in unpacked:
             stats = self._variant_stats(
                 chrom, pos, eligible, bitmaps, site,
-                sf.min_pass, sf.min_observed, sf.min_quality_evidence,
+                sf.min_pass, sf.min_observed, sf.min_quality_evidence, sf.fail_as_ref,
             )
             results.append(self._make_result(chrom, pos, ref, alt, eligible, stats))
         if params.ref is not None:
@@ -545,6 +548,7 @@ class QueryEngine:
             min_pass=sf.min_pass,
             min_observed=sf.min_observed,
             min_quality_evidence=sf.min_quality_evidence,
+            fail_as_ref=sf.fail_as_ref,
         )
 
     def query_region_multi(
@@ -583,6 +587,7 @@ class QueryEngine:
                 min_pass=sf.min_pass,
                 min_observed=sf.min_observed,
                 min_quality_evidence=sf.min_quality_evidence,
+                fail_as_ref=sf.fail_as_ref,
             ):
                 key = (r.variant.chrom, r.variant.pos, r.variant.ref, r.variant.alt)
                 if key not in seen:
@@ -636,6 +641,7 @@ class QueryEngine:
                 min_pass=sf.min_pass,
                 min_observed=sf.min_observed,
                 min_quality_evidence=sf.min_quality_evidence,
+                fail_as_ref=sf.fail_as_ref,
             )
             result_map = {(r.variant.pos, r.variant.ref, r.variant.alt): r for r in results}
             seen_on_chrom: set[tuple[int, str, str]] = set()
@@ -655,6 +661,7 @@ class QueryEngine:
         min_pass: int = 0,
         min_observed: int = 0,
         min_quality_evidence: int = 0,
+        fail_as_ref: bool = False,
     ) -> list[QueryResult]:
         """Run a region query with a pre-built sample bitmap.
 
@@ -694,7 +701,7 @@ class QueryEngine:
             eligible = pos_data[pos][0]
             stats = self._variant_stats(
                 chrom, pos, eligible, bitmaps, sites[pos],
-                min_pass, min_observed, min_quality_evidence,
+                min_pass, min_observed, min_quality_evidence, fail_as_ref,
             )
             results.append(self._make_result(chrom, pos, ref, alt, eligible, stats))
         results.sort(key=lambda r: (r.variant.pos, r.variant.alt))
@@ -708,6 +715,7 @@ class QueryEngine:
         min_pass: int = 0,
         min_observed: int = 0,
         min_quality_evidence: int = 0,
+        fail_as_ref: bool = False,
     ) -> list[QueryResult]:
         """Run a batch query with a pre-built sample bitmap.
 
@@ -767,7 +775,7 @@ class QueryEngine:
             eligible = pos_data[pos][0]
             stats = self._variant_stats(
                 chrom, pos, eligible, bitmaps, sites[pos],
-                min_pass, min_observed, min_quality_evidence,
+                min_pass, min_observed, min_quality_evidence, fail_as_ref,
             )
             results.append(self._make_result(chrom, pos, ref, alt, eligible, stats))
         results.sort(key=lambda r: (r.variant.pos, r.variant.alt))
@@ -797,6 +805,7 @@ class QueryEngine:
             min_pass=sf.min_pass,
             min_observed=sf.min_observed,
             min_quality_evidence=sf.min_quality_evidence,
+            fail_as_ref=sf.fail_as_ref,
         )
 
     def variant_info(self, params: QueryParams) -> list[SampleCarrier]:
