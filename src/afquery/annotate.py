@@ -24,7 +24,7 @@ def _compute_chunk_annotations(
     No cyvcf2 dependency — safe to run in a subprocess worker.
     """
     from pathlib import Path
-    from .query import QueryEngine
+    from .query import QueryEngine, SiteEvidence
 
     engine = QueryEngine(db_path)
     if chrom not in engine._all_known_chroms:
@@ -93,6 +93,7 @@ def _compute_chunk_annotations(
     empty = BitMap()
     stored_empty = empty if engine._has_coverage_data else None
     no_carriers = (empty, empty, empty, stored_empty, stored_empty)
+    no_evidence = SiteEvidence(empty, empty, empty, stored_empty)
 
     result: dict[tuple[int, str, str], tuple[int, int, bool, int, int, int, int, int]] = {}
     for pos, ref, alts in records:
@@ -110,22 +111,20 @@ def _compute_chunk_annotations(
                 )
                 result[key] = (s.AC, s.AN, True, s.N_FAIL, s.N_HET, s.N_HOM_ALT,
                                s.N_HOM_REF, s.N_NO_COVERAGE)
-            elif pos in stored_by_pos:
-                # Allele not in Parquet, but others are stored at this position:
-                # it has no carriers, and the rest of its tallies come from the
-                # site, as for the stored alleles.
+            else:
+                # Allele not in Parquet: it has no carriers, and the rest of its
+                # tallies come from whatever is stored at the position. With
+                # nothing stored there is no coverage evidence at all.
+                stored = stored_by_pos.get(pos)
+                site = sites.get(pos) or (
+                    engine._site_evidence(stored) if stored else no_evidence
+                )
                 s = engine._variant_stats(
-                    chrom, pos, eligible, no_carriers,
-                    engine._site_evidence(stored_by_pos[pos]),
+                    chrom, pos, eligible, no_carriers, site,
                     sf.min_pass, sf.min_observed, sf.min_quality_evidence, sf.fail_as_ref,
                 )
                 result[key] = (s.AC, s.AN, False, s.N_FAIL, s.N_HET, s.N_HOM_ALT,
                                s.N_HOM_REF, s.N_NO_COVERAGE)
-            else:
-                # Nothing stored at this position: every eligible sample is
-                # hom-ref. Coverage-evidence filters do not apply, as there is
-                # no call to evaluate.
-                result[key] = (0, eligible_AN, False, 0, 0, 0, len(eligible), 0)
 
     return result
 

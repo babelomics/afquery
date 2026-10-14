@@ -345,3 +345,21 @@ def test_haploid_call_with_two_alts_is_failed(tmp_path, caplog):
         assert r.N_FAIL == 1       # M12
     ac_ref = 1 + 2 + 1             # FA, FREF, MREF
     assert by_alt["A"].AN == ac_ref + by_alt["A"].AC + by_alt["T"].AC
+
+
+def test_annotate_novel_position_has_no_coverage_evidence(panel_db, tmp_path):
+    """Nothing is stored at chr1:5500, inside the panel: under --min-pass 1 the
+    panel has no evidence there, as at any position where it has no carrier."""
+    vcf_in = tmp_path / "in.vcf"
+    vcf_in.write_text(
+        "##fileformat=VCFv4.2\n"
+        "##contig=<ID=chr1>\n"
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+        "chr1\t5500\t.\tC\tG\t.\tPASS\t.\n"
+    )
+    for min_pass, no_cov, hom_ref in ((0, 0, 9), (1, 3, 6)):
+        out = tmp_path / f"out{min_pass}.vcf"
+        panel_db.annotate_vcf(str(vcf_in), str(out), min_pass=min_pass)
+        [v] = list(cyvcf2.VCF(str(out)))
+        assert v.INFO.get("AFQUERY_N_NO_COVERAGE") == no_cov
+        assert v.INFO.get("AFQUERY_N_HOM_REF") == hom_ref

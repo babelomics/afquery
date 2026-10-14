@@ -54,6 +54,11 @@ position. They run at query time, so no database rebuild is needed.
 When both flags are >0, both must hold (AND). The default `0` disables the
 gate.
 
+`afquery annotate` applies the same gates to input alleles that are not in the
+database. At a position where no sample has any call, no tech has evidence, so
+under any active gate the non-carriers of partially-covered techs are reported
+as `N_NO_COVERAGE`.
+
 !!! tip
     If your VCFs do not carry `FORMAT/DP` or `FORMAT/GQ`, these are the
     flags you want. They are the cheapest option and apply to any database.
