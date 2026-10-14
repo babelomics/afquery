@@ -140,6 +140,15 @@ chrM is haploid for all samples (both sexes contribute AN=1):
 !!! warning "N_HET is always 0 on haploid regions"
     On chrY, chrM, and chrX non-PAR for males, all carriers are counted in N_HOM_ALT. N_HET is 0 because haploid samples have only one allele copy — there is no heterozygous state. This is correct behavior, not a bug.
 
+### Genotypes inconsistent with ploidy
+
+Ploidy comes from each sample's sex and the position, not from how the VCF writes the genotype: a male carrier on chrX non-PAR counts as one allele whether its GT is `1`, `0/1` or `1/1`. Calls that carry more alleles than the sample has cannot be counted that way:
+
+- on a haploid position, two different ALT alleles (e.g. GT=`1/2` on chrM, or on chrX non-PAR in a male);
+- on a diploid position, more than two copies across the records at that position (e.g. `1/1` for one ALT and `0/1` for another).
+
+`create-db` and `update-db --add-samples` record every call of the sample at such a position as a failed call, so it counts in `N_FAIL` and is left out of AC and AN, and log a warning naming the sample and the positions. Running `bcftools +fixploidy` during [preprocessing](../getting-started/preprocessing.md) avoids most of these cases on chrX.
+
 ---
 
 ## Sex Filter Interaction

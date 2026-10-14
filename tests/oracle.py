@@ -71,6 +71,7 @@ class Cohort:
             if not vcf.is_absolute():
                 vcf = base / vcf
             self._read_vcf(vcf, name)
+            self._fail_beyond_ploidy(name)
 
         for tech in set(self.tech.values()):
             bed = None if bed_dir is None else Path(bed_dir) / f"{tech}.bed"
@@ -103,6 +104,26 @@ class Cohort:
                     self.calls.setdefault(key, {})[sample] = "fail"
                 else:
                     self.calls.setdefault(key, {})[sample] = "hom" if n >= 2 else "het"
+
+    def _fail_beyond_ploidy(self, sample: str) -> None:
+        """A position where the sample's calls carry more alleles than its
+        ploidy allows has no usable genotype: all its calls there fail."""
+        by_site: dict[tuple[str, int], list[tuple[str, int, str, str]]] = {}
+        for key, site_calls in self.calls.items():
+            if sample in site_calls:
+                by_site.setdefault(key[:2], []).append(key)
+        for (chrom, pos), keys in by_site.items():
+            states = [self.calls[k][sample] for k in keys]
+            carried = [k for k, st in zip(keys, states) if st in ("het", "hom")]
+            if chrom == "chrY" and self.sex[sample] != "male":
+                continue
+            if self.is_haploid(sample, chrom, pos):
+                over = len({k[3] for k in carried}) > 1
+            else:
+                over = sum(2 if st == "hom" else 1 for st in states if st in ("het", "hom")) > 2
+            if over:
+                for k in keys:
+                    self.calls[k][sample] = "fail"
 
     def covers(self, sample: str, chrom: str, pos: int) -> bool:
         regions = self.regions[self.tech[sample]]

@@ -130,7 +130,7 @@ For each variant row, AFQuery stores per-sample genotype information as [Roaring
 
 - **`het_bitmap`** — sample is heterozygous (`GT=0/1`) with `FILTER=PASS`
 - **`hom_bitmap`** — sample is homozygous alt (`GT=1/1`, or `GT=1` on haploid regions) with `FILTER=PASS`
-- **`fail_bitmap`** — the sample's call at this site has `FILTER≠PASS`; it counts in neither AC nor AN
+- **`fail_bitmap`** — the sample's call at this site failed (`FILTER≠PASS`, or a genotype inconsistent with its ploidy); see [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md)
 
 Each sample has a stable integer ID (0-indexed). The bit position in the bitmap equals the sample ID. Databases built with coverage-quality filters carry two additional bitmaps — see [Data Model](../reference/data-model.md#parquet-schema).
 

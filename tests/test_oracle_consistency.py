@@ -92,7 +92,7 @@ def test_flat_build_matches_oracle(tmp_path, built_db, fixture_cohort, data_dir)
 
     tmp = tmp_path / "ingest"
     tmp.mkdir()
-    ingest_all(samples, vcfs, str(tmp), n_workers=1)
+    ingest_all(samples, vcfs, str(tmp), "GRCh37", n_workers=1)
     build_all_parquets(str(tmp), str(flat / "variants"), n_workers=1, partitioned=False)
 
     _assert_matches(flat, fixture_cohort, label="flat")
@@ -194,6 +194,8 @@ def test_multiallelic_cohort_matches_oracle(tmp_path):
                                        ("chr1", 9000, "C", "T", "0/1", "PASS")]),
         "X_A":    ("male",   "WGS",   [("chrX", 5000000, "A", "G,C", "1", "PASS")]),
         "X_C":    ("female", "WGS",   [("chrX", 5000000, "A", "C", "0/1", "PASS")]),
+        # Two ALT alleles on a haploid region: more alleles than the sample has
+        "X_GC":   ("male",   "WGS",   [("chrX", 5000000, "A", "G,C", "1/2", "PASS")]),
     }
     beds = tmp_path / "beds"
     beds.mkdir()
@@ -223,13 +225,17 @@ def test_multiallelic_cohort_matches_oracle(tmp_path):
     _assert_matches(db, cohort, label="multiallelic")
     _assert_matches(db, cohort, label="multiallelic, fail as ref", fail_as_ref=True)
 
-    # Spot-check chr1:5000, where all 12 samples are eligible (the panel BED
-    # covers it). Hom-ref for both alleles: REF, P_REF, P_OFF, X_A, X_C.
+    # Spot-check chr1:5000, where all 13 samples are eligible (the panel BED
+    # covers it). Hom-ref for both alleles: REF, P_REF, P_OFF, X_A, X_C, X_GC.
     got = {r.variant.alt: r for r in Database(str(db)).query("chr1", 5000)}
-    assert got["A"].n_samples_eligible == 12
+    assert got["A"].n_samples_eligible == 13
     # T_FAIL and F_SPLIT failed at the position: N_FAIL for both alleles, out of AN.
     # A: A_HET, AT_HET het; A_HOM hom; T_HET, P_T carry only T.
-    assert (got["A"].N_HET, got["A"].N_HOM_ALT, got["A"].N_FAIL, got["A"].N_HOM_REF) == (2, 1, 2, 5)
+    assert (got["A"].N_HET, got["A"].N_HOM_ALT, got["A"].N_FAIL, got["A"].N_HOM_REF) == (2, 1, 2, 6)
     # T: T_HET, AT_HET het; P_T hom; A_HET, A_HOM carry only A.
-    assert (got["T"].N_HET, got["T"].N_HOM_ALT, got["T"].N_FAIL, got["T"].N_HOM_REF) == (2, 1, 2, 5)
-    assert got["A"].AN == got["T"].AN == 20
+    assert (got["T"].N_HET, got["T"].N_HOM_ALT, got["T"].N_FAIL, got["T"].N_HOM_REF) == (2, 1, 2, 6)
+    assert got["A"].AN == got["T"].AN == 22
+
+    # chrX:5000000: X_GC carries G and C on one allele, so it is a failed call
+    got = {r.variant.alt: r for r in Database(str(db)).query("chrX", 5000000)}
+    assert got["G"].N_FAIL == got["C"].N_FAIL == 1

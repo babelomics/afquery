@@ -318,3 +318,30 @@ def test_fail_as_ref_in_annotate_and_dump(fail_db, tmp_path):
         for sex in ("male", "female"):
             [g] = fail_db.query(*SITE, alt=row["alt"], sex=sex, fail_as_ref=True)
             assert int(row[f"AN_{sex}"]) == g.AN
+
+
+# ---------------------------------------------------------------------------
+# Genotypes inconsistent with ploidy
+# ---------------------------------------------------------------------------
+
+def test_haploid_call_with_two_alts_is_failed(tmp_path, caplog):
+    """A male 1/2 call on chrX non-PAR (no fixploidy) cannot be genotyped: it is
+    recorded as failed, with a warning, so the alleles add up to AN."""
+    xsite = ("chrX", 5_000_000)
+    with caplog.at_level("WARNING", logger="afquery"):
+        db = _build_db(tmp_path, [
+            ("M12",  "male",   "WGS", [("chrX", 5_000_000, "G", "A,T", "1/2")]),
+            ("MT",   "male",   "WGS", [("chrX", 5_000_000, "G", "T", "1")]),
+            ("FA",   "female", "WGS", [("chrX", 5_000_000, "G", "A", "0/1")]),
+            ("FAT",  "female", "WGS", [("chrX", 5_000_000, "G", "A,T", "1/2")]),
+            ("MREF", "male",   "WGS", [("chrX", 200, "C", "G", "1")]),
+            ("FREF", "female", "WGS", [("chrX", 200, "C", "G", "0/1")]),
+        ])
+    assert "M12" in caplog.text and "chrX:5000000" in caplog.text
+    by_alt = {r.variant.alt: r for r in db.query(*xsite)}
+    assert (by_alt["A"].AC, by_alt["T"].AC) == (2, 2)
+    for r in by_alt.values():
+        assert r.AN == 8           # females 3 × 2 + males MT, MREF × 1
+        assert r.N_FAIL == 1       # M12
+    ac_ref = 1 + 2 + 1             # FA, FREF, MREF
+    assert by_alt["A"].AN == ac_ref + by_alt["A"].AC + by_alt["T"].AC

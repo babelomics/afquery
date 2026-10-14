@@ -8,8 +8,9 @@ AFQuery keeps the calls that fail quality filters (`FILTER≠PASS`) instead of d
 
 A sample has a failed call at a position when its VCF holds, for any ALT allele there:
 
-- a call carrying the ALT allele with `FILTER` other than `PASS` or `.`; or
-- a missing genotype (`./.`) at a site that failed a filter.
+- a call carrying the ALT allele with `FILTER` other than `PASS` or `.`;
+- a missing genotype (`./.`) at a site that failed a filter; or
+- calls that carry more alleles than the sample has at the position, such as two ALT alleles on chrX in a male. These are detected when the VCF is ingested, which logs a warning (see [Genotypes inconsistent with ploidy](ploidy-and-sex-chroms.md#genotypes-inconsistent-with-ploidy)).
 
 These samples are stored in the variant's `fail_bitmap` and reported as `N_FAIL`. A homozygous-reference call (`0/0`) is never stored, so at a failed site it would count as hom-ref; [`normalize_vcf.sh`](../getting-started/preprocessing.md) avoids this by masking every genotype at a failed site as missing.
 

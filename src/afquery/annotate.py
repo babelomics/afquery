@@ -182,8 +182,8 @@ def annotate_vcf(
     })
     vcf.add_info_to_header({
         "ID": "AFQUERY_N_FAIL", "Number": "1", "Type": "Integer",
-        "Description": "Eligible samples with a failed call (FILTER!=PASS) for any "
-                       "allele at the position",
+        "Description": "Eligible samples with a failed call (FILTER!=PASS, or a "
+                       "genotype inconsistent with ploidy) for any allele at the position",
     })
     vcf.add_info_to_header({
         "ID": "AFQUERY_N_NO_COVERAGE", "Number": "A", "Type": "Integer",

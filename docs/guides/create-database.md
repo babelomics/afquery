@@ -93,7 +93,7 @@ afquery create-db --manifest manifest.tsv --output-dir ./db/ --genome-build GRCh
 
 ## FILTER=PASS Behavior
 
-Only `FILTER=PASS` calls (or calls with no FILTER field) contribute to AC. Calls that fail a filter are stored in `fail_bitmap`; at query time those samples are left out of AC and AN and reported as `N_FAIL`.
+Only `FILTER=PASS` calls (or calls with no FILTER field) contribute to AC. Calls that fail a filter are stored in `fail_bitmap`; at query time those samples are left out of AC and AN and reported as `N_FAIL`. Genotypes that carry more alleles than the sample's ploidy (e.g. `1/2` on chrX in a male) are stored the same way, and ingestion logs a warning listing them.
 
 See [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md) for details.
 

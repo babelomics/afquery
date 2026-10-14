@@ -758,7 +758,8 @@ def add_samples(
             tmp_dir = tempfile.mkdtemp(prefix="afquery_update_")
 
         try:
-            ingest_all(new_samples, vcf_paths, tmp_dir, n_workers=effective_threads)
+            ingest_all(new_samples, vcf_paths, tmp_dir, db_genome_build,
+                       n_workers=effective_threads)
 
             # 10. Collect chroms from new temp files
             chroms = get_chroms_in_temp_files(tmp_dir)

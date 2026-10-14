@@ -116,7 +116,7 @@ def test_flat_and_partitioned_answer_identically(tmp_path, groups):
     vcfs = [str(tmp_path / f"{name}.vcf") for name, _s, _t, _v, _p in a + b]
     ingest_tmp = tmp_path / "ingest"
     ingest_tmp.mkdir()
-    ingest_all(samples, vcfs, str(ingest_tmp), n_workers=1)
+    ingest_all(samples, vcfs, str(ingest_tmp), "GRCh37", n_workers=1)
     build_all_parquets(str(ingest_tmp), str(flat / "variants"),
                        n_workers=1, partitioned=False)
 

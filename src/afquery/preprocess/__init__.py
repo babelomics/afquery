@@ -127,8 +127,8 @@ def run_preprocess(
             logger.info("[build] Skipping ingest + consolidation (already completed in previous run).")
             consolidated = consolidated_dir
         else:
-            ingest_all(samples, vcf_paths, actual_tmp, n_workers=effective_threads,
-                       resume=(not force))
+            ingest_all(samples, vcf_paths, actual_tmp, genome_build,
+                       n_workers=effective_threads, resume=(not force))
 
             # Re-check after ingest (edge case: consolidation was partially done)
             sample_files = glob_module.glob(os.path.join(actual_tmp, "sample_*.parquet"))

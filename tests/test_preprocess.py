@@ -271,7 +271,7 @@ class TestIngest:
     def test_het_variant(self, tmp_path):
         vcf = tmp_path / "s0.vcf"
         _write_vcf(vcf, "S0", [("chr1", 1000, "A", "T", "0/1")])
-        out, _ = ingest_sample(0, str(vcf), str(tmp_path))
+        out, _, _ = ingest_sample(0, str(vcf), str(tmp_path), "female", "GRCh37")
         tbl = pq.read_table(out)
         assert len(tbl) == 1
         assert tbl["gt_ac"][0].as_py() == 1
@@ -280,7 +280,7 @@ class TestIngest:
     def test_hom_alt_variant(self, tmp_path):
         vcf = tmp_path / "s0.vcf"
         _write_vcf(vcf, "S0", [("chr1", 1000, "A", "T", "1/1")])
-        out, _ = ingest_sample(0, str(vcf), str(tmp_path))
+        out, _, _ = ingest_sample(0, str(vcf), str(tmp_path), "female", "GRCh37")
         tbl = pq.read_table(out)
         assert len(tbl) == 1
         assert tbl["gt_ac"][0].as_py() == 2
@@ -288,21 +288,21 @@ class TestIngest:
     def test_hom_ref_produces_no_rows(self, tmp_path):
         vcf = tmp_path / "s0.vcf"
         _write_vcf(vcf, "S0", [("chr1", 1000, "A", "T", "0/0")])
-        out, _ = ingest_sample(0, str(vcf), str(tmp_path))
+        out, _, _ = ingest_sample(0, str(vcf), str(tmp_path), "female", "GRCh37")
         tbl = pq.read_table(out)
         assert len(tbl) == 0
 
     def test_missing_genotype_produces_no_rows(self, tmp_path):
         vcf = tmp_path / "s0.vcf"
         _write_vcf(vcf, "S0", [("chr1", 1000, "A", "T", "./.")])
-        out, _ = ingest_sample(0, str(vcf), str(tmp_path))
+        out, _, _ = ingest_sample(0, str(vcf), str(tmp_path), "female", "GRCh37")
         tbl = pq.read_table(out)
         assert len(tbl) == 0
 
     def test_multiallelic_produces_two_rows(self, tmp_path):
         vcf = tmp_path / "s0.vcf"
         _write_vcf(vcf, "S0", [("chr1", 1000, "A", "T,G", "1/2")])
-        out, _ = ingest_sample(0, str(vcf), str(tmp_path))
+        out, _, _ = ingest_sample(0, str(vcf), str(tmp_path), "female", "GRCh37")
         tbl = pq.read_table(out)
         assert len(tbl) == 2
         alts = sorted(tbl["alt"].to_pylist())
@@ -311,7 +311,7 @@ class TestIngest:
     def test_chrM_het(self, tmp_path):
         vcf = tmp_path / "s0.vcf"
         _write_vcf(vcf, "S0", [("chrM", 100, "C", "A", "0/1")])
-        out, _ = ingest_sample(0, str(vcf), str(tmp_path))
+        out, _, _ = ingest_sample(0, str(vcf), str(tmp_path), "female", "GRCh37")
         tbl = pq.read_table(out)
         assert len(tbl) == 1
         assert tbl["chrom"][0].as_py() == "chrM"
@@ -321,7 +321,7 @@ class TestIngest:
         """GT=./. with FILTER=PASS → still no row (no allele information)."""
         vcf = tmp_path / "s0.vcf"
         _write_vcf_with_filter(vcf, "S0", [("chr1", 1000, "A", "T", "./.", "PASS")])
-        out, _ = ingest_sample(0, str(vcf), str(tmp_path))
+        out, _, _ = ingest_sample(0, str(vcf), str(tmp_path), "female", "GRCh37")
         tbl = pq.read_table(out)
         assert len(tbl) == 0
 
@@ -329,7 +329,7 @@ class TestIngest:
         """GT=./. with FILTER=LowQual → one row with gt_ac=0, filter_pass=False."""
         vcf = tmp_path / "s0.vcf"
         _write_vcf_with_filter(vcf, "S0", [("chr1", 1000, "A", "T", "./.", "LowQual")])
-        out, _ = ingest_sample(0, str(vcf), str(tmp_path))
+        out, _, _ = ingest_sample(0, str(vcf), str(tmp_path), "female", "GRCh37")
         tbl = pq.read_table(out)
         assert len(tbl) == 1
         assert tbl["gt_ac"][0].as_py() == 0
@@ -342,7 +342,7 @@ class TestIngest:
         """GT=./. with FILTER=LowQual at multiallelic site → one row per ALT."""
         vcf = tmp_path / "s0.vcf"
         _write_vcf_with_filter(vcf, "S0", [("chr1", 1000, "A", "T,G", "./.", "LowQual")])
-        out, _ = ingest_sample(0, str(vcf), str(tmp_path))
+        out, _, _ = ingest_sample(0, str(vcf), str(tmp_path), "female", "GRCh37")
         tbl = pq.read_table(out)
         assert len(tbl) == 2
         assert all(tbl["gt_ac"].to_pylist()[i] == 0 for i in range(2))
@@ -352,9 +352,48 @@ class TestIngest:
     def test_chrom_normalization(self, tmp_path):
         vcf = tmp_path / "s0.vcf"
         _write_vcf(vcf, "S0", [("1", 1000, "A", "T", "0/1")])
-        out, _ = ingest_sample(0, str(vcf), str(tmp_path))
+        out, _, _ = ingest_sample(0, str(vcf), str(tmp_path), "female", "GRCh37")
         tbl = pq.read_table(out)
         assert tbl["chrom"][0].as_py() == "chr1"
+
+    def test_diploid_multiallelic_within_ploidy_kept(self, tmp_path):
+        vcf = tmp_path / "s0.vcf"
+        _write_vcf(vcf, "S0", [("chr1", 1000, "A", "T,G", "1/2")])
+        out, _, inconsistent = ingest_sample(0, str(vcf), str(tmp_path), "female", "GRCh37")
+        assert inconsistent == []
+        assert pq.read_table(out)["filter_pass"].to_pylist() == [True, True]
+
+    def test_two_alts_in_haploid_male_recorded_as_failed(self, tmp_path):
+        """chrX non-PAR in a male carries one allele: 1/2 cannot be genotyped."""
+        vcf = tmp_path / "s0.vcf"
+        _write_vcf(vcf, "S0", [
+            ("chrX", 5_000_000, "A", "T,G", "1/2"),
+            ("chrX", 6_000_000, "A", "T", "1"),
+        ])
+        out, _, inconsistent = ingest_sample(0, str(vcf), str(tmp_path), "male", "GRCh37")
+        tbl = pq.read_table(out).to_pylist()
+        assert inconsistent == ["chrX:5000000"]
+        assert [r["filter_pass"] for r in tbl if r["pos"] == 5_000_000] == [False, False]
+        assert [r["filter_pass"] for r in tbl if r["pos"] == 6_000_000] == [True]
+
+    def test_two_alts_in_female_chrx_kept(self, tmp_path):
+        vcf = tmp_path / "s0.vcf"
+        _write_vcf(vcf, "S0", [("chrX", 5_000_000, "A", "T,G", "1/2")])
+        _out, _, inconsistent = ingest_sample(0, str(vcf), str(tmp_path), "female", "GRCh37")
+        assert inconsistent == []
+
+    def test_more_than_two_copies_recorded_as_failed(self, tmp_path):
+        """1/1 for one ALT and 0/1 for another in separate records: three copies."""
+        vcf = tmp_path / "s0.vcf"
+        _write_vcf(vcf, "S0", [
+            ("chr1", 1000, "A", "T", "1/1"),
+            ("chr1", 1000, "A", "G", "0/1"),
+            ("chr1", 2000, "C", "G", "0/1"),
+        ])
+        out, _, inconsistent = ingest_sample(0, str(vcf), str(tmp_path), "female", "GRCh37")
+        tbl = pq.read_table(out).to_pylist()
+        assert inconsistent == ["chr1:1000"]
+        assert [r["filter_pass"] for r in tbl] == [False, False, True]
 
 
 # ---------------------------------------------------------------------------
