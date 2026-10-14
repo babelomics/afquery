@@ -24,6 +24,14 @@ def _parse_csv(text: str) -> list[dict]:
     return list(reader)
 
 
+def _check_ac_zero_af(row: dict, suffix: str) -> None:
+    """An AC=0 column set has AF=0, or an empty AF when AN=0 (only failed calls)."""
+    if row[f"AN{suffix}"] == "0":
+        assert row[f"AF{suffix}"] == ""
+    else:
+        assert float(row[f"AF{suffix}"]) == 0.0
+
+
 def _dump_to_string(db_path, **kwargs) -> tuple[str, dict]:
     """Run Database.dump() into a StringIO and return (csv_text, stats)."""
     buf = io.StringIO()
@@ -152,7 +160,8 @@ class TestDumpBasic:
             assert int(row["AC"]) > 0, f"AC=0 in row: {row}"
 
     def test_include_ac_zero_flag(self, test_db):
-        """include_ac_zero=True produces a superset; AC=0 rows have AF=0 and AN>0.
+        """include_ac_zero=True produces a superset; AC=0 rows have AF=0, or an
+        empty AF when AN=0 because every eligible sample has a failed call.
 
         chr1:3500 G>C has only S07 (phenotype J45) as carrier. When filtered by
         phenotype I10, no I10 sample carries this variant but several are covered
@@ -174,8 +183,13 @@ class TestDumpBasic:
         ac_zero_rows = [r for r in rows_all if int(r["AC"]) == 0]
         assert len(ac_zero_rows) > 0, "Expected at least one AC=0 row"
         for row in ac_zero_rows:
-            assert float(row["AF"]) == 0.0
-            assert int(row["AN"]) > 0
+            _check_ac_zero_af(row, "")
+
+        # chr1:5000: both eligible I10 samples (S01, S03) have a failed call there
+        [failed_only] = [r for r in rows_all if r["pos"] == "5000"]
+        assert failed_only["AN"] == "0"
+        assert failed_only["AF"] == ""
+        assert failed_only["N_FAIL"] == "2"
 
     def test_include_ac_zero_cli(self, test_db, tmp_path):
         """--all-variants CLI flag includes AC=0 rows for a phenotype-filtered dump."""
@@ -214,8 +228,9 @@ class TestDumpBasic:
         ac_zero_rows = [r for r in rows if int(r["AC"]) == 0]
         assert len(ac_zero_rows) > 0, "Expected AC=0 rows with disaggregation"
         for row in ac_zero_rows:
-            assert float(row["AF"]) == 0.0
-            assert int(row["AN"]) > 0
+            _check_ac_zero_af(row, "")
+            for sex in ("male", "female"):
+                _check_ac_zero_af(row, f"_{sex}")
             sex_ac_cols = [k for k in row if k.startswith("AC_")]
             assert sex_ac_cols, "Expected disaggregated AC_ columns"
             for col in sex_ac_cols:

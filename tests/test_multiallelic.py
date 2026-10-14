@@ -151,3 +151,215 @@ def test_min_pass_failure_never_marks_carriers_uncovered(panel_db):
         carriers = panel_db.variant_info(*SITE, alt="A", min_pass=2)
     no_cov = sorted(c.sample_name for c in carriers if c.genotype == "no_coverage")
     assert no_cov == ["P_R1", "P_R2"]
+
+
+def test_min_covered_judged_per_position(tmp_path):
+    """--min-covered counts quality-passing carriers of every allele at the
+    position: the panel carries A, so it was sequenced here for T as well."""
+    db = _build_db(tmp_path, [
+        ("W_T",  "female", "WGS",   [("chr1", 5000, "G", "T", "0/1")]),
+        ("W_R",  "female", "WGS",   [("chr1", 100, "C", "G", "0/1")]),
+        ("P_A1", "female", "PANEL", [("chr1", 5000, "G", "A", "0/1")]),
+        ("P_A2", "male",   "PANEL", [("chr1", 5000, "G", "A", "0/1")]),
+        ("P_R1", "female", "PANEL", [("chr1", 100, "C", "G", "0/1")]),
+        ("P_R2", "male",   "PANEL", [("chr1", 100, "C", "G", "0/1")]),
+    ], beds={"PANEL": "chr1\t0\t6000\n"}, min_covered=1)
+    by_alt = {r.variant.alt: r for r in db.query(*SITE)}
+    for alt in ("A", "T"):
+        assert by_alt[alt].N_NO_COVERAGE == 0, alt
+    assert by_alt["A"].N_HOM_REF == 3    # W_R, P_R1, P_R2
+    assert by_alt["T"].N_HOM_REF == 3
+
+
+def test_min_covered_still_flags_unevidenced_panel(tmp_path):
+    """With no quality-passing carrier of any allele in the panel, its
+    non-carriers stay uncovered for every allele at the position."""
+    db = _build_db(tmp_path, [
+        ("W_A",  "female", "WGS",   [("chr1", 5000, "G", "A", "0/1")]),
+        ("W_T",  "female", "WGS",   [("chr1", 5000, "G", "T", "0/1")]),
+        ("P_R1", "female", "PANEL", [("chr1", 100, "C", "G", "0/1")]),
+        ("P_R2", "male",   "PANEL", [("chr1", 100, "C", "G", "0/1")]),
+    ], beds={"PANEL": "chr1\t0\t6000\n"}, min_covered=1)
+    by_alt = {r.variant.alt: r for r in db.query(*SITE)}
+    for alt in ("A", "T"):
+        assert by_alt[alt].N_NO_COVERAGE == 2, alt
+
+
+def test_annotate_absent_allele_shares_site_coverage(panel_db, tmp_path):
+    """C is not stored: under --min-pass 2 the panel's non-carriers are as
+    uncovered for C as they are for the stored A and T."""
+    vcf_in = tmp_path / "in.vcf"
+    vcf_in.write_text(
+        "##fileformat=VCFv4.2\n"
+        "##contig=<ID=chr1>\n"
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+        "chr1\t5000\t.\tG\tA,T,C\t.\tPASS\t.\n"
+    )
+    out = tmp_path / "out.vcf"
+    panel_db.annotate_vcf(str(vcf_in), str(out), min_pass=2)
+    [v] = list(cyvcf2.VCF(str(out)))
+    assert tuple(v.INFO.get("AFQUERY_N_NO_COVERAGE")) == (2, 2, 2)
+    assert tuple(v.INFO.get("AFQUERY_N_HOM_REF")) == (2, 2, 2)
+
+
+# ---------------------------------------------------------------------------
+# Failed calls are judged per position
+# ---------------------------------------------------------------------------
+
+FAIL_COHORT = [
+    ("AT",      "female", "WGS", [("chr1", 5000, "G", "A,T", "1/2")]),
+    ("AHET",    "female", "WGS", [("chr1", 5000, "G", "A", "0/1")]),
+    ("THOM",    "male",   "WGS", [("chr1", 5000, "G", "T", "1/1")]),
+    # As written by normalize_vcf.sh: split records, GT masked at a failed site
+    ("F_SPLIT", "male",   "WGS", [("chr1", 5000, "G", "A", "./.", "LowQual"),
+                                  ("chr1", 5000, "G", "T", "./.", "LowQual")]),
+    ("F_MULTI", "male",   "WGS", [("chr1", 5000, "G", "A,T", "1/2", "LowQual")]),
+    ("F_A",     "female", "WGS", [("chr1", 5000, "G", "A", "0/1", "LowQual")]),
+    ("REF1",    "female", "WGS", [("chr1", 100, "C", "G", "0/1")]),
+    ("REF2",    "male",   "WGS", [("chr1", 100, "C", "G", "0/1")]),
+]
+
+
+@pytest.fixture(scope="module")
+def fail_db(tmp_path_factory):
+    return _build_db(tmp_path_factory.mktemp("multiallelic_fail"), FAIL_COHORT)
+
+
+def test_failed_calls_leave_an_for_every_allele(fail_db):
+    """A failed call for any allele is out of AN: AN = AC_ref + sum of AC."""
+    by_alt = {r.variant.alt: r for r in fail_db.query(*SITE)}
+    assert (by_alt["A"].AC, by_alt["T"].AC) == (2, 3)
+    for r in by_alt.values():
+        assert r.AN == 10          # 5 called diploid samples
+        assert r.N_FAIL == 3       # F_SPLIT, F_MULTI, F_A: the same for both alleles
+        assert r.n_samples_eligible == 8
+    assert (by_alt["A"].N_HOM_REF, by_alt["T"].N_HOM_REF) == (2, 2)
+    ac_ref = 1 + 2 + 2             # AHET, REF1, REF2
+    assert by_alt["A"].AN == ac_ref + by_alt["A"].AC + by_alt["T"].AC
+
+
+def test_annotate_counts_each_failed_sample_once(fail_db, tmp_path):
+    vcf_in = tmp_path / "in.vcf"
+    vcf_in.write_text(
+        "##fileformat=VCFv4.2\n"
+        "##contig=<ID=chr1>\n"
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+        "chr1\t5000\t.\tG\tA,T\t.\tPASS\t.\n"
+    )
+    out = tmp_path / "out.vcf"
+    fail_db.annotate_vcf(str(vcf_in), str(out))
+    [v] = list(cyvcf2.VCF(str(out)))
+    assert v.INFO.get("AFQUERY_N_FAIL") == 3
+    assert v.INFO.get("AFQUERY_AN") == 10
+
+
+def test_variant_info_lists_site_failures_for_each_allele(fail_db):
+    """F_A failed at the position, so it is listed as alt/FAIL for T as well,
+    matching N_FAIL."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", AfqueryWarning)
+        carriers = fail_db.variant_info(*SITE, alt="T")
+    failed = sorted(c.sample_name for c in carriers if c.genotype == "alt")
+    assert failed == ["F_A", "F_MULTI", "F_SPLIT"]
+
+
+def test_all_eligible_failed_gives_an_zero(tmp_path):
+    db = _build_db(tmp_path, [
+        ("F1", "female", "WGS", [("chr1", 5000, "G", "A", "0/1", "LowQual")]),
+        ("F2", "male",   "WGS", [("chr1", 5000, "G", "A", "./.", "LowQual")]),
+    ])
+    [r] = db.query(*SITE)
+    assert (r.AC, r.AN, r.AF, r.N_FAIL) == (0, 0, None, 2)
+    vcf_in = tmp_path / "in.vcf"
+    vcf_in.write_text(
+        "##fileformat=VCFv4.2\n"
+        "##contig=<ID=chr1>\n"
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+        "chr1\t5000\t.\tG\tA\t.\tPASS\t.\n"
+    )
+    out = tmp_path / "out.vcf"
+    db.annotate_vcf(str(vcf_in), str(out))
+    [v] = list(cyvcf2.VCF(str(out)))
+    assert v.INFO.get("AFQUERY_AN") == 0
+    assert v.INFO.get("AFQUERY_N_FAIL") == 2
+    assert "AFQUERY_AF=." in str(v)
+
+
+def test_fail_as_ref_counts_failed_calls_in_an(fail_db):
+    """--fail-as-ref only changes AN: the 3 failed samples count as hom-ref."""
+    by_alt = {r.variant.alt: r for r in fail_db.query(*SITE, fail_as_ref=True)}
+    for r in by_alt.values():
+        assert r.AN == 16
+        assert r.N_FAIL == 3
+    assert (by_alt["A"].AC, by_alt["T"].AC) == (2, 3)
+    assert (by_alt["A"].N_HOM_REF, by_alt["T"].N_HOM_REF) == (2, 2)
+
+
+def test_fail_as_ref_in_annotate_and_dump(fail_db, tmp_path):
+    vcf_in = tmp_path / "in.vcf"
+    vcf_in.write_text(
+        "##fileformat=VCFv4.2\n"
+        "##contig=<ID=chr1>\n"
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+        "chr1\t5000\t.\tG\tA,T\t.\tPASS\t.\n"
+    )
+    out = tmp_path / "out.vcf"
+    fail_db.annotate_vcf(str(vcf_in), str(out), fail_as_ref=True)
+    [v] = list(cyvcf2.VCF(str(out)))
+    assert v.INFO.get("AFQUERY_AN") == 16
+    assert v.INFO.get("AFQUERY_N_FAIL") == 3
+
+    buf = io.StringIO()
+    fail_db.dump(output=buf, by_sex=True, fail_as_ref=True)
+    rows = [r for r in csv.DictReader(io.StringIO(buf.getvalue())) if r["pos"] == "5000"]
+    for row in rows:
+        [want] = fail_db.query(*SITE, alt=row["alt"], fail_as_ref=True)
+        assert int(row["AN"]) == want.AN == 16
+        for sex in ("male", "female"):
+            [g] = fail_db.query(*SITE, alt=row["alt"], sex=sex, fail_as_ref=True)
+            assert int(row[f"AN_{sex}"]) == g.AN
+
+
+# ---------------------------------------------------------------------------
+# Genotypes inconsistent with ploidy
+# ---------------------------------------------------------------------------
+
+def test_haploid_call_with_two_alts_is_failed(tmp_path, caplog):
+    """A male 1/2 call on chrX non-PAR (no fixploidy) cannot be genotyped: it is
+    recorded as failed, with a warning, so the alleles add up to AN."""
+    xsite = ("chrX", 5_000_000)
+    with caplog.at_level("WARNING", logger="afquery"):
+        db = _build_db(tmp_path, [
+            ("M12",  "male",   "WGS", [("chrX", 5_000_000, "G", "A,T", "1/2")]),
+            ("MT",   "male",   "WGS", [("chrX", 5_000_000, "G", "T", "1")]),
+            ("FA",   "female", "WGS", [("chrX", 5_000_000, "G", "A", "0/1")]),
+            ("FAT",  "female", "WGS", [("chrX", 5_000_000, "G", "A,T", "1/2")]),
+            ("MREF", "male",   "WGS", [("chrX", 200, "C", "G", "1")]),
+            ("FREF", "female", "WGS", [("chrX", 200, "C", "G", "0/1")]),
+        ])
+    assert "M12" in caplog.text and "chrX:5000000" in caplog.text
+    by_alt = {r.variant.alt: r for r in db.query(*xsite)}
+    assert (by_alt["A"].AC, by_alt["T"].AC) == (2, 2)
+    for r in by_alt.values():
+        assert r.AN == 8           # females 3 × 2 + males MT, MREF × 1
+        assert r.N_FAIL == 1       # M12
+    ac_ref = 1 + 2 + 1             # FA, FREF, MREF
+    assert by_alt["A"].AN == ac_ref + by_alt["A"].AC + by_alt["T"].AC
+
+
+def test_annotate_novel_position_has_no_coverage_evidence(panel_db, tmp_path):
+    """Nothing is stored at chr1:5500, inside the panel: under --min-pass 1 the
+    panel has no evidence there, as at any position where it has no carrier."""
+    vcf_in = tmp_path / "in.vcf"
+    vcf_in.write_text(
+        "##fileformat=VCFv4.2\n"
+        "##contig=<ID=chr1>\n"
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+        "chr1\t5500\t.\tC\tG\t.\tPASS\t.\n"
+    )
+    for min_pass, no_cov, hom_ref in ((0, 0, 9), (1, 3, 6)):
+        out = tmp_path / f"out{min_pass}.vcf"
+        panel_db.annotate_vcf(str(vcf_in), str(out), min_pass=min_pass)
+        [v] = list(cyvcf2.VCF(str(out)))
+        assert v.INFO.get("AFQUERY_N_NO_COVERAGE") == no_cov
+        assert v.INFO.get("AFQUERY_N_HOM_REF") == hom_ref

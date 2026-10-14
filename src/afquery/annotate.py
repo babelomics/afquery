@@ -2,6 +2,7 @@ import logging
 import os
 import warnings
 import duckdb
+from pyroaring import BitMap
 
 from . import storage
 from .bitmaps import deserialize
@@ -23,7 +24,7 @@ def _compute_chunk_annotations(
     No cyvcf2 dependency — safe to run in a subprocess worker.
     """
     from pathlib import Path
-    from .query import QueryEngine
+    from .query import QueryEngine, SiteEvidence
 
     engine = QueryEngine(db_path)
     if chrom not in engine._all_known_chroms:
@@ -35,12 +36,9 @@ def _compute_chunk_annotations(
 
     unique_positions = list({pos for pos, _ref, _alts in records})
 
-    pos_data: dict[int, tuple] = {}
-    for pos in unique_positions:
-        eligible, AN = engine._compute_eligible(chrom, pos, sample_bm)
-        pos_data[pos] = (eligible, AN)
+    pos_data = {pos: engine._compute_eligible(chrom, pos, sample_bm) for pos in unique_positions}
 
-    valid_positions = [p for p in unique_positions if pos_data[p][1] > 0]
+    valid_positions = [p for p in unique_positions if pos_data[p]]
 
     # Bitmap suffix length: 3 (legacy) or 5 (Phase 2)
     n_bitmap_cols = 5 if engine._has_coverage_data else 3
@@ -89,30 +87,41 @@ def _compute_chunk_annotations(
         for pos, group in stored_by_pos.items()
     }
 
+    empty = BitMap()
+    stored_empty = empty if engine._has_coverage_data else None
+    no_carriers = (empty, empty, empty, stored_empty, stored_empty)
+    no_evidence = SiteEvidence(empty, empty, empty, stored_empty)
+
     result: dict[tuple[int, str, str], tuple[int, int, bool, int, int, int, int, int]] = {}
     for pos, ref, alts in records:
-        eligible, AN = pos_data[pos]
+        eligible = pos_data[pos]
         for alt in alts:
             key = (pos, ref, alt)
             if key in result:
                 continue  # dedup
-            if AN == 0:
+            if not eligible:
                 result[key] = (0, 0, False, 0, 0, 0, 0, 0)
             elif key in unpacked:
                 s = engine._variant_stats(
                     chrom, pos, eligible, unpacked[key], sites[pos],
-                    sf.min_pass, sf.min_observed, sf.min_quality_evidence,
+                    sf.min_pass, sf.min_observed, sf.min_quality_evidence, sf.fail_as_ref,
                 )
-                result[key] = (s.AC, AN, True, s.N_FAIL, s.N_HET, s.N_HOM_ALT,
+                result[key] = (s.AC, s.AN, True, s.N_FAIL, s.N_HET, s.N_HOM_ALT,
                                s.N_HOM_REF, s.N_NO_COVERAGE)
             else:
-                # Allele not in Parquet: eligible samples are hom-ref unless they
-                # carry another allele stored at this position. Phase 1/2 filters
-                # do not apply because this allele has no carriers to evaluate.
+                # Allele not in Parquet: it has no carriers, and the rest of its
+                # tallies come from whatever is stored at the position. With
+                # nothing stored there is no coverage evidence at all.
                 stored = stored_by_pos.get(pos)
-                n_other = (len(engine._site_evidence(stored).carrier_bm & eligible)
-                           if stored else 0)
-                result[key] = (0, AN, False, 0, 0, 0, len(eligible) - n_other, 0)
+                site = sites.get(pos) or (
+                    engine._site_evidence(stored) if stored else no_evidence
+                )
+                s = engine._variant_stats(
+                    chrom, pos, eligible, no_carriers, site,
+                    sf.min_pass, sf.min_observed, sf.min_quality_evidence, sf.fail_as_ref,
+                )
+                result[key] = (s.AC, s.AN, False, s.N_FAIL, s.N_HET, s.N_HOM_ALT,
+                               s.N_HOM_REF, s.N_NO_COVERAGE)
 
     return result
 
@@ -143,7 +152,12 @@ def annotate_vcf(
     })
     vcf.add_info_to_header({
         "ID": "AFQUERY_AN", "Number": "1", "Type": "Integer",
-        "Description": "Allele number in eligible samples",
+        "Description": (
+            "Allele number in eligible samples, counting samples with a failed "
+            "call at the position as hom-ref" if sf.fail_as_ref else
+            "Allele number in eligible samples, excluding samples with a failed "
+            "call at the position"
+        ),
     })
     vcf.add_info_to_header({
         "ID": "AFQUERY_AF", "Number": "A", "Type": "Float",
@@ -164,7 +178,8 @@ def annotate_vcf(
     })
     vcf.add_info_to_header({
         "ID": "AFQUERY_N_FAIL", "Number": "1", "Type": "Integer",
-        "Description": "Eligible samples with FILTER!=PASS for this variant",
+        "Description": "Eligible samples with a failed call (FILTER!=PASS, or a "
+                       "genotype inconsistent with ploidy) for any allele at the position",
     })
     vcf.add_info_to_header({
         "ID": "AFQUERY_N_NO_COVERAGE", "Number": "A", "Type": "Integer",
@@ -228,12 +243,14 @@ def annotate_vcf(
             pos = variant.POS
             stats["n_variants"] += 1
 
-            # AN is per-position; read from any alt's entry (same value for all alts)
-            AN = 0
+            # AN and N_FAIL are per position: every alt's entry holds the same
+            # values. AN is 0 with N_FAIL 0 only when no sample is eligible.
+            AN = N_FAIL = 0
             if variant.ALT:
-                AN = ann.get((pos, variant.REF, variant.ALT[0]), (0, 0, False))[1]
+                site_entry = ann.get((pos, variant.REF, variant.ALT[0]), (0, 0, False, 0))
+                AN, N_FAIL = site_entry[1], site_entry[3]
 
-            if AN == 0:
+            if AN == 0 and N_FAIL == 0:
                 stats["n_uncovered"] += 1
                 variant.INFO["AFQUERY_AN"] = 0
                 writer.write_record(variant)
@@ -246,31 +263,31 @@ def annotate_vcf(
             n_hom_ref_list = []
             n_no_cov_list = []
             any_found = False
-            fail_count_total = 0
 
             for alt in variant.ALT:
                 key = (pos, variant.REF, alt)
-                AC, _, in_parquet, n_fail, n_het, n_hom_alt, n_hom_ref, n_no_cov = ann.get(
+                AC, _, in_parquet, _, n_het, n_hom_alt, n_hom_ref, n_no_cov = ann.get(
                     key, (0, AN, False, 0, 0, 0, 0, 0)
                 )
                 if in_parquet:
                     any_found = True
                 ac_list.append(AC)
-                af_list.append(AC / AN)
+                af_list.append(AC / AN if AN > 0 else None)
                 n_het_list.append(n_het)
                 n_hom_alt_list.append(n_hom_alt)
                 n_hom_ref_list.append(n_hom_ref)
                 n_no_cov_list.append(n_no_cov)
-                fail_count_total += n_fail
 
             # cyvcf2 Number=A fields must be set as comma-separated strings
             variant.INFO["AFQUERY_AC"] = ",".join(str(v) for v in ac_list)
             variant.INFO["AFQUERY_AN"] = AN
-            variant.INFO["AFQUERY_AF"] = ",".join("%.10g" % v for v in af_list)
+            variant.INFO["AFQUERY_AF"] = ",".join(
+                "." if v is None else "%.10g" % v for v in af_list
+            )
             variant.INFO["AFQUERY_N_HET"] = ",".join(str(v) for v in n_het_list)
             variant.INFO["AFQUERY_N_HOM_ALT"] = ",".join(str(v) for v in n_hom_alt_list)
             variant.INFO["AFQUERY_N_HOM_REF"] = ",".join(str(v) for v in n_hom_ref_list)
-            variant.INFO["AFQUERY_N_FAIL"] = fail_count_total
+            variant.INFO["AFQUERY_N_FAIL"] = N_FAIL
             variant.INFO["AFQUERY_N_NO_COVERAGE"] = ",".join(str(v) for v in n_no_cov_list)
             if any_found:
                 stats["n_annotated"] += 1

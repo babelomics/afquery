@@ -158,7 +158,7 @@ Every query and annotated VCF reports:
 | `N_HET` | Heterozygous PASS carriers |
 | `N_HOM_ALT` | Homozygous-alt PASS carriers |
 | `N_HOM_REF` | Samples trusted as homozygous reference |
-| `N_FAIL` | Carriers with FILTER ≠ PASS (excluded from AC/AN) |
+| `N_FAIL` | Samples with a failed call (FILTER ≠ PASS) at the position (excluded from AC/AN) |
 | `N_NO_COVERAGE` | Non-carriers on a partially-covered tech without sufficient evidence to call hom-ref |
 
 VCF INFO field names use the `AFQUERY_` prefix (e.g. `AFQUERY_AF`, `AFQUERY_N_NO_COVERAGE`).

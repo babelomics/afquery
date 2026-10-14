@@ -11,7 +11,7 @@ from afquery.cli import _expand_tokens
 # Test DB setup (from conftest.py):
 # SAMPLES: {0,1,2,3}=WGS, {4,5,6}=WES_kit_A, {7,8,9}=WES_kit_B
 # E11.9={0,1,2,5,6,7}, I10={1,3,5,8,9}, C50={2,4,6}, J45={0,3,7,8,9}, G20={1,2,3,5}
-# chr1 pos=1500: het=[0,5], hom=[2]
+# chr1 pos=1500: het=[5], hom=[2], fail=[0]
 #   BED coverage: WES_kit_A covers chr1 1000-1999, WES_kit_B covers chr1 3000-3999
 #   So covered at 1500: WGS={0,1,2,3} + WES_kit_A={4,5,6} = {0,1,2,3,4,5,6}
 
@@ -62,7 +62,7 @@ def test_sample_filter_parse_empty():
 def test_filter_phenotype_exclusion(test_db):
     # Exclude E11.9={0,1,2,5,6,7} → remaining {3,4,8,9}
     # covered at 1500: {0..6} → eligible = {3,4}
-    # het=[0,5], hom=[2] → none in {3,4} → AC=0, AN=4 (2 diploid samples)
+    # het=[5], hom=[2], fail=[0] → none in {3,4} → AC=0, AN=4 (2 diploid samples)
     db = Database(test_db)
     results = db.query(chrom="chr1", pos=1500, phenotype=["^E11.9"], sex="both")
     assert len(results) > 0, "Should return results when AN > 0"
@@ -153,7 +153,8 @@ def test_filter_combined(test_db):
     # tech WGS → {0,1,2,3}
     # sample_bm = {0,2,6,7} & {0,1,2,3} = {0,2}
     # covered at 1500: {0..6} → eligible = {0,2}
-    # het=[0,5]→{0} in eligible, hom=[2]→{2} in eligible → AC = 1 + 2 = 3
+    # fail=[0]→{0}: S00's call failed → out of AC and AN
+    # hom=[2]→{2} in eligible → AC = 2, AN = 2
     db = Database(test_db)
     results = db.query(
         chrom="chr1", pos=1500,
@@ -162,8 +163,9 @@ def test_filter_combined(test_db):
     assert len(results) > 0
     r = results[0]
     assert r.n_samples_eligible == 2  # {0,2}
-    assert r.AC == 3  # sample 0 het(+1) + sample 2 hom(+2)
-    assert r.AN == 4  # 2 diploid samples
+    assert r.AC == 2  # sample 2 hom(+2)
+    assert r.AN == 2  # sample 2 only; sample 0 has a failed call
+    assert r.N_FAIL == 1
 
 
 # ---------------------------------------------------------------------------

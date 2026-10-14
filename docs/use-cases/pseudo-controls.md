@@ -78,8 +78,8 @@ afquery query --db ./db/ --locus chr1:925952 --format tsv
 ```
 
 ```
-chrom	pos	ref	alt	AC	AN	AF	n_eligible	N_HET	N_HOM_ALT	N_HOM_REF	N_FAIL
-chr1	925952	G	A	18	4000	0.00450	2000	16	1	1983	0
+chrom	pos	ref	alt	AC	AN	AF	n_eligible	N_HET	N_HOM_ALT	N_HOM_REF	N_FAIL	N_NO_COVERAGE
+chr1	925952	G	A	18	4000	0.004500	2000	16	1	1983	0	0
 ```
 
 ### 3. Query pseudo-controls (exclude cardiomyopathy)
@@ -89,8 +89,8 @@ afquery query --db ./db/ --locus chr1:925952 --phenotype ^I42 --format tsv
 ```
 
 ```
-chrom	pos	ref	alt	AC	AN	AF	n_eligible	N_HET	N_HOM_ALT	N_HOM_REF	N_FAIL
-chr1	925952	G	A	4	3200	0.00125	1600	4	0	1596	0
+chrom	pos	ref	alt	AC	AN	AF	n_eligible	N_HET	N_HOM_ALT	N_HOM_REF	N_FAIL	N_NO_COVERAGE
+chr1	925952	G	A	4	3200	0.001250	1600	4	0	1596	0	0
 ```
 
 The variant is 3.5× enriched in cardiomyopathy patients versus the pseudo-control background.

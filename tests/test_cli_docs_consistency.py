@@ -48,6 +48,11 @@ def test_query_has_no_start_end():
     assert "--end" not in help_text
 
 
+@pytest.mark.parametrize("command", ["query", "annotate", "dump"])
+def test_fail_as_ref_flag(command):
+    assert "--fail-as-ref" in _help([command])
+
+
 def test_dump_has_start_end():
     help_text = _help(["dump"])
     assert "--start" in help_text

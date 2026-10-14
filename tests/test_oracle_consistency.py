@@ -17,18 +17,19 @@ import oracle
 from test_update import write_manifest, write_vcf
 
 
-def _assert_matches(db_dir, cohort, samples=None, phenotype=None, label=""):
+def _assert_matches(db_dir, cohort, samples=None, phenotype=None, label="",
+                    fail_as_ref=False):
     db = Database(str(db_dir))
     checked = 0
     for chrom, pos, ref, alt in cohort.variants():
-        want = cohort.expect(chrom, pos, ref, alt, samples)
-        kwargs = {"chrom": chrom, "pos": pos, "sex": "both"}
+        want = cohort.expect(chrom, pos, ref, alt, samples, fail_as_ref=fail_as_ref)
+        kwargs = {"chrom": chrom, "pos": pos, "sex": "both", "fail_as_ref": fail_as_ref}
         if phenotype is not None:
             kwargs["phenotype"] = phenotype
         got = [r for r in db.query(**kwargs)
                if (r.variant.ref, r.variant.alt) == (ref, alt)]
 
-        if want["AN"] == 0:
+        if want["n_eligible"] == 0:
             assert not got or got[0].AC == 0
             continue
 
@@ -37,6 +38,7 @@ def _assert_matches(db_dir, cohort, samples=None, phenotype=None, label=""):
         actual = {
             "AC": r.AC, "AN": r.AN, "N_HET": r.N_HET, "N_HOM_ALT": r.N_HOM_ALT,
             "N_FAIL": r.N_FAIL, "N_HOM_REF": r.N_HOM_REF,
+            "n_eligible": r.n_samples_eligible,
         }
         assert actual == want, f"{label} {chrom}:{pos} {ref}>{alt}"
         checked += 1
@@ -66,6 +68,10 @@ def test_partitioned_build_matches_oracle(built_db, fixture_cohort):
     _assert_matches(built_db, fixture_cohort, label="partitioned")
 
 
+def test_fail_as_ref_matches_oracle(built_db, fixture_cohort):
+    _assert_matches(built_db, fixture_cohort, label="fail as ref", fail_as_ref=True)
+
+
 def test_flat_build_matches_oracle(tmp_path, built_db, fixture_cohort, data_dir):
     """The legacy layout must agree with the oracle too, and so with the buckets."""
     import sqlite3
@@ -86,7 +92,7 @@ def test_flat_build_matches_oracle(tmp_path, built_db, fixture_cohort, data_dir)
 
     tmp = tmp_path / "ingest"
     tmp.mkdir()
-    ingest_all(samples, vcfs, str(tmp), n_workers=1)
+    ingest_all(samples, vcfs, str(tmp), "GRCh37", n_workers=1)
     build_all_parquets(str(tmp), str(flat / "variants"), n_workers=1, partitioned=False)
 
     _assert_matches(flat, fixture_cohort, label="flat")
@@ -178,6 +184,9 @@ def test_multiallelic_cohort_matches_oracle(tmp_path):
         "T_HET":  ("female", "WGS",   [("chr1", 5000, "G", "T", "0/1", "PASS")]),
         "AT_HET": ("male",   "WGS",   [("chr1", 5000, "G", "A,T", "1/2", "PASS")]),
         "T_FAIL": ("female", "WGS",   [("chr1", 5000, "G", "T", "0/1", "LowQual")]),
+        # A failed multi-allelic site as normalize_vcf.sh writes it
+        "F_SPLIT": ("male",  "WGS",   [("chr1", 5000, "G", "A", "./.", "LowQual"),
+                                       ("chr1", 5000, "G", "T", "./.", "LowQual")]),
         "REF":    ("female", "WGS",   [("chr1", 100, "C", "G", "0/1", "PASS")]),
         "P_T":    ("female", "PANEL", [("chr1", 5000, "G", "T", "1/1", "PASS")]),
         "P_REF":  ("male",   "PANEL", [("chr1", 100, "C", "G", "0/1", "PASS")]),
@@ -185,6 +194,8 @@ def test_multiallelic_cohort_matches_oracle(tmp_path):
                                        ("chr1", 9000, "C", "T", "0/1", "PASS")]),
         "X_A":    ("male",   "WGS",   [("chrX", 5000000, "A", "G,C", "1", "PASS")]),
         "X_C":    ("female", "WGS",   [("chrX", 5000000, "A", "C", "0/1", "PASS")]),
+        # Two ALT alleles on a haploid region: more alleles than the sample has
+        "X_GC":   ("male",   "WGS",   [("chrX", 5000000, "A", "G,C", "1/2", "PASS")]),
     }
     beds = tmp_path / "beds"
     beds.mkdir()
@@ -212,12 +223,19 @@ def test_multiallelic_cohort_matches_oracle(tmp_path):
     )
     cohort = oracle.Cohort(manifest_path, bed_dir=beds)
     _assert_matches(db, cohort, label="multiallelic")
+    _assert_matches(db, cohort, label="multiallelic, fail as ref", fail_as_ref=True)
 
-    # Spot-check chr1:5000, where all 11 samples are eligible (the panel BED
-    # covers it). Hom-ref for both alleles: REF, P_REF, P_OFF, X_A, X_C.
+    # Spot-check chr1:5000, where all 13 samples are eligible (the panel BED
+    # covers it). Hom-ref for both alleles: REF, P_REF, P_OFF, X_A, X_C, X_GC.
     got = {r.variant.alt: r for r in Database(str(db)).query("chr1", 5000)}
-    assert got["A"].n_samples_eligible == 11
-    # A: A_HET, AT_HET het; A_HOM hom; T_HET, T_FAIL, P_T carry only T.
-    assert (got["A"].N_HET, got["A"].N_HOM_ALT, got["A"].N_HOM_REF) == (2, 1, 5)
-    # T: T_HET, AT_HET het; P_T hom; T_FAIL failed; A_HET, A_HOM carry only A.
-    assert (got["T"].N_HET, got["T"].N_HOM_ALT, got["T"].N_FAIL, got["T"].N_HOM_REF) == (2, 1, 1, 5)
+    assert got["A"].n_samples_eligible == 13
+    # T_FAIL and F_SPLIT failed at the position: N_FAIL for both alleles, out of AN.
+    # A: A_HET, AT_HET het; A_HOM hom; T_HET, P_T carry only T.
+    assert (got["A"].N_HET, got["A"].N_HOM_ALT, got["A"].N_FAIL, got["A"].N_HOM_REF) == (2, 1, 2, 6)
+    # T: T_HET, AT_HET het; P_T hom; A_HET, A_HOM carry only A.
+    assert (got["T"].N_HET, got["T"].N_HOM_ALT, got["T"].N_FAIL, got["T"].N_HOM_REF) == (2, 1, 2, 6)
+    assert got["A"].AN == got["T"].AN == 22
+
+    # chrX:5000000: X_GC carries G and C on one allele, so it is a failed call
+    got = {r.variant.alt: r for r in Database(str(db)).query("chrX", 5000000)}
+    assert got["G"].N_FAIL == got["C"].N_FAIL == 1

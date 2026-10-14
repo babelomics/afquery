@@ -198,9 +198,10 @@ def cli():
 @click.option("--min-pass", default=0, type=int, help="Min PASS carriers (het|hom) per WES tech for hom-ref to be assumed. Non-carriers move to N_NO_COVERAGE if tech falls below the threshold. (default: 0 = disabled)")
 @click.option("--min-observed", default=0, type=int, help="Min any-VCF entries (het|hom|fail) per WES tech for hom-ref to be assumed. (default: 0 = disabled)")
 @click.option("--min-quality-evidence", default=0, type=int, help="Min quality-passing carriers per WES tech (Phase 2 DBs only — created with --min-dp/--min-gq). (default: 0 = disabled)")
+@click.option("--fail-as-ref", is_flag=True, default=False, help="Count samples with a failed call at the position (N_FAIL) as hom-ref in AN instead of leaving them out. (default: false)")
 @click.option("--no-warn", is_flag=True, default=False, help="Suppress AfqueryWarning messages.")
 def query(db, locus, region, from_file, phenotype, sex, ref, alt, tech, fmt,
-          min_pass, min_observed, min_quality_evidence, no_warn):
+          min_pass, min_observed, min_quality_evidence, fail_as_ref, no_warn):
     """Query allele frequencies.
 
     Exactly one of --locus, --region, or --from-file must be provided:
@@ -230,7 +231,7 @@ def query(db, locus, region, from_file, phenotype, sex, ref, alt, tech, fmt,
             phenotype=_expand_tokens(phenotype), sex=sex,
             ref=ref, alt=alt, tech=_expand_tokens(tech),
             min_pass=min_pass, min_observed=min_observed,
-            min_quality_evidence=min_quality_evidence,
+            min_quality_evidence=min_quality_evidence, fail_as_ref=fail_as_ref,
         )
     elif region is not None:
         chrom, start, end = _parse_region(region)
@@ -238,7 +239,7 @@ def query(db, locus, region, from_file, phenotype, sex, ref, alt, tech, fmt,
             chrom=chrom, start=start, end=end,
             phenotype=_expand_tokens(phenotype), sex=sex, tech=_expand_tokens(tech),
             min_pass=min_pass, min_observed=min_observed,
-            min_quality_evidence=min_quality_evidence,
+            min_quality_evidence=min_quality_evidence, fail_as_ref=fail_as_ref,
         )
     else:
         variants = _parse_variants_file(from_file)
@@ -246,7 +247,7 @@ def query(db, locus, region, from_file, phenotype, sex, ref, alt, tech, fmt,
             variants=variants,
             phenotype=_expand_tokens(phenotype), sex=sex, tech=_expand_tokens(tech),
             min_pass=min_pass, min_observed=min_observed,
-            min_quality_evidence=min_quality_evidence,
+            min_quality_evidence=min_quality_evidence, fail_as_ref=fail_as_ref,
         )
 
     _print_results(results, fmt)
@@ -312,9 +313,10 @@ def variant_info_cmd(db, locus, ref, alt, phenotype, sex, tech, fmt,
 @click.option("--min-pass", default=0, type=int, help="Min PASS carriers per WES tech for hom-ref to be assumed (default: 0).")
 @click.option("--min-observed", default=0, type=int, help="Min any-VCF entries per WES tech (default: 0).")
 @click.option("--min-quality-evidence", default=0, type=int, help="Min quality-passing carriers per WES tech (Phase 2 DBs only) (default: 0).")
+@click.option("--fail-as-ref", is_flag=True, default=False, help="Count samples with a failed call at the position (N_FAIL) as hom-ref in AN instead of leaving them out. (default: false)")
 @click.option("--no-warn", is_flag=True, default=False, help="Suppress AfqueryWarning messages.")
 def annotate(db, input_vcf, output_vcf, phenotype, sex, tech, threads, verbose,
-             min_pass, min_observed, min_quality_evidence, no_warn):
+             min_pass, min_observed, min_quality_evidence, fail_as_ref, no_warn):
     """Annotate a VCF with allele frequency INFO fields.
 
     The following INFO fields are added to each variant:
@@ -326,7 +328,7 @@ def annotate(db, input_vcf, output_vcf, phenotype, sex, tech, threads, verbose,
       AFQUERY_N_HET       heterozygous carrier count (per ALT)
       AFQUERY_N_HOM_ALT   homozygous alt count (per ALT)
       AFQUERY_N_HOM_REF   homozygous ref count (per ALT)
-      AFQUERY_N_FAIL      samples with FILTER!=PASS (per site)
+      AFQUERY_N_FAIL      samples with a failed call, FILTER!=PASS (per site)
       AFQUERY_N_NO_COVERAGE  eligible samples lacking coverage evidence (per ALT)
     """
     if no_warn:
@@ -340,7 +342,7 @@ def annotate(db, input_vcf, output_vcf, phenotype, sex, tech, threads, verbose,
         phenotype=_expand_tokens(phenotype), sex=sex,
         tech=_expand_tokens(tech), n_workers=threads,
         min_pass=min_pass, min_observed=min_observed,
-        min_quality_evidence=min_quality_evidence,
+        min_quality_evidence=min_quality_evidence, fail_as_ref=fail_as_ref,
     )
     click.echo(
         f"Annotated {stats['n_annotated']} variants "
@@ -367,9 +369,10 @@ def annotate(db, input_vcf, output_vcf, phenotype, sex, tech, threads, verbose,
 @click.option("--min-pass", default=0, type=int, help="Min PASS carriers per WES tech for hom-ref to be assumed (default: 0).")
 @click.option("--min-observed", default=0, type=int, help="Min any-VCF entries per WES tech (default: 0).")
 @click.option("--min-quality-evidence", default=0, type=int, help="Min quality-passing carriers per WES tech (Phase 2 DBs only) (default: 0).")
+@click.option("--fail-as-ref", is_flag=True, default=False, help="Count samples with a failed call at the position (N_FAIL) as hom-ref in AN instead of leaving them out. (default: false)")
 def dump(db, output, chrom, start, end, phenotype, sex, tech,
          by_sex, by_tech, by_phenotype, all_groups, threads, all_variants, verbose,
-         min_pass, min_observed, min_quality_evidence):
+         min_pass, min_observed, min_quality_evidence, fail_as_ref):
     """Export allele frequencies to CSV.
 
     By default only variants with AC > 0 are exported. Use --all-variants to
@@ -403,6 +406,7 @@ def dump(db, output, chrom, start, end, phenotype, sex, tech,
         min_pass=min_pass,
         min_observed=min_observed,
         min_quality_evidence=min_quality_evidence,
+        fail_as_ref=fail_as_ref,
     )
     click.echo(
         f"{stats['n_rows']} row(s) exported from {stats['n_buckets']} bucket(s)"

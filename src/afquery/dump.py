@@ -17,6 +17,11 @@ logger = logging.getLogger(__name__)
 BUCKET_SIZE = storage.BUCKET_SIZE
 
 
+def _af(stats):
+    """AF of one variant's stats, or None (an empty cell) when AN is 0."""
+    return stats.AC / stats.AN if stats.AN > 0 else None
+
+
 def _build_groups(engine, base_sf, by_sex, by_tech, by_phenotype, all_groups):
     """Build list of (label, SampleFilter) for desagregation groups.
 
@@ -86,6 +91,7 @@ def _build_groups(engine, base_sf, by_sex, by_tech, by_phenotype, all_groups):
             min_pass=base_sf.min_pass,
             min_observed=base_sf.min_observed,
             min_quality_evidence=base_sf.min_quality_evidence,
+            fail_as_ref=base_sf.fail_as_ref,
         )
         groups.append((label, sf))
 
@@ -186,17 +192,18 @@ def _dump_bucket_worker(
     for row, bitmaps in zip(rows, unpacked):
         pos, ref, alt = row[0], row[1], row[2]
 
-        # Base eligible / AN
+        # Base eligible set; a position with no eligible sample is skipped
         if pos not in pos_cache:
             pos_cache[pos] = engine._compute_eligible(chrom, pos, base_bm)
-        eligible, AN = pos_cache[pos]
+        eligible = pos_cache[pos]
 
-        if AN == 0:
+        if not eligible:
             continue
 
         s = engine._variant_stats(
             chrom, pos, eligible, bitmaps, sites[pos],
             base_sf.min_pass, base_sf.min_observed, base_sf.min_quality_evidence,
+            base_sf.fail_as_ref,
         )
 
         if s.AC == 0 and not include_ac_zero:
@@ -208,8 +215,8 @@ def _dump_bucket_worker(
             "ref": ref,
             "alt": alt,
             "AC": s.AC,
-            "AN": AN,
-            "AF": s.AC / AN,
+            "AN": s.AN,
+            "AF": _af(s),
             "N_HET": s.N_HET,
             "N_HOM_ALT": s.N_HOM_ALT,
             "N_HOM_REF": s.N_HOM_REF,
@@ -223,16 +230,17 @@ def _dump_bucket_worker(
             cache_key = (g_idx, pos)
             if cache_key not in group_pos_cache:
                 group_pos_cache[cache_key] = engine._compute_eligible(chrom, pos, g_bm)
-            g_eligible, g_AN = group_pos_cache[cache_key]
+            g_eligible = group_pos_cache[cache_key]
 
             g = engine._variant_stats(
                 chrom, pos, g_eligible, bitmaps, sites[pos],
                 g_sf.min_pass, g_sf.min_observed, g_sf.min_quality_evidence,
+                g_sf.fail_as_ref,
             )
 
             out_row[f"AC_{label}"] = g.AC
-            out_row[f"AN_{label}"] = g_AN
-            out_row[f"AF_{label}"] = g.AC / g_AN if g_AN > 0 else 0.0
+            out_row[f"AN_{label}"] = g.AN
+            out_row[f"AF_{label}"] = _af(g)
             out_row[f"N_HET_{label}"] = g.N_HET
             out_row[f"N_HOM_ALT_{label}"] = g.N_HOM_ALT
             out_row[f"N_HOM_REF_{label}"] = g.N_HOM_REF

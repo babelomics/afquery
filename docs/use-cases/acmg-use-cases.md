@@ -30,7 +30,7 @@ afquery query \
 Example output:
 
 ```
-chr7:117559590 C>T  AC=160  AN=2000  AF=0.0800  n_eligible=1000  N_HET=140  N_HOM_ALT=10  N_HOM_REF=850  N_FAIL=0
+chr7:117559590 C>T  AC=160  AN=2000  AF=0.0800  n_eligible=1000  N_HET=140  N_HOM_ALT=10  N_HOM_REF=850  N_FAIL=0  N_NO_COVERAGE=0
 ```
 
 **Interpretation**: AF=0.08 (8%) with AN=2000 → BA1 criterion met. This variant is benign in the controls subgroup of your cohort.
@@ -175,11 +175,11 @@ AC=3, AF=0.000625 → the variant is present, so strict PM2 (absent) does not ap
 ```bash
 # Cases: 300 samples tagged with the disease
 afquery query --db ./db/ --locus chr15:48762884 --ref C --alt T --phenotype DISEASE_X
-# chr15:48762884 C>T  AC=3  AN=580  AF=0.005172  n_eligible=290  N_HET=3  N_HOM_ALT=0  N_HOM_REF=287  N_FAIL=0
+# chr15:48762884 C>T  AC=3  AN=580  AF=0.005172  n_eligible=290  N_HET=3  N_HOM_ALT=0  N_HOM_REF=287  N_FAIL=0  N_NO_COVERAGE=0
 
 # Controls: remaining 2200 samples
 afquery query --db ./db/ --locus chr15:48762884 --ref C --alt T --phenotype ^DISEASE_X
-# chr15:48762884 C>T  AC=0  AN=4220  AF=0.000000  n_eligible=2110  N_HET=0  N_HOM_ALT=0  N_HOM_REF=2110  N_FAIL=0
+# chr15:48762884 C>T  AC=0  AN=4220  AF=0.000000  n_eligible=2110  N_HET=0  N_HOM_ALT=0  N_HOM_REF=2110  N_FAIL=0  N_NO_COVERAGE=0
 ```
 
 All 3 carriers are in the disease group. Enrichment is significant (AF=0.005 vs AF=0.000, Fisher's exact p < 0.001). **PS4 applicable** — the variant is enriched in affected individuals.
@@ -207,7 +207,7 @@ On chrX non-PAR regions, males contribute AN=1 and females AN=2. A cohort with 8
 
 ### High N_FAIL at the Variant Site
 
-`N_FAIL` counts eligible samples whose call at the site failed quality filters (`FILTER≠PASS`). These samples are excluded from AC but stay in AN, so they cannot inflate AF — if anything they make it slightly more conservative. A high N_FAIL still indicates the site has systematic QC problems, and warrants caution before applying ACMG criteria.
+`N_FAIL` counts eligible samples whose call at the site failed quality filters (`FILTER≠PASS`). These samples are left out of both AC and AN, so AF is computed over the samples with a usable call. A high N_FAIL means that AF rests on fewer samples and that the site may have systematic QC problems, which warrants caution before applying ACMG criteria.
 
 | N_FAIL / n_eligible | Interpretation |
 |---|---|

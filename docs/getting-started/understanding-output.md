@@ -9,14 +9,14 @@ This page explains what each field in AFQuery output means and how to interpret 
 | Field | Type | Description |
 |-------|------|-------------|
 | **AC** | int | Allele count — number of alt allele copies in eligible samples |
-| **AN** | int | Allele number — total alleles examined (adjusted for ploidy and eligible samples) |
-| **AF** | float | Allele frequency — `AC / AN`. `None` when AN=0 |
+| **AN** | int | Allele number — alleles of the eligible samples with a usable call at this position, adjusted for ploidy. Samples in `N_FAIL` are left out (counted as hom-ref with `--fail-as-ref`) |
+| **AF** | float | Allele frequency — `AC / AN`. `NA` (text/TSV) or `null` (JSON) when AN=0 |
 | **N_HET** | int | Number of eligible samples heterozygous for the alt allele (GT=0/1) |
 | **N_HOM_ALT** | int | Number of eligible samples homozygous for the alt allele (GT=1/1 or GT=1). Includes haploid carriers on sex chromosomes and chrM. See [Ploidy](../advanced/ploidy-and-sex-chroms.md#genotype-counting). |
 | **N_HOM_REF** | int | Number of eligible samples homozygous reference (GT=0/0 or GT=0). Samples carrying another ALT allele at the same position are not counted (see [Multi-allelic sites](#multi-allelic-sites)). |
 | **n_eligible** | int | Number of eligible samples — those passing the sex/phenotype/tech filters *and* covered at this position |
-| **N_FAIL** | int | Number of eligible samples whose call at this position had FILTER≠PASS. These samples are counted *only* in N_FAIL — not in N_HET, N_HOM_ALT, or N_HOM_REF — but they stay eligible and still count toward AN. |
-| **N_NO_COVERAGE** | int | Number of eligible samples whose tech lacks coverage evidence at this position. Excluded from `N_HOM_REF` to keep AC/AN conservative. Always `0` unless a coverage-evidence filter is active. See [Coverage Evidence](../advanced/coverage-evidence.md). |
+| **N_FAIL** | int | Number of eligible samples with a failed call (FILTER≠PASS) for any allele at this position — the same value for every allele there. These samples are counted *only* in N_FAIL, not in N_HET, N_HOM_ALT or N_HOM_REF, and are left out of AC and AN. See [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md). |
+| **N_NO_COVERAGE** | int | Number of eligible samples whose tech lacks coverage evidence at this position. Excluded from `N_HOM_REF`; they still count in AN. Always `0` unless a coverage-evidence filter is active. See [Coverage Evidence](../advanced/coverage-evidence.md). |
 
 
 ---
@@ -74,11 +74,14 @@ afquery query --db ./db/ --locus chr1:925952 --ref G --alt A --format json
 
 ### AN=0 and AF=None
 
-AN=0 means no eligible samples have coverage at this position. This happens when:
+AN=0 means no eligible sample has a usable call at this position. This happens when:
 
 - All eligible samples are WES or panels and the position is outside capture regions
 - The phenotype/sex/technology filter excludes all samples
 - The chromosome is not in the database
+- Every eligible sample has a failed call there (`N_FAIL` = `n_eligible`)
+
+In the first three cases `query` returns no line for the position; in the last one it reports the variant with AN=0.
 
 
 !!! warning "AN=0 does not mean the variant is absent"
@@ -93,6 +96,11 @@ reference for this allele, so it appears in none of `N_HET`, `N_HOM_ALT`,
 `N_HOM_REF`, `N_FAIL` or `N_NO_COVERAGE`. The five counts add up to
 `n_eligible` at biallelic sites; at a multi-allelic site they fall short by the
 number of such samples. AC, AN and AF are not affected.
+
+AN and `N_FAIL` describe the position, so they are the same on every line of a
+multi-allelic site, and AN equals the reference alleles plus the AC of all its
+ALT alleles. A sample with a failed call for any of the alleles is counted in
+`N_FAIL` on every line.
 
 A sample with two different ALT alleles (`GT=1/2`) is counted as heterozygous on
 both lines.
@@ -124,7 +132,7 @@ AC=0 with a high AN (e.g., AN=4000) means the variant was **genuinely not observ
 
 ### N_FAIL > 0
 
-When N_FAIL > 0, some eligible samples had a non-PASS filter at this position in their source VCF. A high N_FAIL relative to AN may indicate a problematic site (e.g., systematic sequencing artifacts). Consider filtering positions with more than 10% of failing (`N_FAIL / (AN / 2) > 0.1`).
+When N_FAIL > 0, some eligible samples had a non-PASS filter at this position in their source VCF, and AF is computed over the remaining samples. A high N_FAIL relative to `n_eligible` may indicate a problematic site (e.g., systematic sequencing artifacts). Consider filtering positions where more than 10% of eligible samples failed (`N_FAIL / n_eligible > 0.1`).
 
 ---
 
@@ -135,12 +143,12 @@ When using `afquery annotate`, the following INFO fields are added to each varia
 | INFO field | Number | Description |
 |-----------|--------|-------------|
 | `AFQUERY_AC` | A (per ALT) | Allele count — one value per ALT allele |
-| `AFQUERY_AN` | 1 (per site) | Allele number — shared across all ALT alleles |
-| `AFQUERY_AF` | A (per ALT) | Allele frequency — one value per ALT allele |
+| `AFQUERY_AN` | 1 (per site) | Allele number — shared across all ALT alleles; excludes samples in `AFQUERY_N_FAIL` |
+| `AFQUERY_AF` | A (per ALT) | Allele frequency — one value per ALT allele; `.` when `AFQUERY_AN=0` |
 | `AFQUERY_N_HET` | A (per ALT) | Heterozygous sample count per ALT allele |
 | `AFQUERY_N_HOM_ALT` | A (per ALT) | Homozygous alt sample count per ALT allele |
 | `AFQUERY_N_HOM_REF` | A (per ALT) | Homozygous ref sample count per ALT allele, excluding carriers of other ALT alleles at the position |
-| `AFQUERY_N_FAIL` | 1 (per site) | Fail sample count — shared across all ALT alleles |
+| `AFQUERY_N_FAIL` | 1 (per site) | Samples with a failed call for any ALT allele at the position, each counted once |
 | `AFQUERY_N_NO_COVERAGE` | A (per ALT) | Eligible samples whose tech lacks coverage evidence at this position. Always `0` unless a coverage-evidence filter is active. See [Coverage Evidence](../advanced/coverage-evidence.md). |
 
 !!! note "Multi-allelic sites"

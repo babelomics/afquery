@@ -26,6 +26,20 @@ Opens an AFQuery database at the given path. The manifest and sample metadata ar
 db = Database("./my_db/")
 ```
 
+### Calculation options
+
+Besides the parameters listed for each method, `query`, `query_region`,
+`query_region_multi`, `query_batch`, `query_batch_multi`, `dump` and
+`annotate_vcf` accept these keyword arguments, with the same meaning as the
+CLI flags of the same name:
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `min_pass`, `min_observed`, `min_quality_evidence` | `0` | Coverage-evidence gates. See [Coverage Evidence](../advanced/coverage-evidence.md). |
+| `fail_as_ref` | `False` | Count samples with a failed call as hom-ref in AN. See [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md#counting-failed-calls-as-reference). |
+
+`variant_info` accepts the coverage-evidence gates only.
+
 ---
 
 ### query
@@ -447,13 +461,13 @@ Return all distinct phenotype codes present in the database.
 class QueryResult:
     variant: VariantKey      # chrom, pos, ref, alt
     AC: int                  # Allele count
-    AN: int                  # Allele number
+    AN: int                  # Allele number (samples in N_FAIL left out)
     AF: float | None         # Allele frequency (None if AN == 0)
     n_samples_eligible: int  # Number of eligible samples at this position
     N_HET: int               # Heterozygous count
     N_HOM_ALT: int           # Homozygous alt count
     N_HOM_REF: int           # Homozygous ref count
-    N_FAIL: int              # Eligible samples whose call had FILTER≠PASS (excluded from AC, kept in AN)
+    N_FAIL: int              # Eligible samples with a failed call at the position (out of AC and AN)
     N_NO_COVERAGE: int       # Eligible samples whose tech lacks evidence (excluded from N_HOM_REF)
 ```
 
@@ -519,6 +533,7 @@ class SampleFilter:
     min_pass: int = 0                     # partially-covered tech needs ≥K PASS carriers
     min_observed: int = 0                 # partially-covered tech needs ≥K any-VCF entries
     min_quality_evidence: int = 0         # partially-covered tech needs ≥K quality_pass carriers (DB built with --min-dp/--min-gq)
+    fail_as_ref: bool = False             # count samples with a failed call as hom-ref in AN
 
     @staticmethod
     def parse(
@@ -528,6 +543,7 @@ class SampleFilter:
         min_pass: int = 0,
         min_observed: int = 0,
         min_quality_evidence: int = 0,
+        fail_as_ref: bool = False,
     ) -> SampleFilter
 ```
 

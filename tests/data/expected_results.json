@@ -1,6 +1,6 @@
 [
   {
-    "description": "chr1:1500 E11.9 both sexes",
+    "description": "chr1:1500 E11.9 both sexes (S00's failed call is out of AC and AN)",
     "chrom": "chr1",
     "pos": 1500,
     "ref": "A",
@@ -9,9 +9,9 @@
       "E11.9"
     ],
     "sex": "both",
-    "AC": 4,
-    "AN": 10,
-    "AF": 0.4,
+    "AC": 3,
+    "AN": 8,
+    "AF": 0.375,
     "n_eligible": 5
   },
   {

@@ -71,6 +71,7 @@ class Cohort:
             if not vcf.is_absolute():
                 vcf = base / vcf
             self._read_vcf(vcf, name)
+            self._fail_beyond_ploidy(name)
 
         for tech in set(self.tech.values()):
             bed = None if bed_dir is None else Path(bed_dir) / f"{tech}.bed"
@@ -104,6 +105,26 @@ class Cohort:
                 else:
                     self.calls.setdefault(key, {})[sample] = "hom" if n >= 2 else "het"
 
+    def _fail_beyond_ploidy(self, sample: str) -> None:
+        """A position where the sample's calls carry more alleles than its
+        ploidy allows has no usable genotype: all its calls there fail."""
+        by_site: dict[tuple[str, int], list[tuple[str, int, str, str]]] = {}
+        for key, site_calls in self.calls.items():
+            if sample in site_calls:
+                by_site.setdefault(key[:2], []).append(key)
+        for (chrom, pos), keys in by_site.items():
+            states = [self.calls[k][sample] for k in keys]
+            carried = [k for k, st in zip(keys, states) if st in ("het", "hom")]
+            if chrom == "chrY" and self.sex[sample] != "male":
+                continue
+            if self.is_haploid(sample, chrom, pos):
+                over = len({k[2:] for k in carried}) > 1
+            else:
+                over = sum(2 if st == "hom" else 1 for st in states if st in ("het", "hom")) > 2
+            if over:
+                for k in keys:
+                    self.calls[k][sample] = "fail"
+
     def covers(self, sample: str, chrom: str, pos: int) -> bool:
         regions = self.regions[self.tech[sample]]
         if regions is None:
@@ -134,21 +155,38 @@ class Cohort:
             out.append(s)
         return out
 
-    def expect(self, chrom, pos, ref, alt, samples=None) -> dict:
-        """Expected query counts for one variant."""
+    def expect(self, chrom, pos, ref, alt, samples=None, fail_as_ref=False) -> dict:
+        """Expected query counts for one variant.
+
+        fail_as_ref counts samples with a failed call as hom-ref in AN.
+        """
         elig = self.eligible(chrom, pos, samples)
-        calls = self.calls.get((chrom, pos, ref, alt), {})
+        site = {
+            (r, a): site_calls
+            for (c, p, r, a), site_calls in self.calls.items()
+            if c == chrom and p == pos
+        }
+        calls = site.get((ref, alt), {})
+        # A failed call for any allele at the position leaves the sample's
+        # genotype there unknown: it is out of AC and AN for every allele.
+        site_fail = {
+            s for site_calls in site.values()
+            for s, state in site_calls.items() if state == "fail"
+        }
 
         AN = 0
         AC = 0
         n_het = n_hom_alt = n_fail = 0
         for s in elig:
             haploid = self.is_haploid(s, chrom, pos)
+            if s in site_fail:
+                n_fail += 1
+                if fail_as_ref:
+                    AN += 1 if haploid else 2
+                continue
             AN += 1 if haploid else 2
             state = calls.get(s)
-            if state == "fail":
-                n_fail += 1
-            elif state == "het":
+            if state == "het":
                 if haploid:
                     AC += 1
                     n_hom_alt += 1
@@ -167,10 +205,9 @@ class Cohort:
         # n_eligible.
         n_other = sum(
             1 for s in elig
-            if s not in calls and any(
+            if s not in site_fail and s not in calls and any(
                 s in other_calls
-                for (c, p, _r, a), other_calls in self.calls.items()
-                if c == chrom and p == pos and (_r, a) != (ref, alt)
+                for key, other_calls in site.items() if key != (ref, alt)
             )
         )
 
@@ -181,6 +218,7 @@ class Cohort:
             "N_HOM_ALT": n_hom_alt,
             "N_FAIL": n_fail,
             "N_HOM_REF": len(elig) - n_het - n_hom_alt - n_fail - n_other,
+            "n_eligible": len(elig),
         }
 
     def variants(self) -> list[tuple[str, int, str, str]]:

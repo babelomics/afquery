@@ -141,7 +141,7 @@ When `--ref` and `--alt` are specified, the `variant` block contains the actual 
 |---|---|
 | `het` | Heterozygous carrier, FILTER=PASS |
 | `hom` | Homozygous alt carrier, FILTER=PASS |
-| `alt` | Non-ref carrier with FILTER≠PASS (ploidy unknown) |
+| `alt` | Failed call (FILTER≠PASS) for any allele at this position; genotype unknown. Listed for every allele of the position, as in `N_FAIL` |
 | `no_coverage` | Sample's tech lacks coverage evidence at this position; not a carrier. Only appears when a coverage-evidence filter (`--min-pass`, `--min-observed`, `--min-quality-evidence`, or build-time `--min-covered`) is active. The FILTER column is empty (text/tsv) or `null` (JSON) — `PASS`/`FAIL` does not apply because there is no call. See [Coverage Evidence](../advanced/coverage-evidence.md). |
 
 ---

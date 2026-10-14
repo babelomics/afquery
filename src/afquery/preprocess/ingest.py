@@ -11,6 +11,7 @@ import pyarrow.parquet as pq
 
 from ..constants import normalize_chrom
 from ..models import Sample
+from ..ploidy import sample_ploidy
 
 logger = logging.getLogger(__name__)
 
@@ -59,8 +60,37 @@ def _read_format_int(variant, field: str) -> int | None:
     return v_int
 
 
-def ingest_sample(sample_id: int, vcf_path: str, tmp_dir: str) -> tuple[str, float]:
-    """Parse one VCF, write Parquet file. Returns (output_path, elapsed_seconds)."""
+def _exceeds_ploidy(
+    refs: list[str], alts: list[str], gt_acs: list[int], ploidy: int,
+) -> bool:
+    """True if one sample's calls at a position carry more alleles than it has.
+
+    A haploid sample can carry one ALT allele at most; a diploid one, two copies.
+    Alleles are told apart by REF and ALT, and a repeated record counts once.
+    """
+    copies: dict[tuple[str, str], int] = {}
+    for ref, alt, ac in zip(refs, alts, gt_acs):
+        if ac > 0:
+            copies[(ref, alt)] = max(ac, copies.get((ref, alt), 0))
+    if ploidy == 1:
+        return len(copies) > 1
+    if ploidy == 2:
+        return sum(copies.values()) > 2
+    return False  # no allele here (chrY in a female): never eligible
+
+
+def ingest_sample(
+    sample_id: int, vcf_path: str, tmp_dir: str, sex: str, genome_build: str,
+) -> tuple[str, float, list[str]]:
+    """Parse one VCF, write Parquet file.
+
+    A position where the sample's calls carry more alleles than its ploidy
+    allows (e.g. a 1/2 call on chrX in a male) has no usable genotype: all its
+    calls there are recorded as failed.
+
+    Returns (output_path, elapsed_seconds, positions recorded as failed for
+    that reason, as "chrom:pos").
+    """
     import cyvcf2  # local import for worker-safety
 
     t0 = time.monotonic()
@@ -76,6 +106,20 @@ def ingest_sample(sample_id: int, vcf_path: str, tmp_dir: str) -> tuple[str, flo
     dps: list[int | None] = []
     gqs: list[int | None] = []
     quals: list[float | None] = []
+    inconsistent: list[str] = []
+
+    # Rows of the current position, which are contiguous in a sorted VCF
+    site: tuple[str, int] | None = None
+    site_start = 0
+
+    def close_site() -> None:
+        if site is None:
+            return
+        ploidy = sample_ploidy(site[0], site[1], sex, genome_build)
+        if _exceeds_ploidy(refs[site_start:], alts[site_start:], gt_acs[site_start:], ploidy):
+            for i in range(site_start, len(filter_passes)):
+                filter_passes[i] = False
+            inconsistent.append(f"{site[0]}:{site[1]}")
 
     vcf = cyvcf2.VCF(vcf_path)
     for variant in vcf:
@@ -87,6 +131,9 @@ def ingest_sample(sample_id: int, vcf_path: str, tmp_dir: str) -> tuple[str, flo
 
         chrom = normalize_chrom(variant.CHROM)
         pos = variant.POS
+        if (chrom, pos) != site:
+            close_site()
+            site, site_start = (chrom, pos), len(chroms)
         ref = variant.REF
         # cyvcf2: FILTER is None for PASS/missing, string for others (e.g. "LowQual")
         fp = variant.FILTER is None or variant.FILTER == "PASS"
@@ -133,6 +180,7 @@ def ingest_sample(sample_id: int, vcf_path: str, tmp_dir: str) -> tuple[str, flo
             gqs.append(gq_val)
             quals.append(qual_val)
 
+    close_site()
     vcf.close()
 
     table = pa.table(
@@ -153,23 +201,42 @@ def ingest_sample(sample_id: int, vcf_path: str, tmp_dir: str) -> tuple[str, flo
 
     pq.write_table(table, out_path)
     elapsed = time.monotonic() - t0
-    return out_path, elapsed
+    return out_path, elapsed, inconsistent
 
 
-def _ingest_worker(args: tuple) -> str:
-    sample_id, vcf_path, tmp_dir = args
-    return ingest_sample(sample_id, vcf_path, tmp_dir)
+def _ingest_worker(args: tuple) -> tuple[str, float, list[str]]:
+    return ingest_sample(*args)
+
+
+def _warn_inconsistent(sample_name: str, positions: list[str]) -> None:
+    shown = ", ".join(positions[:10])
+    more = f" and {len(positions) - 10} more" if len(positions) > 10 else ""
+    logger.warning(
+        "[ingest] %s: %d position(s) with a genotype inconsistent with the sample's "
+        "ploidy, recorded as failed calls: %s%s",
+        sample_name, len(positions), shown, more,
+    )
 
 
 def ingest_all(
     samples: list[Sample],
     vcf_paths: list[str],
     tmp_dir: str,
+    genome_build: str,
     n_workers: int = 8,
     resume: bool = True,
 ) -> list[str]:
-    """Parallel ingestion via ProcessPoolExecutor. Collects all errors before raising."""
-    args_list = [(s.sample_id, vcf_paths[i], tmp_dir) for i, s in enumerate(samples)]
+    """Parallel ingestion via ProcessPoolExecutor. Collects all errors before raising.
+
+    Warns, per sample, about positions recorded as failed because the genotype
+    exceeds the sample's ploidy. Samples skipped on resume were reported by the
+    run that ingested them.
+    """
+    args_list = [
+        (s.sample_id, vcf_paths[i], tmp_dir, s.sex, genome_build)
+        for i, s in enumerate(samples)
+    ]
+    names = {s.sample_id: s.sample_name for s in samples}
 
     if resume:
         pending = []
@@ -209,8 +276,10 @@ def ingest_all(
             for future in as_completed(future_to_args):
                 args = future_to_args[future]
                 try:
-                    out_path, elapsed = future.result()
+                    out_path, elapsed, inconsistent = future.result()
                     results.append(out_path)
+                    if inconsistent:
+                        _warn_inconsistent(names[args[0]], inconsistent)
                     bar.update(1)
                     logger.debug("  [ingest] sample_id=%d (%s) done in %.2fs",
                                  args[0], os.path.basename(args[1]), elapsed)

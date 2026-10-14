@@ -76,7 +76,7 @@ afquery query --db ./db/ --locus chrY:2787758 --sex female
 # chrY:2787758 — no results (AN=0 for all variants)
 
 afquery query --db ./db/ --locus chrY:2787758 --sex male
-# chrY:2787758 C>T  AC=3  AN=856  AF=0.0035  n_eligible=856  N_HET=0  N_HOM_ALT=3  N_HOM_REF=853  N_FAIL=0
+# chrY:2787758 C>T  AC=3  AN=856  AF=0.0035  n_eligible=856  N_HET=0  N_HOM_ALT=3  N_HOM_REF=853  N_FAIL=0  N_NO_COVERAGE=0
 ```
 
 ### chrX non-PAR
@@ -107,10 +107,10 @@ For every query result at a biallelic site, the following identity holds:
 
 **N_HET + N_HOM_ALT + N_HOM_REF + N_FAIL + N_NO_COVERAGE = n_eligible**
 
-This can be used to validate results. At a multi-allelic site, eligible samples that carry only another ALT allele at the position fall in none of these categories, so the sum is lower by exactly that number of samples (see [Multi-allelic sites](../getting-started/understanding-output.md#multi-allelic-sites)). N_HOM_REF is the number of eligible samples that are homozygous reference (i.e., carry no ALT allele at the position and passed quality filters). N_NO_COVERAGE is 0 unless a coverage-evidence filter is active — see [Coverage Evidence](coverage-evidence.md).
+This can be used to validate results. At a multi-allelic site, eligible samples that carry only another ALT allele at the position fall in none of these categories, so the sum is lower by exactly that number of samples (see [Multi-allelic sites](../getting-started/understanding-output.md#multi-allelic-sites)). N_HOM_REF is the number of eligible samples that are homozygous reference (i.e., carry no ALT allele at the position and have no failed call there). N_NO_COVERAGE is 0 unless a coverage-evidence filter is active — see [Coverage Evidence](coverage-evidence.md).
 
 !!! note "Mutual exclusivity"
-    N_HET, N_HOM_ALT, N_HOM_REF, N_FAIL, and N_NO_COVERAGE are mutually exclusive. A sample with a non-ref allele but FILTER≠PASS is counted in N_FAIL only — it does not appear in N_HET or N_HOM_ALT. Likewise, N_HOM_REF counts only PASS-filtered samples.
+    N_HET, N_HOM_ALT, N_HOM_REF, N_FAIL, and N_NO_COVERAGE are mutually exclusive. A sample with a failed call (FILTER≠PASS) for any allele at the position is counted in N_FAIL only — it does not appear in N_HET, N_HOM_ALT or N_HOM_REF, and is left out of AC and AN.
 
 ### chrX non-PAR
 
@@ -139,6 +139,15 @@ chrM is haploid for all samples (both sexes contribute AN=1):
 
 !!! warning "N_HET is always 0 on haploid regions"
     On chrY, chrM, and chrX non-PAR for males, all carriers are counted in N_HOM_ALT. N_HET is 0 because haploid samples have only one allele copy — there is no heterozygous state. This is correct behavior, not a bug.
+
+### Genotypes inconsistent with ploidy
+
+Ploidy comes from each sample's sex and the position, not from how the VCF writes the genotype: a male carrier on chrX non-PAR counts as one allele whether its GT is `1`, `0/1` or `1/1`. Calls that carry more alleles than the sample has cannot be counted that way:
+
+- on a haploid position, two different ALT alleles (e.g. GT=`1/2` on chrM, or on chrX non-PAR in a male);
+- on a diploid position, more than two copies across the records at that position (e.g. `1/1` for one ALT and `0/1` for another).
+
+`create-db` and `update-db --add-samples` record every call of the sample at such a position as a failed call, so it counts in `N_FAIL` and is left out of AC and AN, and log a warning naming the sample and the positions. Running `bcftools +fixploidy` during [preprocessing](../getting-started/preprocessing.md) avoids most of these cases on chrX.
 
 ---
 

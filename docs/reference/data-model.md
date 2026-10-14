@@ -116,7 +116,7 @@ Each bucket Parquet file has this schema:
 | `alt` | `large_utf8` | Alternate allele |
 | `het_bitmap` | `large_binary` | Roaring Bitmap of heterozygous, `FILTER=PASS` sample IDs |
 | `hom_bitmap` | `large_binary` | Roaring Bitmap of homozygous-alt, `FILTER=PASS` sample IDs |
-| `fail_bitmap` | `large_binary` | Roaring Bitmap of sample IDs whose call has `FILTER≠PASS` at this site |
+| `fail_bitmap` | `large_binary` | Roaring Bitmap of sample IDs whose call failed at this site |
 | `filtered_bitmap` | `large_binary` | Roaring Bitmap of WES non-carriers with uncertain coverage |
 | `quality_pass_bitmap` | `large_binary` | Roaring Bitmap of carriers meeting the DP/GQ/QUAL thresholds |
 
@@ -136,7 +136,7 @@ Bitmaps use the [Roaring Bitmap](https://roaringbitmap.org/) format, serialized 
 - Bit position = sample ID (0-indexed integer)
 - `het_bitmap`: bit set iff the sample is heterozygous with `FILTER=PASS`
 - `hom_bitmap`: bit set iff the sample is homozygous alt with `FILTER=PASS`
-- `fail_bitmap`: bit set iff the sample's call has `FILTER≠PASS` — either a carrier whose call failed a filter, or a missing genotype (`./.`) at a failed site
+- `fail_bitmap`: bit set iff the sample's call failed — a carrier whose call has `FILTER≠PASS`, a missing genotype (`./.`) at a failed site, or a genotype carrying more alleles than the sample's ploidy. A sample set in the `fail_bitmap` of any allele at a position is left out of AC, and by default of AN, for every allele there
 - `filtered_bitmap`, `quality_pass_bitmap`: see the Parquet schema above; both are empty unless the database was built with coverage-quality filters
 
 To deserialize in Python:

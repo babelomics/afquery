@@ -42,14 +42,15 @@ SAMPLE_PHENOTYPE = [
     (1, "G20"),   (2, "G20"),   (3, "G20"),   (5, "G20"),
 ]
 
-# (chrom, pos, ref, alt, het_ids, hom_ids, fail_ids)
+# (chrom, pos, ref, alt, het_ids, hom_ids, fail_ids); as in a real build, a sample
+# whose call failed FILTER is in fail_ids only
 VARIANTS = [
-    ("chr1",  1500,    "A", "T", [0, 5],    [2],    [0]),      # S00 fails FILTER
+    ("chr1",  1500,    "A", "T", [5],       [2],    [0]),      # S00 fails FILTER
     ("chr1",  3500,    "G", "C", [7],        [],     []),       # no failures
-    ("chr1",  5000,    "T", "G", [0, 1],    [3],    [1, 3]),   # S01, S03 fail FILTER
+    ("chr1",  5000,    "T", "G", [0],       [],     [1, 3]),   # S01, S03 fail FILTER
     ("chrX",  5000000, "A", "G", [0, 2],    [],     []),       # no failures
     ("chrY",  500000,  "T", "C", [0, 1],    [4],    []),       # no failures
-    ("chrM",  100,     "C", "A", [0, 2, 5], [],     [5]),      # S05 fails FILTER
+    ("chrM",  100,     "C", "A", [0, 2],    [],     [5]),      # S05 fails FILTER
 ]
 
 

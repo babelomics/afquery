@@ -86,9 +86,8 @@ class TestPhase1MinPass:
 class TestPhase1MinObserved:
     def test_min_observed_counts_fail(self, test_db):
         """min_observed counts fail samples as evidence — fail-only WES tech survives."""
-        # chr1:1500 → WES_A has S05 het + S00 fail (S00 is WGS, not WES_A). Need careful look.
         # samples 0-3 are WGS, 4-6 are WES_A, 7-9 are WES_B.
-        # chr1:1500 het=[0,5], hom=[2], fail=[0]. WES_A carriers: het={5} (1 PASS carrier)
+        # chr1:1500 het=[5], hom=[2], fail=[0]. WES_A carriers: het={5} (1 PASS carrier)
         # WES_A's only carrier (S05) is in het → also counts as observed (1).
         # So min_observed=2 should filter.
         db = _db(test_db)

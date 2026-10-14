@@ -27,9 +27,8 @@ At a multi-allelic site, eligible samples that carry only another ALT allele at
 the position fall in none of these categories for this allele, so the sum is
 lower than `n_eligible` by exactly that number of samples.
 
-Samples in `N_NO_COVERAGE` remain in `eligible` and contribute to `AN` (just
-like `N_FAIL`), so AC/AN/AF stay conservative — the field never inflates
-allele frequencies. Two rules always hold:
+Samples in `N_NO_COVERAGE` remain in `eligible` and contribute to `AN`, so
+AC/AN/AF stay conservative — the field never inflates allele frequencies. Two rules always hold:
 
 - **Carriers are never reclassified.** A sample with a `het`, `hom`, or
   `fail` call at the position stays in its category. `N_NO_COVERAGE` only
@@ -54,6 +53,11 @@ position. They run at query time, so no database rebuild is needed.
 
 When both flags are >0, both must hold (AND). The default `0` disables the
 gate.
+
+`afquery annotate` applies the same gates to input alleles that are not in the
+database. At a position where no sample has any call, no tech has evidence, so
+under any active gate the non-carriers of partially-covered techs are reported
+as `N_NO_COVERAGE`.
 
 !!! tip
     If your VCFs do not carry `FORMAT/DP` or `FORMAT/GQ`, these are the
@@ -102,7 +106,7 @@ coverage decision is baked in.
 | `--min-dp D`     | Minimum `FORMAT/DP` per carrier. |
 | `--min-gq G`     | Minimum `FORMAT/GQ` per carrier. |
 | `--min-qual Q`   | Minimum VCF `QUAL` per carrier. |
-| `--min-covered K`| Per partially-covered tech, the position is "trusted" only if at least K of its carriers pass the quality thresholds. Non-carriers of failing positions are recorded as `N_NO_COVERAGE`. The gate is evaluated at build time for each ALT allele separately; samples carrying another allele at the position are never counted as `N_NO_COVERAGE`. |
+| `--min-covered K`| Per partially-covered tech, the position is "trusted" only if at least K of its carriers pass the quality thresholds. Non-carriers of failing positions are recorded as `N_NO_COVERAGE`. Carriers of any ALT allele at the position count, so every allele of a multi-allelic site gets the same verdict; samples carrying another allele there are never counted as `N_NO_COVERAGE`. |
 
 A carrier counts as quality-passing only if **all** active thresholds hold
 (unset thresholds are simply ignored). At least one of these flags must be

@@ -70,6 +70,8 @@ chrom,pos,ref,alt,AC,AN,AF,N_HET,N_HOM_ALT,N_HOM_REF,N_FAIL,N_NO_COVERAGE
 
 `N_NO_COVERAGE` is always emitted but is `0` unless a coverage-evidence
 filter is active (see [Coverage Evidence](../advanced/coverage-evidence.md)).
+`AF` and every `AF_<group>` column are left empty when the matching `AN` is 0,
+i.e. when no eligible sample of that group has a usable call at the position.
 
 === "--by-sex"
 

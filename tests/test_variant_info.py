@@ -13,12 +13,12 @@ from afquery.models import AfqueryWarning
 # Reference data from conftest.py
 # ---------------------------------------------------------------------------
 # VARIANTS = [
-#   ("chr1",  1500,    "A", "T", het=[0,5],   hom=[2],    fail=[0]),   # S00 in both het+fail
+#   ("chr1",  1500,    "A", "T", het=[5],     hom=[2],    fail=[0]),
 #   ("chr1",  3500,    "G", "C", het=[7],      hom=[],     fail=[]),
-#   ("chr1",  5000,    "T", "G", het=[0,1],   hom=[3],    fail=[1,3]),
+#   ("chr1",  5000,    "T", "G", het=[0],     hom=[],     fail=[1,3]),
 #   ("chrX",  5000000, "A", "G", het=[0,2],   hom=[],     fail=[]),
 #   ("chrY",  500000,  "T", "C", het=[0,1],   hom=[4],    fail=[]),
-#   ("chrM",  100,     "C", "A", het=[0,2,5], hom=[],     fail=[5]),
+#   ("chrM",  100,     "C", "A", het=[0,2],   hom=[],     fail=[5]),
 # ]
 # SAMPLES (id, name, sex, tech_id):
 #   0=S00/male/WGS,  1=S01/male/WGS,   2=S02/female/WGS,  3=S03/female/WGS,
@@ -51,7 +51,7 @@ def test_hom_genotype(test_db):
 
 
 def test_fail_genotype(test_db):
-    """S00 is in both het_bitmap and fail_bitmap → should be reported as alt/FAIL."""
+    """S00's call failed FILTER → reported as alt/FAIL."""
     db = Database(test_db)
     carriers = db.variant_info("chr1", 1500, ref="A", alt="T")
     by_id = {c.sample_id: c for c in carriers}
@@ -110,23 +110,22 @@ def test_phenotypes_sorted(test_db):
 
 # ---------------------------------------------------------------------------
 # 3. All fail_bitmap cases — chr1:5000 T>G
-#    het=[0,1], hom=[3], fail=[1,3]
-#    → S01: het+fail → alt/FAIL
-#    → S03: hom+fail → alt/FAIL
-#    → S00: het only → het/PASS
+#    het=[0], hom=[], fail=[1,3]
+#    → S01, S03: failed calls → alt/FAIL
+#    → S00: het → het/PASS
 # ---------------------------------------------------------------------------
 
 def test_fail_chr1_5000(test_db):
     db = Database(test_db)
     carriers = db.variant_info("chr1", 5000, ref="T", alt="G")
     by_id = {c.sample_id: c for c in carriers}
-    # S00: het, no fail
+    # S00: het
     assert by_id[0].genotype == "het"
     assert by_id[0].filter_pass is True
-    # S01: het + fail
+    # S01: failed call (0/1 in its VCF)
     assert by_id[1].genotype == "alt"
     assert by_id[1].filter_pass is False
-    # S03: hom + fail
+    # S03: failed call (1/1 in its VCF)
     assert by_id[3].genotype == "alt"
     assert by_id[3].filter_pass is False
 
@@ -469,8 +468,11 @@ def _write_vcf(path, sample_name, records):
             f.write(f"{chrom}\t{pos}\t.\t{ref}\t{alt}\t.\t{flt}\t.\tGT\t{gt}\n")
 
 
-def _build_db(tmp_path, sample_defs, beds=None):
-    """sample_defs = [(name, sex, tech, records)]; beds = {tech: bed_text}."""
+def _build_db(tmp_path, sample_defs, beds=None, **build_options):
+    """sample_defs = [(name, sex, tech, records)]; beds = {tech: bed_text}.
+
+    build_options are passed to run_preprocess (e.g. min_covered=1).
+    """
     from afquery.preprocess import run_preprocess
 
     bed_dir = tmp_path / "beds"
@@ -488,7 +490,7 @@ def _build_db(tmp_path, sample_defs, beds=None):
     db_path.mkdir()
     run_preprocess(
         manifest_path=str(manifest), output_dir=str(db_path),
-        genome_build="GRCh37", threads=1, bed_dir=str(bed_dir),
+        genome_build="GRCh37", threads=1, bed_dir=str(bed_dir), **build_options,
     )
     return Database(str(db_path))
 

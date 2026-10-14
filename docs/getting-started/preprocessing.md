@@ -29,16 +29,13 @@ Multi-allelic variants and complex indels can be represented in multiple equival
 
 ### Ploidy correction for sex chromosomes
 
-Male samples should have haploid genotype calls at chrX non-PAR regions (GT=`1`, not GT=`0/1` or `1/1`). Many variant callers output diploid genotypes for males at chrX by default. Without ploidy correction:
-
-- Males at chrX are counted as diploid → AN is inflated by up to 50%
-- AF estimates for X-linked variants are systematically underestimated
+Male samples should have haploid genotype calls at chrX non-PAR regions (GT=`1`, not GT=`0/1` or `1/1`). Many variant callers output diploid genotypes for males at chrX by default. AFQuery takes ploidy from the sample's sex, so a diploid-coded male call still counts as one allele; but a male call carrying two different ALT alleles (`1/2`) cannot be counted at all and is recorded as a failed call, with a warning during ingestion (see [Genotypes inconsistent with ploidy](../advanced/ploidy-and-sex-chroms.md#genotypes-inconsistent-with-ploidy)). `bcftools +fixploidy` rewrites these genotypes as haploid calls.
 
 `bcftools +fixploidy` corrects genotype ploidy based on a sex file.
 
 ### Filtering and stripping
 
-- **Non-PASS genotypes**: Masking them as missing ensures that low-quality calls do not inflate AC. AFQuery tracks these as N_FAIL.
+- **Non-PASS genotypes**: Masking every genotype at a failed site as missing ensures that low-quality calls do not inflate AC, and that no sample there is taken for hom-ref. AFQuery tracks these samples as N_FAIL and leaves them out of AN.
 - **Homozygous reference calls**: Removing ref/ref genotypes reduces file size and speeds ingestion; they contribute AC=0 and are not needed
 - **INFO fields**: Stripping INFO reduces file size and speeds ingestion. Additionally, malformed or non-standard INFO fields produced by some variant callers can break downstream parsing; stripping them pre-emptively prevents these errors.
 - **FORMAT fields**: Only `GT`, `DP`, and `GQ` are preserved. `GT` is the genotype required by AFQuery for all queries. `DP` and `GQ` are read by the [coverage-evidence](../advanced/coverage-evidence.md) quality flags (`afquery create-db --min-dp / --min-gq / --min-qual / --min-covered`). VCFs without `DP`/`GQ` are still valid; their carriers simply contribute no quality evidence to the cohort. All other FORMAT fields (`PL`, `AD`, etc.) are dropped to reduce file size.

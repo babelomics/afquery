@@ -151,7 +151,7 @@ hom-ref. With standard variant-only VCFs that assumption can be wrong: a missing
 position may simply mean the sample was not sequenced deeply enough at that locus.
 Three optional flags let you trade hom-ref aggressiveness for confidence. Samples
 that fall below a threshold are reported in **N_NO_COVERAGE** instead of N_HOM_REF
-(they remain in `eligible` and `AN`, like `N_FAIL`).
+(they remain in `eligible` and `AN`).
 
 | Flag | Meaning |
 |------|---------|

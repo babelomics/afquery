@@ -10,7 +10,7 @@ Ratio of AC to AN (`AC / AN`). Represents the proportion of alleles that are the
 
 ## AN (Allele Number)
 
-Total number of alleles examined across eligible samples. For autosomes, AN = 2 × number of eligible diploid samples. For sex chromosomes, AN depends on ploidy. See [Ploidy & Sex Chromosomes](../advanced/ploidy-and-sex-chroms.md).
+Total number of alleles examined across eligible samples, leaving out samples with a failed call at the position ([N_FAIL](#n_fail)). For autosomes, AN = 2 × (eligible samples − N_FAIL), or 2 × eligible samples with `--fail-as-ref`. For sex chromosomes, AN depends on ploidy. See [Ploidy & Sex Chromosomes](../advanced/ploidy-and-sex-chroms.md).
 
 ## Bitmap
 
@@ -30,15 +30,15 @@ An interval tree (stored as a `.pkl` file) built from a BED file that defines th
 
 ## Eligible Sample
 
-A sample that passes all query filters (sex, phenotype, technology) and has coverage at the queried position. Only eligible samples contribute to AC and AN. See [Sample Filtering](../guides/sample-filtering.md).
+A sample that passes all query filters (sex, phenotype, technology) and has coverage at the queried position. Only eligible samples contribute to AC and AN, and only if their call there did not fail. See [Sample Filtering](../guides/sample-filtering.md).
 
 ## N_FAIL
 
-The count of eligible samples whose call at a position had FILTER≠PASS in the source VCF. These samples are excluded from AC, but they remain eligible and so still count toward AN. See [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md).
+The count of eligible samples with a failed call (FILTER≠PASS) for any allele at a position. Their genotype there is unknown, so they are left out of AC and AN for every allele at the position. See [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md).
 
 ## N_NO_COVERAGE
 
-The count of eligible samples whose tech lacks coverage evidence at this position. Excluded from `N_HOM_REF` to keep AC/AN conservative. Always `0` unless a coverage-evidence filter (`--min-pass`, `--min-observed`, `--min-quality-evidence`, or build-time `--min-covered`) is active. See [Coverage Evidence](../advanced/coverage-evidence.md).
+The count of eligible samples whose tech lacks coverage evidence at this position. Excluded from `N_HOM_REF`; they still count in AN. Always `0` unless a coverage-evidence filter (`--min-pass`, `--min-observed`, `--min-quality-evidence`, or build-time `--min-covered`) is active. See [Coverage Evidence](../advanced/coverage-evidence.md).
 
 ## Manifest
 

@@ -32,7 +32,7 @@ class TestHaploidPointQuery:
         assert r.AC == 2
 
     def test_chrM_all_haploid(self, test_db):
-        """chrM:100 het_ids=[0,2,5] — all haploid → N_HET=0."""
+        """chrM:100 het_ids=[0,2] — all haploid → N_HET=0."""
         db = Database(test_db)
         results = db.query(chrom="chrM", pos=100)
         assert len(results) == 1
@@ -49,11 +49,13 @@ class TestHaploidPointQuery:
         assert len(results) == 1
         r = results[0]
         # Eligible: WGS{0,1,2,3} ∪ WES_A{4,5,6} (chr1:1500 covered by both)
-        # het_ids=[0,5], hom_ids=[2], fail_ids=[0]
-        # All diploid → N_HET = 2 (S00,S05), N_HOM_ALT = 1 (S02)
-        assert r.N_HET == 2, f"Expected N_HET=2, got {r.N_HET}"
+        # het_ids=[5], hom_ids=[2], fail_ids=[0]
+        # All diploid → N_HET = 1 (S05), N_HOM_ALT = 1 (S02), N_FAIL = 1 (S00)
+        assert r.N_HET == 1, f"Expected N_HET=1, got {r.N_HET}"
         assert r.N_HOM_ALT == 1, f"Expected N_HOM_ALT=1, got {r.N_HOM_ALT}"
-        assert r.AC == 4  # 2 het + 2*1 hom
+        assert r.N_FAIL == 1
+        assert r.AC == 3  # 1 het + 2*1 hom
+        assert r.AN == 12  # 6 called diploid samples of the 7 eligible
 
 
 class TestHaploidInvariants:

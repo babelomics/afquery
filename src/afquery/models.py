@@ -16,6 +16,7 @@ class SampleFilter:
     min_pass: int = 0      # WES tech needs ≥K PASS carriers (het|hom) at position
     min_observed: int = 0  # WES tech needs ≥K any-VCF entries (het|hom|fail) at position
     min_quality_evidence: int = 0  # WES tech needs ≥K quality_pass carriers (Phase 2 DB only)
+    fail_as_ref: bool = False  # count samples with a failed call as hom-ref in AN
 
     @staticmethod
     def parse(
@@ -25,6 +26,7 @@ class SampleFilter:
         min_pass: int = 0,
         min_observed: int = 0,
         min_quality_evidence: int = 0,
+        fail_as_ref: bool = False,
     ) -> "SampleFilter":
         """Parsea tokens con prefijo ^ (exclusión) estilo bcftools."""
         return SampleFilter(
@@ -36,6 +38,7 @@ class SampleFilter:
             min_pass=min_pass,
             min_observed=min_observed,
             min_quality_evidence=min_quality_evidence,
+            fail_as_ref=fail_as_ref,
         )
 
 

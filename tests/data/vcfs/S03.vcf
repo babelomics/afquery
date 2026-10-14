@@ -1,6 +1,7 @@
 ##fileformat=VCFv4.2
 ##FILTER=<ID=PASS,Description="All filters passed">
+##FILTER=<ID=LowQual,Description="Low quality">
 ##contig=<ID=chr1>
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	S03
-chr1	5000	.	T	G	.	PASS	.	GT	1/1
+chr1	5000	.	T	G	.	LowQual	.	GT	1/1

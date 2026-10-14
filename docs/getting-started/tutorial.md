@@ -74,7 +74,7 @@ afquery query --db ./demo_db/ --locus chr1:925952
 Example output:
 
 ```
-chr1:925952 G>A  AC=6  AN=20  AF=0.3000  n_eligible=10  N_HET=4  N_HOM_ALT=1  N_HOM_REF=5  N_FAIL=0
+chr1:925952 G>A  AC=6  AN=20  AF=0.3000  n_eligible=10  N_HET=4  N_HOM_ALT=1  N_HOM_REF=5  N_FAIL=0  N_NO_COVERAGE=0
 ```
 
 ### Reading the output
@@ -107,15 +107,10 @@ afquery query --db ./demo_db/ --locus chr1:946000
 Example output:
 
 ```
-chr1:946000 T>C  AC=2  AN=20  AF=0.1000  n_eligible=10  N_HET=2  N_HOM_ALT=0  N_HOM_REF=6  N_FAIL=2
+chr1:946000 T>C  AC=2  AN=16  AF=0.1250  n_eligible=10  N_HET=2  N_HOM_ALT=0  N_HOM_REF=6  N_FAIL=2  N_NO_COVERAGE=0
 ```
 
-Here, 2 samples were flagged as `LowQual` in their source VCF at this position. N_FAIL samples are:
-
-- **Counted in AN** — they are eligible and contribute to the denominator
-- **Excluded from AC** — their alleles are not counted in the numerator
-
-This makes AF a conservative estimate: `AF=2/20=0.1000` even though 2 additional samples may carry the variant. Verify: 10 = 2+0+6+2 ✓.
+Here, 2 samples were flagged as `LowQual` in their source VCF at this position. Their genotype there is unknown, so they are left out of both AC and AN: `AN=2×(10−2)=16` and `AF=2/16=0.1250`. They remain eligible, so the accounting identity still holds: 10 = 2+0+6+2+0 ✓. See [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md).
 
 !!! tip
     N_FAIL > 0 is a signal to inspect source VCF quality at this site. A high N_FAIL relative to n_eligible may indicate a systematic sequencing artifact. See [Understanding Output](understanding-output.md) for thresholds.
@@ -131,9 +126,9 @@ afquery query --db ./demo_db/ --region chr1:900000-950000
 Example output:
 
 ```
-chr1:925100 C>T  AC=4  AN=20  AF=0.2000  n_eligible=10  N_HET=4  N_HOM_ALT=0  N_HOM_REF=6  N_FAIL=0
-chr1:925952 G>A  AC=6  AN=20  AF=0.3000  n_eligible=10  N_HET=4  N_HOM_ALT=1  N_HOM_REF=5  N_FAIL=0
-chr1:946000 T>C  AC=2  AN=20  AF=0.1000  n_eligible=10  N_HET=2  N_HOM_ALT=0  N_HOM_REF=6  N_FAIL=2
+chr1:925100 C>T  AC=4  AN=20  AF=0.2000  n_eligible=10  N_HET=4  N_HOM_ALT=0  N_HOM_REF=6  N_FAIL=0  N_NO_COVERAGE=0
+chr1:925952 G>A  AC=6  AN=20  AF=0.3000  n_eligible=10  N_HET=4  N_HOM_ALT=1  N_HOM_REF=5  N_FAIL=0  N_NO_COVERAGE=0
+chr1:946000 T>C  AC=2  AN=16  AF=0.1250  n_eligible=10  N_HET=2  N_HOM_ALT=0  N_HOM_REF=6  N_FAIL=2  N_NO_COVERAGE=0
 ```
 
 ---
@@ -181,7 +176,7 @@ afquery query --db ./demo_db/ --locus chr1:925952 --sex female
 Example output:
 
 ```
-chr1:925952 G>A  AC=3  AN=10  AF=0.3000  n_eligible=5  N_HET=3  N_HOM_ALT=0  N_HOM_REF=2  N_FAIL=0
+chr1:925952 G>A  AC=3  AN=10  AF=0.3000  n_eligible=5  N_HET=3  N_HOM_ALT=0  N_HOM_REF=2  N_FAIL=0  N_NO_COVERAGE=0
 ```
 
 Now query male samples:
@@ -193,7 +188,7 @@ afquery query --db ./demo_db/ --locus chr1:925952 --sex male
 Example output:
 
 ```
-chr1:925952 G>A  AC=3  AN=10  AF=0.3000  n_eligible=5  N_HET=1  N_HOM_ALT=1  N_HOM_REF=3  N_FAIL=0
+chr1:925952 G>A  AC=3  AN=10  AF=0.3000  n_eligible=5  N_HET=1  N_HOM_ALT=1  N_HOM_REF=3  N_FAIL=0  N_NO_COVERAGE=0
 ```
 
 AN drops from 20 to 10 in both cases because only 5 samples are eligible. The AF happens to be identical here (0.3000), but the genotype distributions differ: the male group has one homozygous-alt carrier while the female group has three heterozygous carriers.
@@ -211,7 +206,7 @@ afquery query --db ./demo_db/ --locus chr1:925952 --phenotype E11.9
 Example output:
 
 ```
-chr1:925952 G>A  AC=5  AN=8  AF=0.6250  n_eligible=4  N_HET=3  N_HOM_ALT=1  N_HOM_REF=0  N_FAIL=0
+chr1:925952 G>A  AC=5  AN=8  AF=0.6250  n_eligible=4  N_HET=3  N_HOM_ALT=1  N_HOM_REF=0  N_FAIL=0  N_NO_COVERAGE=0
 ```
 
 Exclude control samples:
@@ -223,7 +218,7 @@ afquery query --db ./demo_db/ --locus chr1:925952 --phenotype ^control
 Example output:
 
 ```
-chr1:925952 G>A  AC=6  AN=12  AF=0.5000  n_eligible=6  N_HET=4  N_HOM_ALT=1  N_HOM_REF=1  N_FAIL=0
+chr1:925952 G>A  AC=6  AN=12  AF=0.5000  n_eligible=6  N_HET=4  N_HOM_ALT=1  N_HOM_REF=1  N_FAIL=0  N_NO_COVERAGE=0
 ```
 
 The `^` prefix means "exclude". Excluding controls removes 4 samples, leaving 6. See [Sample Filtering](../guides/sample-filtering.md) for the full syntax.
@@ -241,7 +236,7 @@ afquery query --db ./demo_db/ --locus chr1:925952 --tech wgs
 Example output:
 
 ```
-chr1:925952 G>A  AC=4  AN=8  AF=0.5000  n_eligible=4  N_HET=2  N_HOM_ALT=1  N_HOM_REF=1  N_FAIL=0
+chr1:925952 G>A  AC=4  AN=8  AF=0.5000  n_eligible=4  N_HET=2  N_HOM_ALT=1  N_HOM_REF=1  N_FAIL=0  N_NO_COVERAGE=0
 ```
 
 Now query each WES technology separately:
@@ -251,7 +246,7 @@ afquery query --db ./demo_db/ --locus chr1:925952 --tech wes_v1
 ```
 
 ```
-chr1:925952 G>A  AC=1  AN=6  AF=0.1667  n_eligible=3  N_HET=1  N_HOM_ALT=0  N_HOM_REF=2  N_FAIL=0
+chr1:925952 G>A  AC=1  AN=6  AF=0.1667  n_eligible=3  N_HET=1  N_HOM_ALT=0  N_HOM_REF=2  N_FAIL=0  N_NO_COVERAGE=0
 ```
 
 ```bash
@@ -259,7 +254,7 @@ afquery query --db ./demo_db/ --locus chr1:925952 --tech wes_v2
 ```
 
 ```
-chr1:925952 G>A  AC=1  AN=6  AF=0.1667  n_eligible=3  N_HET=1  N_HOM_ALT=0  N_HOM_REF=2  N_FAIL=0
+chr1:925952 G>A  AC=1  AN=6  AF=0.1667  n_eligible=3  N_HET=1  N_HOM_ALT=0  N_HOM_REF=2  N_FAIL=0  N_NO_COVERAGE=0
 ```
 
 `chr1:925952` falls inside the `chr1:900000-950000` capture region shared by both WES kits. All 3 wes_v1 samples and all 3 wes_v2 samples are covered, so AN=6 (3 samples × 2 alleles) for both.
@@ -273,7 +268,7 @@ afquery query --db ./demo_db/ --locus chr1:1399914 --tech wgs
 ```
 
 ```
-chr1:1399914 G>T  AC=2  AN=8  AF=0.2500  n_eligible=4  N_HET=2  N_HOM_ALT=0  N_HOM_REF=2  N_FAIL=0
+chr1:1399914 G>T  AC=2  AN=8  AF=0.2500  n_eligible=4  N_HET=2  N_HOM_ALT=0  N_HOM_REF=2  N_FAIL=0  N_NO_COVERAGE=0
 ```
 
 ```bash
@@ -307,7 +302,7 @@ afquery query \
 Example output:
 
 ```
-chr1:925952 G>A  AC=1  AN=2  AF=0.5000  n_eligible=1  N_HET=1  N_HOM_ALT=0  N_HOM_REF=0  N_FAIL=0
+chr1:925952 G>A  AC=1  AN=2  AF=0.5000  n_eligible=1  N_HET=1  N_HOM_ALT=0  N_HOM_REF=0  N_FAIL=0  N_NO_COVERAGE=0
 ```
 
 Only one sample meets all three criteria (DEMO_001: female, wgs, E11.9). With n_eligible=1, AN=2 (one diploid sample on an autosome) and AC=1 (heterozygous carrier).
@@ -325,18 +320,18 @@ afquery annotate \
   --output ./annotated_demo.vcf
 ```
 
-The output VCF gains `AFQUERY_AC`, `AFQUERY_AN`, `AFQUERY_AF`, `AFQUERY_N_HET`, `AFQUERY_N_HOM_ALT`, `AFQUERY_N_HOM_REF`, and `AFQUERY_N_FAIL` INFO fields. Inspect the chr1 variants:
+The output VCF gains `AFQUERY_AC`, `AFQUERY_AN`, `AFQUERY_AF`, `AFQUERY_N_HET`, `AFQUERY_N_HOM_ALT`, `AFQUERY_N_HOM_REF`, `AFQUERY_N_FAIL`, and `AFQUERY_N_NO_COVERAGE` INFO fields. Inspect the chr1 variants:
 
 ```bash
-grep -v "^##" ./annotated_demo.vcf | grep "^chr1" | head -5
+grep -v "^##" ./annotated_demo.vcf | grep "^chr1" | head -3
 ```
 
 Example output (columns: CHROM, POS, ID, REF, ALT, QUAL, FILTER, INFO, FORMAT, DEMO_001):
 
 ```
-chr1	925100	.	C	T	50	PASS	AFQUERY_AC=4;AFQUERY_AN=20;AFQUERY_AF=0.2;AFQUERY_N_HET=4;AFQUERY_N_HOM_ALT=0;AFQUERY_N_HOM_REF=6;AFQUERY_N_FAIL=0	GT	0/1
-chr1	925952	.	G	A	50	PASS	AFQUERY_AC=6;AFQUERY_AN=20;AFQUERY_AF=0.3;AFQUERY_N_HET=4;AFQUERY_N_HOM_ALT=1;AFQUERY_N_HOM_REF=5;AFQUERY_N_FAIL=0	GT	0/1
-chr1	946000	.	T	C	50	PASS	AFQUERY_AC=2;AFQUERY_AN=20;AFQUERY_AF=0.1;AFQUERY_N_HET=2;AFQUERY_N_HOM_ALT=0;AFQUERY_N_HOM_REF=6;AFQUERY_N_FAIL=2	GT	0/1
+chr1	925100	.	C	T	50	PASS	AFQUERY_AC=4;AFQUERY_AN=20;AFQUERY_AF=0.2;AFQUERY_N_HET=4;AFQUERY_N_HOM_ALT=0;AFQUERY_N_HOM_REF=6;AFQUERY_N_FAIL=0;AFQUERY_N_NO_COVERAGE=0	GT	0/1
+chr1	925952	.	G	A	50	PASS	AFQUERY_AC=6;AFQUERY_AN=20;AFQUERY_AF=0.3;AFQUERY_N_HET=4;AFQUERY_N_HOM_ALT=1;AFQUERY_N_HOM_REF=5;AFQUERY_N_FAIL=0;AFQUERY_N_NO_COVERAGE=0	GT	0/1
+chr1	946000	.	T	C	50	PASS	AFQUERY_AC=2;AFQUERY_AN=16;AFQUERY_AF=0.125;AFQUERY_N_HET=2;AFQUERY_N_HOM_ALT=0;AFQUERY_N_HOM_REF=6;AFQUERY_N_FAIL=2;AFQUERY_N_NO_COVERAGE=0	GT	0/1
 ```
 
 `AFQUERY_N_FAIL=2` for `chr1:946000` matches the query output from Step 4. The annotated values reflect cohort-wide frequencies across all 10 samples, not just DEMO_001.
@@ -362,12 +357,12 @@ head -6 demo_dump.csv
 Example output:
 
 ```
-chrom,pos,ref,alt,AC,AN,AF,N_HET,N_HOM_ALT,N_HOM_REF,N_FAIL
-chr1,925100,C,T,4,20,0.2,4,0,6,0
-chr1,925952,G,A,6,20,0.3,4,1,5,0
-chr1,946000,T,C,2,20,0.1,2,0,6,2
-chr1,1225000,A,G,5,20,0.25,5,0,5,0
-chr1,1399914,G,T,2,8,0.25,2,0,2,0
+chrom,pos,ref,alt,AC,AN,AF,N_HET,N_HOM_ALT,N_HOM_REF,N_FAIL,N_NO_COVERAGE
+chr1,925100,C,T,4,20,0.2,4,0,6,0,0
+chr1,925952,G,A,6,20,0.3,4,1,5,0,0
+chr1,946000,T,C,2,16,0.125,2,0,6,2,0
+chr1,1225000,A,G,5,20,0.25,5,0,5,0,0
+chr1,1399914,G,T,2,8,0.25,2,0,2,0,0
 ```
 
 Note that `chr1:1399914` has AN=8 even in the full-cohort dump — technology-aware AN is applied automatically (WES samples are excluded for positions outside their capture regions).

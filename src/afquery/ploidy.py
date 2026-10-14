@@ -12,6 +12,20 @@ def is_par(chrom: str, pos: int, genome_build: str) -> bool:
     return False
 
 
+def sample_ploidy(chrom: str, pos: int, sex: str, genome_build: str) -> int:
+    """Number of alleles one sample carries at a position (0 for chrY in a female).
+
+    Caller must pass a normalized chrom. Same rules as split_ploidy.
+    """
+    if chrom == "chrM":
+        return 1
+    if chrom == "chrY":
+        return 1 if sex == "male" else 0
+    if chrom == "chrX" and not is_par(chrom, pos, genome_build):
+        return 1 if sex == "male" else 2
+    return 2
+
+
 def compute_AN(
     eligible: BitMap,
     male_bitmap: BitMap,
