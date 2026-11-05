@@ -376,6 +376,47 @@ class TestIngest:
         assert [r["filter_pass"] for r in tbl if r["pos"] == 5_000_000] == [False, False]
         assert [r["filter_pass"] for r in tbl if r["pos"] == 6_000_000] == [True]
 
+    @pytest.mark.parametrize("chrom,pos", [("chrX", 5_000_000), ("chrY", 2_700_000)])
+    def test_het_call_in_haploid_male_recorded_as_failed(self, tmp_path, chrom, pos):
+        """A male has one allele on chrX non-PAR and chrY: 0/1 names two."""
+        vcf = tmp_path / "s0.vcf"
+        _write_vcf(vcf, "S0", [(chrom, pos, "A", "T", "0/1")])
+        out, _, inconsistent = ingest_sample(0, str(vcf), str(tmp_path), "male", "GRCh37")
+        assert inconsistent == [f"{chrom}:{pos}"]
+        assert pq.read_table(out)["filter_pass"].to_pylist() == [False]
+
+    @pytest.mark.parametrize("sex,chrom,pos,gt", [
+        ("male",   "chrX", 5_000_000, "1"),    # haploid call
+        ("male",   "chrX", 5_000_000, "1/1"),  # diploid-coded, one allele named
+        ("male",   "chrX", 5_000_000, "./1"),  # one called allele
+        ("male",   "chrY", 2_700_000, "1/1"),
+        ("male",   "chrX", 100_000,   "0/1"),  # chrX PAR1 (GRCh37): diploid
+        ("female", "chrX", 5_000_000, "0/1"),
+        ("male",   "chrM", 100,       "0/1"),  # heteroplasmy
+        ("female", "chrM", 100,       "0/1"),
+        ("male",   "chrY", 500_000,   "0/1"),  # chrY PAR1: not genotyped
+    ])
+    def test_calls_consistent_with_ploidy_kept(self, tmp_path, sex, chrom, pos, gt):
+        vcf = tmp_path / "s0.vcf"
+        _write_vcf(vcf, "S0", [(chrom, pos, "A", "T", gt)])
+        out, _, inconsistent = ingest_sample(0, str(vcf), str(tmp_path), sex, "GRCh37")
+        assert inconsistent == []
+        assert pq.read_table(out)["filter_pass"].to_pylist() == [True]
+
+    def test_het_call_fails_only_its_position(self, tmp_path):
+        """The male's haploid call at another chrX position is unaffected."""
+        vcf = tmp_path / "s0.vcf"
+        _write_vcf(vcf, "S0", [
+            ("chrX", 5_000_000, "A", "T", "0/1"),
+            ("chrX", 6_000_000, "C", "G", "1"),
+        ])
+        out, _, inconsistent = ingest_sample(0, str(vcf), str(tmp_path), "male", "GRCh37")
+        tbl = pq.read_table(out).to_pylist()
+        assert inconsistent == ["chrX:5000000"]
+        assert [(r["pos"], r["filter_pass"]) for r in tbl] == [
+            (5_000_000, False), (6_000_000, True),
+        ]
+
     def test_two_alts_in_female_chrx_kept(self, tmp_path):
         vcf = tmp_path / "s0.vcf"
         _write_vcf(vcf, "S0", [("chrX", 5_000_000, "A", "T,G", "1/2")])

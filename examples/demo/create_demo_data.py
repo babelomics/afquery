@@ -171,6 +171,11 @@ def _generate_variant_pool(n_per_chrom: int = 20) -> list[tuple[str, int, str, s
 
     for _ in range(5):
         pos = random.randint(2700000, 10000000)
+        # Stay outside the chrY PAR1 of GRCh38 (ends at 2,781,479): the chrY PARs
+        # are not genotyped. Shifting instead of redrawing keeps the random
+        # sequence, and so every other variant and genotype, unchanged.
+        if pos <= 2781479:
+            pos += 100000
         ref = random.choice(BASES)
         pool.append(("chrY", pos, ref, _alt_for(ref)))
 
@@ -233,15 +238,13 @@ def _write_vcf(
         else:
             continue  # skip (not called)
 
-        # Haploid on chrY/chrM for males, chrY excluded for females
-        if chrom == "chrY":
-            if sex == "female":
-                continue
-            gt = gt.replace("0/", "").replace("/0", "").replace("/1", "")
-            if gt == "0":
-                gt = "0"
-            elif "1" in gt:
-                gt = "1"
+        # Males are haploid on chrX outside the PARs (all chrX pool positions
+        # are) and on chrY; females have no chrY. A haploid genotype is written
+        # with one allele, as a sex-aware caller writes it.
+        if chrom == "chrY" and sex == "female":
+            continue
+        if chrom in ("chrX", "chrY") and sex == "male":
+            gt = "1" if "1" in gt else "0"
 
         if chrom == "chrM":
             gt = "1" if "1" in gt else "0"

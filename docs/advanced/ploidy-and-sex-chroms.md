@@ -161,12 +161,15 @@ chrM is haploid for all samples (both sexes contribute AN=1):
 
 ### Genotypes inconsistent with ploidy
 
-Ploidy comes from each sample's sex and the position, not from how the VCF writes the genotype: a male carrier on chrX non-PAR counts as one allele whether its GT is `1`, `0/1` or `1/1`. Calls that carry more alleles than the sample has cannot be counted that way:
+Ploidy comes from each sample's sex and the position, not from how the VCF writes the genotype. A male carrier on chrX non-PAR or chrY counts as one allele whether its GT is written haploid (`1`) or diploid (`1/1`): both name a single allele. A call that names more alleles than the sample has cannot be counted that way:
 
-- on a haploid position, two different ALT alleles (e.g. GT=`1/2` on chrM, or on chrX non-PAR in a male);
+- on chrX non-PAR or chrY in a male, a call naming two different alleles: a heterozygous call (`0/1`) or two ALT alleles (`1/2`). A male has a single copy there, so REF and ALT cannot both be his genotype; such a call usually comes from mis-mapped reads or contamination, and a 47,XXY sample registered as male shows it genuinely;
+- on chrM, two different ALT alleles (`1/2`). A `0/1` call on chrM is not inconsistent: it is heteroplasmy, a mix of mtDNA copies, and the sample is a carrier (see [chrM](#chrm_1));
 - on a diploid position, more than two copies across the records at that position (e.g. `1/1` for one ALT and `0/1` for another).
 
-`create-db` and `update-db --add-samples` record every call of the sample at such a position as a failed call, so it counts in `N_FAIL` and is left out of AC and AN, and log a warning naming the sample and the positions. Running `bcftools +fixploidy` during [preprocessing](../getting-started/preprocessing.md) avoids most of these cases on chrX.
+`create-db` and `update-db --add-samples` record every call of the sample at such a position as a failed call, so it counts in `N_FAIL` and is left out of AC and AN (counted as hom-ref with `--fail-as-ref`), and log a warning naming the sample and the positions.
+
+A cohort called in diploid mode on the sex chromosomes therefore shows male `N_FAIL` at chrX positions where the caller saw both alleles in a male. That is the intended reading, the one gnomAD applies too: those genotypes are unknown, not hom-ref and not carriers. Do not rewrite them with `bcftools +fixploidy` beforehand; it keeps the first allele of each call (`0/1` becomes `0`), which turns them into hom-ref without a trace (see [Preprocessing](../getting-started/preprocessing.md#ploidy-of-sex-chromosomes-and-chrm)).
 
 ---
 

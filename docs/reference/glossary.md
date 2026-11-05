@@ -34,7 +34,7 @@ A sample that passes all query filters (sex, phenotype, technology), has coverag
 
 ## N_FAIL
 
-The count of eligible samples with a failed call (FILTER≠PASS) for any allele at a position. Their genotype there is unknown, so they are left out of AC and AN for every allele at the position. See [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md).
+The count of eligible samples with a failed call for any allele at a position: a call with FILTER≠PASS, or a genotype inconsistent with the sample's ploidy (such as `0/1` on chrX non-PAR in a male). Their genotype there is unknown, so they are left out of AC and AN for every allele at the position. See [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md).
 
 ## N_NO_COVERAGE
 

@@ -53,6 +53,8 @@ class Cohort:
         self.phenotypes: dict[str, list[str]] = {}
         # (chrom, pos, ref, alt) -> {sample: "het" | "hom" | "fail"}
         self.calls: dict[tuple[str, int, str, str], dict[str, str]] = {}
+        # (chrom, pos, sample) where a record's GT names two different alleles
+        self.het_gt: set[tuple[str, int, str]] = set()
         # tech -> list of (chrom, start_1based, end_1based); None means whole genome
         self.regions: dict[str, list[tuple[str, int, int]] | None] = {}
 
@@ -96,6 +98,8 @@ class Cohort:
                     continue
                 n = alleles.count(str(i))
                 key = (chrom, pos, ref, one_alt)
+                if n > 0 and len(set(alleles)) > 1:
+                    self.het_gt.add((chrom, pos, sample))
                 if not passed and not alleles:
                     self.calls.setdefault(key, {})[sample] = "fail"
                 elif n == 0:
@@ -107,7 +111,12 @@ class Cohort:
 
     def _fail_beyond_ploidy(self, sample: str) -> None:
         """A position where the sample's calls carry more alleles than its
-        ploidy allows has no usable genotype: all its calls there fail."""
+        ploidy allows has no usable genotype: all its calls there fail.
+
+        A haploid sample has one allele, so on chrX non-PAR and chrY a call
+        naming two different alleles (1/2, or 0/1 in a male) fails. On chrM a
+        0/1 call is heteroplasmy and counts as a carrier; only two ALT alleles
+        fail there."""
         by_site: dict[tuple[str, int], list[tuple[str, int, str, str]]] = {}
         for key, site_calls in self.calls.items():
             if sample in site_calls:
@@ -118,7 +127,9 @@ class Cohort:
             if not self.has_locus(sample, chrom, pos):
                 continue
             if self.is_haploid(sample, chrom, pos):
-                over = len({k[2:] for k in carried}) > 1
+                over = len({k[2:] for k in carried}) > 1 or (
+                    chrom != "chrM" and (chrom, pos, sample) in self.het_gt
+                )
             else:
                 over = sum(2 if st == "hom" else 1 for st in states if st in ("het", "hom")) > 2
             if over:

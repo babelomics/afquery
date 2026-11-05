@@ -9,7 +9,7 @@ import tqdm
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from ..constants import normalize_chrom
+from ..constants import MITO_CHROM, normalize_chrom
 from ..models import Sample
 from ..ploidy import sample_ploidy
 
@@ -61,22 +61,36 @@ def _read_format_int(variant, field: str) -> int | None:
 
 
 def _exceeds_ploidy(
-    refs: list[str], alts: list[str], gt_acs: list[int], ploidy: int,
+    refs: list[str],
+    alts: list[str],
+    gt_acs: list[int],
+    hets: list[bool],
+    ploidy: int,
+    chrom: str,
 ) -> bool:
     """True if one sample's calls at a position carry more alleles than it has.
 
-    A haploid sample can carry one ALT allele at most; a diploid one, two copies.
-    Alleles are told apart by REF and ALT, and a repeated record counts once.
+    A diploid sample carries two copies at most. A haploid one carries a single
+    allele, so on chrX outside the PARs and on chrY a call naming two different
+    alleles cannot be read as a haploid genotype: neither two ALT alleles (1/2)
+    nor REF and ALT (0/1, a heterozygous call in a male). A homozygous call
+    (1/1) names one allele and is read as haploid. chrM is haploid too, but there
+    a 0/1 call is heteroplasmy, a mix of mtDNA copies, and only two ALT alleles
+    are inconsistent. ``hets`` flags the records whose GT names two different
+    alleles. Alleles are told apart by REF and ALT, and a repeated record counts
+    once.
     """
     copies: dict[tuple[str, str], int] = {}
     for ref, alt, ac in zip(refs, alts, gt_acs):
         if ac > 0:
             copies[(ref, alt)] = max(ac, copies.get((ref, alt), 0))
     if ploidy == 1:
+        if chrom != MITO_CHROM and any(hets):
+            return True
         return len(copies) > 1
     if ploidy == 2:
         return sum(copies.values()) > 2
-    return False  # no allele here (chrY in a female): never eligible
+    return False  # no allele here (chrY in a female, or a chrY PAR): never eligible
 
 
 def ingest_sample(
@@ -85,8 +99,8 @@ def ingest_sample(
     """Parse one VCF, write Parquet file.
 
     A position where the sample's calls carry more alleles than its ploidy
-    allows (e.g. a 1/2 call on chrX in a male) has no usable genotype: all its
-    calls there are recorded as failed.
+    allows (e.g. a 1/2 or a 0/1 call on chrX non-PAR in a male) has no usable
+    genotype: all its calls there are recorded as failed.
 
     Returns (output_path, elapsed_seconds, positions recorded as failed for
     that reason, as "chrom:pos").
@@ -106,6 +120,9 @@ def ingest_sample(
     dps: list[int | None] = []
     gqs: list[int | None] = []
     quals: list[float | None] = []
+    # Per record: does the GT name two different alleles? Read by the ploidy
+    # check only, not stored.
+    hets: list[bool] = []
     inconsistent: list[str] = []
 
     # Rows of the current position, which are contiguous in a sorted VCF
@@ -116,7 +133,10 @@ def ingest_sample(
         if site is None:
             return
         ploidy = sample_ploidy(site[0], site[1], sex, genome_build)
-        if _exceeds_ploidy(refs[site_start:], alts[site_start:], gt_acs[site_start:], ploidy):
+        if _exceeds_ploidy(
+            refs[site_start:], alts[site_start:], gt_acs[site_start:],
+            hets[site_start:], ploidy, site[0],
+        ):
             for i in range(site_start, len(filter_passes)):
                 filter_passes[i] = False
             inconsistent.append(f"{site[0]}:{site[1]}")
@@ -128,6 +148,7 @@ def ingest_sample(
 
         gt = variant.genotypes[0]
         alleles = [a for a in gt[:-1] if a >= 0]
+        het = len(set(alleles)) > 1
 
         chrom = normalize_chrom(variant.CHROM)
         pos = variant.POS
@@ -154,6 +175,7 @@ def ingest_sample(
                     refs.append(ref)
                     alts.append(alt_str)
                     gt_acs.append(0)
+                    hets.append(False)
                     sample_ids.append(sample_id)
                     filter_passes.append(False)
                     dps.append(dp_val)
@@ -174,6 +196,7 @@ def ingest_sample(
             refs.append(ref)
             alts.append(alt_str)
             gt_acs.append(ac)
+            hets.append(het)
             sample_ids.append(sample_id)
             filter_passes.append(fp)
             dps.append(dp_val)

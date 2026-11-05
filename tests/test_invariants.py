@@ -22,7 +22,7 @@ from test_update import write_manifest, write_vcf
 GROUP_A = [
     ("A0", "male",   "wgs", [("chr1", 1000, "A", "T", "0/1"),
                              ("chr1", 2_400_000, "G", "C", "1/1"),
-                             ("chrX", 4_000_000, "T", "A", "0/1")]),
+                             ("chrX", 4_000_000, "T", "A", "1")]),
     ("A1", "female", "wgs", [("chr1", 1000, "A", "T", "1/1"),
                              ("chrM", 300, "C", "T", "0/1")]),
 ]

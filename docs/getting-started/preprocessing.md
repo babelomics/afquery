@@ -4,6 +4,12 @@ AFQuery ingests single-sample, normalized VCF files. While AFQuery itself does n
 
 A ready-to-use normalization script is provided at [`resources/normalize_vcf.sh`](https://github.com/babelomics/afquery/blob/master/resources/normalize_vcf.sh). It requires **bcftools 1.20 or later**: older releases refuse to split multi-allelic records and remove duplicates in the same `bcftools norm` call, and the script exits with an error if it finds one.
 
+```bash
+resources/normalize_vcf.sh <vcf_id> <vcf> <ref_genome> [threads]
+# e.g.
+resources/normalize_vcf.sh sample1 input.vcf.gz GRCh38.fa 8   # writes sample1_norm.vcf.gz
+```
+
 !!! warning "VCFs normalized with the script from afquery 0.4.2 or earlier"
     Those versions of the script did not split multi-allelic records, and removed
     one of two different indels at the same position as a duplicate. Indels from
@@ -27,11 +33,15 @@ Multi-allelic variants and complex indels can be represented in multiple equival
 
 `bcftools norm -m -both` decomposes multi-allelic sites into biallelic records, and left-aligns and trims each allele against the reference genome, ensuring consistent representation across samples. `-d exact` then drops only records whose alleles are identical, so two different alleles at the same position are both kept.
 
-### Ploidy correction for sex chromosomes
+### Ploidy of sex chromosomes and chrM
 
-Male samples should have haploid genotype calls at chrX non-PAR regions (GT=`1`, not GT=`0/1` or `1/1`). Many variant callers output diploid genotypes for males at chrX by default. AFQuery takes ploidy from the sample's sex, so a diploid-coded male call still counts as one allele; but a male call carrying two different ALT alleles (`1/2`) cannot be counted at all and is recorded as a failed call, with a warning during ingestion (see [Genotypes inconsistent with ploidy](../advanced/ploidy-and-sex-chroms.md#genotypes-inconsistent-with-ploidy)). `bcftools +fixploidy` rewrites these genotypes as haploid calls.
+No ploidy correction is needed, and the script makes none: AFQuery takes each sample's ploidy from its sex in the manifest and the position (see [Ploidy & Sex Chromosomes](../advanced/ploidy-and-sex-chroms.md)). Genotypes are read as follows, whether the caller wrote them haploid or diploid:
 
-`bcftools +fixploidy` corrects genotype ploidy based on a sex file.
+- **Male on chrX non-PAR or chrY**: `1` and `1/1` name a single ALT allele, so he is a hemizygous carrier. A heterozygous call (`0/1`) names two alleles where he has one copy; it is recorded as a failed call (`N_FAIL`), with a warning during ingestion (see [Genotypes inconsistent with ploidy](../advanced/ploidy-and-sex-chroms.md#genotypes-inconsistent-with-ploidy)). In a cohort called in diploid mode on the sex chromosomes this makes male `N_FAIL` visible at chrX positions where the caller saw both alleles, rather than hiding those genotypes.
+- **chrM**: any call carrying the ALT allele (`1`, `0/1`, `1/1`) is a carrier. A `0/1` there is heteroplasmy, not an error.
+- **chrY PARs**: not genotyped; PAR variants are counted at their chrX coordinates.
+
+Do not run `bcftools +fixploidy` before ingestion. It keeps the first allele of each call when it lowers the ploidy (`0/1` becomes `0`), so a male's heterozygous call on chrX would be stored as hom-ref, and a heteroplasmic chrM call would be dropped (chrM is haploid in its rules for both sexes).
 
 ### Filtering and stripping
 

@@ -117,6 +117,8 @@ def grown_db(built_db, tmp_path, data_dir):
 
     entries = []
     for name, tech, sex, variants in [
+        # S10's 0/1 on chrX non-PAR is a heterozygous call in a male, which has
+        # one allele there: a failed call, on purpose, in the add-samples path.
         ("S10", "wgs", "male", [("chr1", 1500, "A", "T", "1/1"),
                                 ("chr1", 7000, "A", "T", "0/1"),
                                 ("chrX", 5000000, "A", "G", "0/1")]),

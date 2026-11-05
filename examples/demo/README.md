@@ -10,7 +10,7 @@ python create_demo_data.py
 
 This creates a `demo_output/` directory with:
 
-- **10 single-sample VCFs** (`demo_output/vcfs/`) — synthetic genotype data across autosomes, chrX, chrY, and chrM
+- **10 single-sample VCFs** (`demo_output/vcfs/`) — synthetic genotype data across autosomes, chrX, chrY, and chrM. Genotypes are haploid (`0`/`1`) where the sample carries one copy: males on chrX (outside the PARs) and chrY, and every sample on chrM
 - **2 BED files** (`demo_output/beds/`) — capture regions for `wes_v1` and `wes_v2` technologies
 - **1 manifest** (`demo_output/manifest.tsv`) — sample metadata with sex, technology, and phenotype codes
 

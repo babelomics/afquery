@@ -185,6 +185,48 @@ class TestSyntheticFilter:
         assert r.N_HOM_ALT == 1     # S0 only
 
 
+class TestSyntheticHaploidHeterozygous:
+    """A male has one allele on chrX non-PAR and chrY: a 0/1 call there cannot be
+    read as a haploid genotype and is a failed call. chrM is exempt: a 0/1 there
+    is heteroplasmy and the sample is a carrier."""
+
+    @pytest.mark.parametrize("chrom,pos", [("chrX", 5000000), ("chrY", 2700000)])
+    def test_male_het_is_failed_call(self, tmp_path, chrom, pos):
+        samples = [
+            ("M_HET", "male", [(chrom, pos, "A", "G", "0/1")]),
+            ("M_ALT", "male", [(chrom, pos, "A", "G", "1")]),
+            ("M_REF", "male", []),
+        ]
+        db = _build_db(tmp_path, samples)
+        [r] = db.query(chrom=chrom, pos=pos)
+        assert r.N_FAIL == 1          # M_HET
+        assert r.AC == 1              # M_ALT only
+        assert r.AN == 2              # M_ALT + M_REF, one allele each
+        assert r.n_samples_eligible == 3
+        [r] = db.query(chrom=chrom, pos=pos, fail_as_ref=True)
+        assert (r.AC, r.AN) == (1, 3)
+
+    def test_male_hom_call_counts_one_allele(self, tmp_path):
+        """1/1 names a single allele: the male carries it, once."""
+        samples = [("M", "male", [("chrX", 5000000, "A", "G", "1/1")])]
+        db = _build_db(tmp_path, samples)
+        [r] = db.query(chrom="chrX", pos=5000000)
+        assert (r.AC, r.AN, r.N_FAIL) == (1, 1, 0)
+
+    def test_male_het_in_chrX_par_is_diploid(self, tmp_path):
+        samples = [("M", "male", [("chrX", 100000, "A", "G", "0/1")])]
+        db = _build_db(tmp_path, samples)
+        [r] = db.query(chrom="chrX", pos=100000)
+        assert (r.AC, r.AN, r.N_HET, r.N_FAIL) == (1, 2, 1, 0)
+
+    @pytest.mark.parametrize("sex", ["male", "female"])
+    def test_chrM_het_is_a_carrier(self, tmp_path, sex):
+        samples = [("S", sex, [("chrM", 100, "C", "A", "0/1")])]
+        db = _build_db(tmp_path, samples)
+        [r] = db.query(chrom="chrM", pos=100)
+        assert (r.AC, r.AN, r.N_FAIL) == (1, 1, 0)
+
+
 class TestMissingGtFailFilter:
 
     def test_missing_gt_at_failed_site_counts_as_n_fail(self, tmp_path):
