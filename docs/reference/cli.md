@@ -135,8 +135,10 @@ afquery dump [OPTIONS]
 | `--min-quality-evidence` | INTEGER | `0` | Min quality-passing carriers per partially-covered tech. Requires a database built with `--min-dp`, `--min-gq`, `--min-qual`, or `--min-covered`. (0 = disabled) |
 | `--fail-as-ref` | flag | False | Count samples with a failed call at the position (`N_FAIL`) as hom-ref in AN instead of leaving them out. See [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md#counting-failed-calls-as-reference). |
 
-CSV output adds an `N_NO_COVERAGE` column (and per-group variants
-`N_NO_COVERAGE_<label>` when disaggregating).
+CSV columns: `chrom,pos,ref,alt,AC,AN,AF,n_eligible,N_HET,N_HOM_ALT,N_HOM_REF,N_FAIL,N_NO_COVERAGE`.
+Each disaggregation group adds the same columns from `AC` onwards, suffixed
+with its label (`AC_<label>`, `AN_<label>`, `AF_<label>`, `n_eligible_<label>`, …).
+See [Bulk Export](../guides/dump-export.md#disaggregate-output).
 
 ---
 

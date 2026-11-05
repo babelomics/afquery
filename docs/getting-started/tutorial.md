@@ -357,12 +357,12 @@ head -6 demo_dump.csv
 Example output:
 
 ```
-chrom,pos,ref,alt,AC,AN,AF,N_HET,N_HOM_ALT,N_HOM_REF,N_FAIL,N_NO_COVERAGE
-chr1,925100,C,T,4,20,0.2,4,0,6,0,0
-chr1,925952,G,A,6,20,0.3,4,1,5,0,0
-chr1,946000,T,C,2,16,0.125,2,0,6,2,0
-chr1,1225000,A,G,5,20,0.25,5,0,5,0,0
-chr1,1399914,G,T,2,8,0.25,2,0,2,0,0
+chrom,pos,ref,alt,AC,AN,AF,n_eligible,N_HET,N_HOM_ALT,N_HOM_REF,N_FAIL,N_NO_COVERAGE
+chr1,925100,C,T,4,20,0.2,10,4,0,6,0,0
+chr1,925952,G,A,6,20,0.3,10,4,1,5,0,0
+chr1,946000,T,C,2,16,0.125,10,2,0,6,2,0
+chr1,1225000,A,G,5,20,0.25,10,5,0,5,0,0
+chr1,1399914,G,T,2,8,0.25,4,2,0,2,0,0
 ```
 
 Note that `chr1:1399914` has AN=8 even in the full-cohort dump — technology-aware AN is applied automatically (WES samples are excluded for positions outside their capture regions).

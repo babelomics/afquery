@@ -378,8 +378,13 @@ def dump(db, output, chrom, start, end, phenotype, sex, tech,
     By default only variants with AC > 0 are exported. Use --all-variants to
     include positions that are covered but have no observed carriers (AC=0).
 
+    \b
+    Columns: chrom, pos, ref, alt, AC, AN, AF, n_eligible, N_HET, N_HOM_ALT,
+    N_HOM_REF, N_FAIL, N_NO_COVERAGE.
+
     Supports disaggregation by sex (--by-sex), technology (--by-tech),
-    phenotype (--by-phenotype), or all combinations (--all-groups).
+    phenotype (--by-phenotype), or all combinations (--all-groups); each
+    group repeats the columns from AC onwards, suffixed with its label.
     """
     _configure_logging(verbose)
 

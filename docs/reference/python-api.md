@@ -292,6 +292,8 @@ db.dump(
 
 Export allele frequency data to CSV. If `output` is None, writes to stdout.
 `include_ac_zero=True` includes positions with `AC=0` (equivalent to `--all-variants` in the CLI).
+The CSV columns, including `n_eligible` and the per-group columns, are described in
+[Bulk Export](../guides/dump-export.md#disaggregate-output).
 
 ---
 
