@@ -90,3 +90,59 @@ def test_query_result_n_fail_default_zero():
     )
     assert r.N_FAIL == 0
     assert r.N_FAIL is not None
+    assert r.N_HEMI == 0
+
+
+# --- Genotype classes in every output, and the docs that describe them ---
+
+import json
+import re
+from pathlib import Path
+
+DOCS = Path(__file__).resolve().parent.parent / "docs"
+
+
+def test_query_outputs_report_n_hemi(test_db):
+    args = ["query", "--db", test_db, "--locus", "chrX:5000000"]
+    tsv = runner.invoke(cli, args + ["--format", "tsv"]).output.splitlines()
+    header = tsv[0].split("\t")
+    assert header[header.index("N_HOM_ALT") + 1] == "N_HEMI"
+    row = dict(zip(header, tsv[1].split("\t")))
+    assert (row["N_HET"], row["N_HOM_ALT"], row["N_HEMI"]) == ("1", "0", "1")
+
+    [entry] = json.loads(runner.invoke(cli, args + ["--format", "json"]).output)
+    assert (entry["N_HOM_ALT"], entry["N_HEMI"]) == (0, 1)
+
+    text = runner.invoke(cli, args).output
+    assert "N_HOM_ALT=0  N_HEMI=1  N_HOM_REF=2" in text
+
+
+def test_annotate_help_lists_n_hemi():
+    assert "AFQUERY_N_HEMI" in _help(["annotate"])
+
+
+def test_dump_guide_base_columns_match_dump(test_db):
+    """The base column line in the dump guide is the header dump writes."""
+    import io
+    from afquery import Database
+    buf = io.StringIO()
+    Database(test_db).dump(output=buf, chrom="chr1")
+    header = buf.getvalue().splitlines()[0]
+    guide = (DOCS / "guides" / "dump-export.md").read_text()
+    assert f"```\n{header}\n```" in guide
+
+
+def test_annotate_guide_lists_every_info_field(test_db, tmp_path):
+    """Every AFQUERY_* INFO field annotate adds is in the annotate guide's table."""
+    import cyvcf2
+    vcf_in = tmp_path / "in.vcf"
+    vcf_in.write_text(
+        "##fileformat=VCFv4.2\n##contig=<ID=chr1>\n"
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\nchr1\t1500\t.\tA\tT\t.\tPASS\t.\n"
+    )
+    out = tmp_path / "out.vcf"
+    assert runner.invoke(cli, ["annotate", "--db", test_db, "--input", str(vcf_in),
+                               "--output", str(out)]).exit_code == 0
+    added = set(re.findall(r"ID=(AFQUERY_\w+)", cyvcf2.VCF(str(out)).raw_header))
+    documented = set(re.findall(r"^\| `(AFQUERY_\w+)`", (DOCS / "guides" / "annotate-vcf.md").read_text(), re.M))
+    assert added == documented

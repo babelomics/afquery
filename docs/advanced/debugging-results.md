@@ -89,7 +89,7 @@ Validates: manifest consistency, Parquet file integrity, capture index presence.
 afquery query --db ./db/ --locus chr1:12345678 --format json
 ```
 
-JSON format shows all fields including N_HET, N_HOM_ALT, N_HOM_REF, and N_FAIL — useful for understanding the composition of the result.
+JSON format shows all fields including N_HET, N_HOM_ALT, N_HEMI, N_HOM_REF, and N_FAIL — useful for understanding the composition of the result.
 
 
 ### Direct Metadata Inspection

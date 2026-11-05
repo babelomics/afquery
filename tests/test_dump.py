@@ -43,11 +43,11 @@ def _dump_to_string(db_path, **kwargs) -> tuple[str, dict]:
 # Column order of a dump, base block and one disaggregation group
 BASE_COLUMNS = [
     "chrom", "pos", "ref", "alt", "AC", "AN", "AF", "n_eligible",
-    "N_HET", "N_HOM_ALT", "N_HOM_REF", "N_FAIL", "N_NO_COVERAGE",
+    "N_HET", "N_HOM_ALT", "N_HEMI", "N_HOM_REF", "N_FAIL", "N_NO_COVERAGE",
 ]
 GROUP_FIELDS = [
     "AC", "AN", "AF", "n_eligible",
-    "N_HET", "N_HOM_ALT", "N_HOM_REF", "N_FAIL", "N_NO_COVERAGE",
+    "N_HET", "N_HOM_ALT", "N_HEMI", "N_HOM_REF", "N_FAIL", "N_NO_COVERAGE",
 ]
 
 
@@ -432,6 +432,8 @@ class TestDumpEligible:
             [r] = database.query(chrom=row["chrom"], pos=int(row["pos"]),
                                  ref=row["ref"], alt=row["alt"])
             assert int(row["n_eligible"]) == r.n_samples_eligible
+            assert int(row["N_HEMI"]) == r.N_HEMI
+            assert int(row["N_HOM_ALT"]) == r.N_HOM_ALT
 
     def test_samples_not_alleles_on_chrX(self, test_db):
         """chrX:5000000 non-PAR: 2 males and 2 females eligible carry 6 alleles."""
@@ -623,3 +625,24 @@ class TestDumpEdgeCases:
         assert result.exit_code == 0
         assert "chrom,pos,ref,alt" in result.output
         assert "chr1" in result.output
+
+
+class TestDumpHemizygous:
+    """N_HEMI counts males carrying the allele on chrX non-PAR and chrY."""
+
+    def test_chrX_by_sex(self, test_db):
+        """chrX:5000000: S00 (male) hemizygous, S02 (female) heterozygous."""
+        rows = _parse_csv(_dump_to_string(test_db, chrom="chrX", by_sex=True)[0])
+        [row] = [r for r in rows if r["pos"] == "5000000"]
+        assert (row["N_HET"], row["N_HOM_ALT"], row["N_HEMI"]) == ("1", "0", "1")
+        assert (row["N_HEMI_male"], row["n_eligible_male"], row["AN_male"]) == ("1", "2", "2")
+        assert (row["N_HEMI_female"], row["N_HET_female"], row["n_eligible_female"]) == ("0", "1", "2")
+
+    def test_chrY_and_chrM(self, test_db):
+        rows = {r["chrom"]: r for r in _parse_csv(_dump_to_string(test_db)[0])}
+        assert (rows["chrY"]["N_HEMI"], rows["chrY"]["N_HOM_ALT"]) == ("2", "0")
+        assert (rows["chrM"]["N_HEMI"], rows["chrM"]["N_HOM_ALT"]) == ("0", "2")
+
+    def test_none_on_autosomes(self, test_db):
+        rows = _parse_csv(_dump_to_string(test_db, chrom="chr1", include_ac_zero=True)[0])
+        assert rows and all(r["N_HEMI"] == "0" for r in rows)

@@ -23,10 +23,11 @@ afquery annotate \
 | `AFQUERY_AC` | Integer | A (per ALT) | Allele count in eligible samples |
 | `AFQUERY_AN` | Integer | 1 (per site) | Allele number (total alleles examined, excluding samples in `AFQUERY_N_FAIL`) |
 | `AFQUERY_AF` | Float | A (per ALT) | Allele frequency (`AC / AN`); `.` when `AFQUERY_AN=0` |
-| `AFQUERY_N_HET` | Integer | A (per ALT) | Heterozygous sample count |
-| `AFQUERY_N_HOM_ALT` | Integer | A (per ALT) | Homozygous alt sample count |
-| `AFQUERY_N_HOM_REF` | Integer | A (per ALT) | Homozygous ref sample count, excluding carriers of other ALT alleles at the position (including alleles stored in the database but absent from the input record) |
-| `AFQUERY_N_FAIL` | Integer | 1 (per site) | Eligible samples with a failed call (FILTER≠PASS) for any ALT allele at the position, each counted once. Excluded from AC and AN. Mutually exclusive with N_HET/N_HOM_ALT/N_HOM_REF. |
+| `AFQUERY_N_HET` | Integer | A (per ALT) | Heterozygous sample count (diploid genotypes) |
+| `AFQUERY_N_HOM_ALT` | Integer | A (per ALT) | Homozygous alt sample count (diploid genotypes); on chrM, every carrier |
+| `AFQUERY_N_HEMI` | Integer | A (per ALT) | Hemizygous carrier count: males carrying the allele on chrX outside the PARs or on chrY. `0` on autosomes, chrX PARs and chrM |
+| `AFQUERY_N_HOM_REF` | Integer | A (per ALT) | Count of samples carrying only the reference allele (homozygous, or hemizygous where haploid), excluding carriers of other ALT alleles at the position (including alleles stored in the database but absent from the input record) |
+| `AFQUERY_N_FAIL` | Integer | 1 (per site) | Eligible samples with a failed call (FILTER≠PASS, or a genotype inconsistent with the sample's ploidy) for any ALT allele at the position, each counted once. Excluded from AC and AN. Mutually exclusive with N_HET/N_HOM_ALT/N_HEMI/N_HOM_REF. |
 | `AFQUERY_N_NO_COVERAGE` | Integer | A (per ALT) | Eligible samples whose tech lacks coverage evidence at this position. Excluded from `N_HOM_REF`; still counted in AN. Always `0` unless a coverage-evidence filter is active. See [Coverage Evidence](../advanced/coverage-evidence.md). |
 
 !!! note "Multi-allelic sites"

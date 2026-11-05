@@ -64,7 +64,7 @@ def _snapshot(db_dir):
     for chrom, pos, ref, alt in ALL_SITES:
         for r in db.query(chrom=chrom, pos=pos, sex="both"):
             out[(chrom, pos, r.variant.ref, r.variant.alt)] = (
-                r.AC, r.AN, r.N_HET, r.N_HOM_ALT, r.N_HOM_REF, r.N_FAIL,
+                r.AC, r.AN, r.N_HET, r.N_HOM_ALT, r.N_HEMI, r.N_HOM_REF, r.N_FAIL,
             )
     return out
 
@@ -152,8 +152,8 @@ def test_remove_undoes_add(tmp_path, groups):
         assert after[key] == counts, f"{key} changed across add-then-remove"
     for key, counts in after.items():
         if key not in before:
-            AC, _AN, n_het, n_hom_alt, _n_hom_ref, n_fail = counts
-            assert (AC, n_het, n_hom_alt, n_fail) == (0, 0, 0, 0), (
+            AC, _AN, n_het, n_hom_alt, n_hemi, _n_hom_ref, n_fail = counts
+            assert (AC, n_het, n_hom_alt, n_hemi, n_fail) == (0, 0, 0, 0, 0), (
                 f"{key} still has carriers after their only samples were removed"
             )
 

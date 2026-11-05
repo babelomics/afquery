@@ -102,3 +102,32 @@ def split_ploidy(
         return eligible & male_bitmap, eligible & female_bitmap
 
     return BitMap(), eligible  # autosomes and chrX PAR: all diploid
+
+
+def classify_carriers(
+    chrom: str,
+    haploid: BitMap,
+    diploid: BitMap,
+    het: BitMap,
+    hom: BitMap,
+) -> tuple[BitMap, BitMap, BitMap]:
+    """Split the PASS carriers of one allele into (het, hom_alt, hemi).
+
+    ``haploid`` and ``diploid`` come from split_ploidy; ``het`` and ``hom`` are
+    the samples whose GT holds one or two copies of the allele.
+
+    - Diploid samples: heterozygous or homozygous alt, as the GT says.
+    - Haploid samples carry a single copy whatever the GT says (``1`` and ``1/1``
+      alike). On chrX outside the PARs and on chrY they are hemizygous. chrM is
+      haploid too but not hemizygous: it is a multi-copy genome, AFQuery records
+      no heteroplasmy, and its carriers are counted as homozygous alt.
+
+    Caller must pass a normalized chrom. Counts and variant-info labels both
+    come from here, so they always agree.
+    """
+    het_dip = het & diploid
+    hom_dip = hom & diploid
+    hap_carriers = (het | hom) & haploid
+    if chrom == "chrM":
+        return het_dip, hom_dip | hap_carriers, BitMap()
+    return het_dip, hom_dip, hap_carriers

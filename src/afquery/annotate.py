@@ -8,8 +8,13 @@ from . import storage
 from .bitmaps import deserialize
 from .constants import normalize_chrom
 from .models import AfqueryWarning, SampleFilter
+from .query import VariantStats
 
 logger = logging.getLogger(__name__)
+
+# Stats of an allele where nobody is eligible: no carriers and AN=0
+_NO_STATS = VariantStats(AC=0, AN=0, N_HET=0, N_HOM_ALT=0, N_HEMI=0,
+                         N_HOM_REF=0, N_FAIL=0, N_NO_COVERAGE=0)
 
 
 def _compute_chunk_annotations(
@@ -18,8 +23,8 @@ def _compute_chunk_annotations(
     bucket_id: int,
     records: list[tuple[int, str, list[str]]],
     sf: SampleFilter,
-) -> dict[tuple[int, str, str], tuple[int, int, bool, int, int, int, int, int]]:
-    """Compute per-variant stats: (AC, AN, in_parquet, N_FAIL, N_HET, N_HOM_ALT, N_HOM_REF, N_NO_COVERAGE).
+) -> dict[tuple[int, str, str], tuple[bool, VariantStats]]:
+    """Compute per-variant stats as {(pos, ref, alt): (in_parquet, VariantStats)}.
 
     No cyvcf2 dependency — safe to run in a subprocess worker.
     """
@@ -92,7 +97,7 @@ def _compute_chunk_annotations(
     no_carriers = (empty, empty, empty, stored_empty, stored_empty)
     no_evidence = SiteEvidence(empty, empty, empty, stored_empty)
 
-    result: dict[tuple[int, str, str], tuple[int, int, bool, int, int, int, int, int]] = {}
+    result: dict[tuple[int, str, str], tuple[bool, VariantStats]] = {}
     for pos, ref, alts in records:
         eligible = pos_data[pos]
         for alt in alts:
@@ -100,14 +105,13 @@ def _compute_chunk_annotations(
             if key in result:
                 continue  # dedup
             if not eligible:
-                result[key] = (0, 0, False, 0, 0, 0, 0, 0)
+                result[key] = (False, _NO_STATS)
             elif key in unpacked:
                 s = engine._variant_stats(
                     chrom, pos, eligible, unpacked[key], sites[pos],
                     sf.min_pass, sf.min_observed, sf.min_quality_evidence, sf.fail_as_ref,
                 )
-                result[key] = (s.AC, s.AN, True, s.N_FAIL, s.N_HET, s.N_HOM_ALT,
-                               s.N_HOM_REF, s.N_NO_COVERAGE)
+                result[key] = (True, s)
             else:
                 # Allele not in Parquet: it has no carriers, and the rest of its
                 # tallies come from whatever is stored at the position. With
@@ -120,8 +124,7 @@ def _compute_chunk_annotations(
                     chrom, pos, eligible, no_carriers, site,
                     sf.min_pass, sf.min_observed, sf.min_quality_evidence, sf.fail_as_ref,
                 )
-                result[key] = (s.AC, s.AN, False, s.N_FAIL, s.N_HET, s.N_HOM_ALT,
-                               s.N_HOM_REF, s.N_NO_COVERAGE)
+                result[key] = (False, s)
 
     return result
 
@@ -133,7 +136,7 @@ def annotate_vcf(
     sf: SampleFilter,
     n_workers: int | None = None,
 ) -> dict:
-    """Annotate a VCF with AFQUERY_AC / AFQUERY_AN / AFQUERY_AF INFO fields.
+    """Annotate a VCF with AFQUERY_* INFO fields: AC, AN, AF and the genotype counts.
 
     Returns a summary dict: {"n_variants": int, "n_annotated": int, "n_uncovered": int}.
     """
@@ -165,15 +168,23 @@ def annotate_vcf(
     })
     vcf.add_info_to_header({
         "ID": "AFQUERY_N_HET", "Number": "A", "Type": "Integer",
-        "Description": "Count of heterozygous eligible samples per alt allele",
+        "Description": "Count of heterozygous eligible samples (diploid genotypes) "
+                       "per alt allele",
     })
     vcf.add_info_to_header({
         "ID": "AFQUERY_N_HOM_ALT", "Number": "A", "Type": "Integer",
-        "Description": "Count of homozygous alt eligible samples per alt allele",
+        "Description": "Count of homozygous alt eligible samples (diploid genotypes) "
+                       "per alt allele; on chrM, every carrier",
+    })
+    vcf.add_info_to_header({
+        "ID": "AFQUERY_N_HEMI", "Number": "A", "Type": "Integer",
+        "Description": "Count of hemizygous eligible samples per alt allele: males "
+                       "carrying it on chrX outside the PARs or on chrY",
     })
     vcf.add_info_to_header({
         "ID": "AFQUERY_N_HOM_REF", "Number": "A", "Type": "Integer",
-        "Description": "Count of homozygous ref eligible samples per alt allele, "
+        "Description": "Count of eligible samples carrying only the reference allele "
+                       "per alt allele (homozygous, or hemizygous where haploid), "
                        "excluding carriers of other alt alleles at the position",
     })
     vcf.add_info_to_header({
@@ -247,8 +258,8 @@ def annotate_vcf(
             # values. AN is 0 with N_FAIL 0 only when no sample is eligible.
             AN = N_FAIL = 0
             if variant.ALT:
-                site_entry = ann.get((pos, variant.REF, variant.ALT[0]), (0, 0, False, 0))
-                AN, N_FAIL = site_entry[1], site_entry[3]
+                _, site_stats = ann.get((pos, variant.REF, variant.ALT[0]), (False, _NO_STATS))
+                AN, N_FAIL = site_stats.AN, site_stats.N_FAIL
 
             if AN == 0 and N_FAIL == 0:
                 stats["n_uncovered"] += 1
@@ -260,23 +271,23 @@ def annotate_vcf(
             af_list = []
             n_het_list = []
             n_hom_alt_list = []
+            n_hemi_list = []
             n_hom_ref_list = []
             n_no_cov_list = []
             any_found = False
 
             for alt in variant.ALT:
                 key = (pos, variant.REF, alt)
-                AC, _, in_parquet, _, n_het, n_hom_alt, n_hom_ref, n_no_cov = ann.get(
-                    key, (0, AN, False, 0, 0, 0, 0, 0)
-                )
+                in_parquet, s = ann.get(key, (False, _NO_STATS._replace(AN=AN)))
                 if in_parquet:
                     any_found = True
-                ac_list.append(AC)
-                af_list.append(AC / AN if AN > 0 else None)
-                n_het_list.append(n_het)
-                n_hom_alt_list.append(n_hom_alt)
-                n_hom_ref_list.append(n_hom_ref)
-                n_no_cov_list.append(n_no_cov)
+                ac_list.append(s.AC)
+                af_list.append(s.AC / AN if AN > 0 else None)
+                n_het_list.append(s.N_HET)
+                n_hom_alt_list.append(s.N_HOM_ALT)
+                n_hemi_list.append(s.N_HEMI)
+                n_hom_ref_list.append(s.N_HOM_REF)
+                n_no_cov_list.append(s.N_NO_COVERAGE)
 
             # cyvcf2 Number=A fields must be set as comma-separated strings
             variant.INFO["AFQUERY_AC"] = ",".join(str(v) for v in ac_list)
@@ -286,6 +297,7 @@ def annotate_vcf(
             )
             variant.INFO["AFQUERY_N_HET"] = ",".join(str(v) for v in n_het_list)
             variant.INFO["AFQUERY_N_HOM_ALT"] = ",".join(str(v) for v in n_hom_alt_list)
+            variant.INFO["AFQUERY_N_HEMI"] = ",".join(str(v) for v in n_hemi_list)
             variant.INFO["AFQUERY_N_HOM_REF"] = ",".join(str(v) for v in n_hom_ref_list)
             variant.INFO["AFQUERY_N_FAIL"] = N_FAIL
             variant.INFO["AFQUERY_N_NO_COVERAGE"] = ",".join(str(v) for v in n_no_cov_list)

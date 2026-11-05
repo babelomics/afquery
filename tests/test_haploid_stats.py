@@ -1,7 +1,9 @@
-"""Tests for ploidy-aware N_HET / N_HOM_ALT classification.
+"""Tests for ploidy-aware N_HET / N_HOM_ALT / N_HEMI classification.
 
-Haploid ALT samples (chrX non-PAR males, chrY, chrM) should be counted as
-N_HOM_ALT, not N_HET, even though they sit in het_bitmap (gt_ac=1).
+A haploid carrier sits in het_bitmap (GT=1, gt_ac=1) or hom_bitmap (GT=1/1) but
+carries a single copy either way. Males on chrX non-PAR and on chrY are counted
+as N_HEMI. chrM is haploid but not hemizygous: its carriers are N_HOM_ALT.
+N_HET and N_HOM_ALT are otherwise diploid genotypes.
 """
 from afquery import Database
 
@@ -9,15 +11,18 @@ from afquery import Database
 class TestHaploidPointQuery:
 
     def test_chrX_nonpar_mixed_ploidy(self, test_db):
-        """chrX:5000000 het_ids=[0(male),2(female)] → N_HET=1, N_HOM_ALT=1."""
+        """chrX:5000000 het_ids=[0(male),2(female)] → N_HET=1, N_HEMI=1."""
         db = Database(test_db)
         results = db.query(chrom="chrX", pos=5000000)
         assert len(results) == 1
         r = results[0]
-        # S00 (male, haploid) → N_HOM_ALT; S02 (female, diploid) → N_HET
+        # S00 (male, haploid) → N_HEMI; S02 (female, diploid) → N_HET
         assert r.N_HET == 1, f"Expected N_HET=1 (diploid het S02), got {r.N_HET}"
-        assert r.N_HOM_ALT == 1, f"Expected N_HOM_ALT=1 (haploid ALT S00), got {r.N_HOM_ALT}"
-        assert r.AC == 2
+        assert r.N_HEMI == 1, f"Expected N_HEMI=1 (hemizygous S00), got {r.N_HEMI}"
+        assert r.N_HOM_ALT == 0
+        # S01 (male) and S03 (female) carry only REF
+        assert r.N_HOM_REF == 2
+        assert (r.AC, r.AN, r.n_samples_eligible) == (2, 6, 4)
 
     def test_chrY_all_haploid(self, test_db):
         """chrY:2700000 het_ids=[0,1] — all haploid → N_HET=0."""
@@ -25,10 +30,11 @@ class TestHaploidPointQuery:
         results = db.query(chrom="chrY", pos=2700000)
         assert len(results) == 1
         r = results[0]
-        # S00,S01 in het_bm, haploid → both N_HOM_ALT
+        # S00,S01 in het_bm, haploid → both N_HEMI
         # S04 (male WES_A) not eligible (WES_A has no chrY coverage)
         assert r.N_HET == 0, f"Expected N_HET=0 (chrY all haploid), got {r.N_HET}"
-        assert r.N_HOM_ALT == 2, f"Expected N_HOM_ALT=2, got {r.N_HOM_ALT}"
+        assert r.N_HOM_ALT == 0
+        assert r.N_HEMI == 2, f"Expected N_HEMI=2, got {r.N_HEMI}"
         assert r.AC == 2
 
     def test_chrM_all_haploid(self, test_db):
@@ -38,9 +44,10 @@ class TestHaploidPointQuery:
         assert len(results) == 1
         r = results[0]
         # Eligible: WGS{0,1,2,3} (S05 is WES_A, no chrM coverage)
-        # het_elig = {0,2}, all haploid on chrM → N_HOM_ALT
+        # het_elig = {0,2}, all haploid on chrM → N_HOM_ALT, never N_HEMI
         assert r.N_HET == 0, f"Expected N_HET=0 (chrM all haploid), got {r.N_HET}"
         assert r.N_HOM_ALT == 2, f"Expected N_HOM_ALT=2, got {r.N_HOM_ALT}"
+        assert r.N_HEMI == 0, "chrM is not hemizygous"
 
     def test_autosome_diploid_regression(self, test_db):
         """chr1:1500 (autosome) — all diploid, unchanged behavior."""
@@ -61,13 +68,13 @@ class TestHaploidPointQuery:
 class TestHaploidInvariants:
 
     def test_genotype_sum_equals_eligible(self, test_db):
-        """N_HET + N_HOM_ALT + N_HOM_REF + N_FAIL + N_NO_COVERAGE == n_eligible for all variants."""
+        """N_HET + N_HOM_ALT + N_HEMI + N_HOM_REF + N_FAIL + N_NO_COVERAGE == n_eligible."""
         db = Database(test_db)
         for chrom, pos in [("chr1", 1500), ("chr1", 3500), ("chr1", 5000),
                            ("chrX", 5000000), ("chrY", 2700000), ("chrM", 100)]:
             for r in db.query(chrom=chrom, pos=pos):
                 total = (
-                    r.N_HET + r.N_HOM_ALT + r.N_HOM_REF
+                    r.N_HET + r.N_HOM_ALT + r.N_HEMI + r.N_HOM_REF
                     + (r.N_FAIL or 0) + (r.N_NO_COVERAGE or 0)
                 )
                 assert total == r.n_samples_eligible, \
@@ -81,26 +88,40 @@ class TestHaploidInvariants:
             for r in db.query(chrom=chrom, pos=pos):
                 assert r.AC <= r.AN, f"AC ({r.AC}) > AN ({r.AN}) at {chrom}:{pos}"
 
-    def test_autosome_ac_formula(self, test_db):
-        """Autosome: AC == N_HET + 2 * N_HOM_ALT (all diploid, ignoring fail)."""
+    def test_ac_formula(self, test_db):
+        """AC == N_HET + 2*N_HOM_ALT + N_HEMI, except on chrM, where every carrier
+        is a single copy counted in N_HOM_ALT: AC == N_HOM_ALT."""
         db = Database(test_db)
-        for chrom, pos in [("chr1", 1500), ("chr1", 3500), ("chr1", 5000)]:
+        for chrom, pos in [("chr1", 1500), ("chr1", 3500), ("chr1", 5000),
+                           ("chrX", 5000000), ("chrY", 2700000), ("chrM", 100)]:
             for r in db.query(chrom=chrom, pos=pos):
-                expected_ac = r.N_HET + 2 * r.N_HOM_ALT
+                if chrom == "chrM":
+                    expected_ac = r.N_HOM_ALT
+                    assert r.N_HET == r.N_HEMI == 0
+                else:
+                    expected_ac = r.N_HET + 2 * r.N_HOM_ALT + r.N_HEMI
                 assert r.AC == expected_ac, \
                     f"AC mismatch at {chrom}:{pos}: {r.AC} != {expected_ac}"
+
+    def test_no_hemizygotes_on_autosomes(self, test_db):
+        db = Database(test_db)
+        for pos in (1500, 3500, 5000):
+            for r in db.query(chrom="chr1", pos=pos):
+                assert r.N_HEMI == 0
 
 
 class TestHaploidSexFiltered:
 
     def test_chrX_male_only(self, test_db):
-        """chrX:5000000 male-only → all haploid → N_HET=0."""
+        """chrX:5000000 male-only → all haploid → only N_HEMI."""
         db = Database(test_db)
         results = db.query(chrom="chrX", pos=5000000, sex="male")
         assert len(results) == 1
         r = results[0]
         assert r.N_HET == 0, f"Expected N_HET=0 (male-only haploid), got {r.N_HET}"
-        assert r.N_HOM_ALT == 1  # S00
+        assert r.N_HOM_ALT == 0
+        assert r.N_HEMI == 1  # S00
+        assert r.N_HOM_REF == 1  # S01, hemizygous for REF
 
     def test_chrX_female_only(self, test_db):
         """chrX:5000000 female-only → all diploid → N_HOM_ALT=0."""
@@ -110,6 +131,7 @@ class TestHaploidSexFiltered:
         r = results[0]
         assert r.N_HET == 1  # S02
         assert r.N_HOM_ALT == 0, f"Expected N_HOM_ALT=0 (female-only diploid), got {r.N_HOM_ALT}"
+        assert r.N_HEMI == 0, "females are never hemizygous"
 
 
 class TestHaploidBatchAndRegion:
@@ -122,6 +144,7 @@ class TestHaploidBatchAndRegion:
         assert len(point) == len(batch) == 1
         assert point[0].N_HET == batch[0].N_HET
         assert point[0].N_HOM_ALT == batch[0].N_HOM_ALT
+        assert point[0].N_HEMI == batch[0].N_HEMI == 1
         assert point[0].AC == batch[0].AC
 
     def test_query_region_matches_point(self, test_db):
@@ -132,14 +155,16 @@ class TestHaploidBatchAndRegion:
         assert len(point) == len(region) == 1
         assert point[0].N_HET == region[0].N_HET
         assert point[0].N_HOM_ALT == region[0].N_HOM_ALT
+        assert point[0].N_HEMI == region[0].N_HEMI == 1
         assert point[0].AC == region[0].AC
 
     def test_batch_chrY_haploid(self, test_db):
-        """query_batch on chrY also gives N_HET=0."""
+        """query_batch on chrY also gives N_HET=0, N_HEMI=2."""
         db = Database(test_db)
         batch = db.query_batch(chrom="chrY", variants=[(2700000, "T", "C")])
         assert len(batch) == 1
         assert batch[0].N_HET == 0
+        assert batch[0].N_HEMI == 2
 
     def test_region_chrM_haploid(self, test_db):
         """query_region on chrM also gives N_HET=0."""
@@ -147,6 +172,7 @@ class TestHaploidBatchAndRegion:
         region = db.query_region(chrom="chrM", start=100, end=100)
         assert len(region) == 1
         assert region[0].N_HET == 0
+        assert region[0].N_HEMI == 0
 
 
 class TestChrYEligibility:
@@ -168,12 +194,14 @@ class TestChrYEligibility:
         db = Database(test_db)
         for chrom, pos in (("chr1", 1500), ("chrX", 5000000), ("chrY", 2700000), ("chrM", 100)):
             for r in db.query(chrom=chrom, pos=pos):
-                total = r.N_HET + r.N_HOM_ALT + r.N_HOM_REF + r.N_FAIL + r.N_NO_COVERAGE
+                total = (r.N_HET + r.N_HOM_ALT + r.N_HEMI + r.N_HOM_REF
+                         + r.N_FAIL + r.N_NO_COVERAGE)
                 assert total == r.n_samples_eligible, f"{chrom}:{pos} counts do not partition"
 
     def test_chrY_no_phantom_hom_ref(self, test_db):
         """S00 and S01 carry chrY:2700000; nobody else eligible is homozygous reference."""
         db = Database(test_db)
         r = db.query(chrom="chrY", pos=2700000)[0]
-        assert r.N_HOM_ALT == 2
+        assert r.N_HEMI == 2
+        assert r.N_HOM_ALT == 0
         assert r.N_HOM_REF == 0

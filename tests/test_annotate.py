@@ -43,6 +43,7 @@ def _read_annotated(path: str) -> dict[int, dict]:
             "AF": _as_tuple(v.INFO.get("AFQUERY_AF")),
             "N_HET": _as_tuple(v.INFO.get("AFQUERY_N_HET")),
             "N_HOM_ALT": _as_tuple(v.INFO.get("AFQUERY_N_HOM_ALT")),
+            "N_HEMI": _as_tuple(v.INFO.get("AFQUERY_N_HEMI")),
             "N_HOM_REF": _as_tuple(v.INFO.get("AFQUERY_N_HOM_REF")),
             "N_FAIL": v.INFO.get("AFQUERY_N_FAIL"),
             "ALT": list(v.ALT),
@@ -196,6 +197,7 @@ def test_annotate_info_headers_present(test_db, tmp_path):
     assert "AFQUERY_AF" in header_str
     assert "AFQUERY_N_HET" in header_str
     assert "AFQUERY_N_HOM_ALT" in header_str
+    assert "AFQUERY_N_HEMI" in header_str
     assert "AFQUERY_N_HOM_REF" in header_str
 
 
@@ -322,3 +324,22 @@ def test_annotate_cli_threads_option(test_db, tmp_path):
     ])
     assert result.exit_code == 0, result.output
     assert "Annotated" in result.output
+
+
+def test_annotate_hemizygous_chrX(test_db, tmp_path):
+    """chrX:5000000 non-PAR: S00 (male) is hemizygous, S02 (female) heterozygous."""
+    from afquery.database import Database
+    out = str(tmp_path / "out.vcf")
+    Database(test_db).annotate_vcf(MULTI_CHROM_VCF, out)
+    r = _read_annotated(out)[5000000]
+    assert (r["N_HET"], r["N_HOM_ALT"], r["N_HEMI"]) == ((1,), (0,), (1,))
+    assert (r["AC"], r["AN"]) == ((2,), 6)
+
+
+def test_annotate_no_hemizygotes_on_autosomes(test_db, tmp_path):
+    from afquery.database import Database
+    out = str(tmp_path / "out.vcf")
+    Database(test_db).annotate_vcf(DATA_VCF, out, phenotype=["E11.9"], sex="both")
+    for pos, r in _read_annotated(out).items():
+        if r["AC"] is not None:
+            assert all(n == 0 for n in r["N_HEMI"]), pos

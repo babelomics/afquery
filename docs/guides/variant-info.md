@@ -1,6 +1,6 @@
 # Variant Info
 
-`afquery variant-info` returns the list of samples carrying a specific variant, together with each sample's metadata: sex, sequencing technology, phenotype codes, genotype (het/hom), and FILTER status (PASS/FAIL).
+`afquery variant-info` returns the list of samples carrying a specific variant, together with each sample's metadata: sex, sequencing technology, phenotype codes, genotype (het/hom/hemi), and FILTER status (PASS/FAIL).
 
 This avoids the need to re-query raw VCF files when inspecting individual variant carriers.
 
@@ -18,11 +18,11 @@ afquery variant-info --db ./db/ --locus chr1:925952
 !!! note "Carriers match the counts reported by `query`"
     `variant-info` lists only samples whose capture regions cover the position, the same
     eligible set `query` uses. A WES sample with a call outside its own BED is not counted
-    in `AN`, `AC` or the genotype tallies, and is not listed here either. On diploid
-    regions the number of `het`, `hom` and `alt` carriers therefore equals `N_HET`,
-    `N_HOM_ALT` and `N_FAIL` for the same allele and filters. (In haploid regions a
-    single-allele call is listed as `het` but counted in `N_HOM_ALT`.) Earlier versions
-    also listed off-target carriers, so the two commands could disagree.
+    in `AN`, `AC` or the genotype tallies, and is not listed here either. Each carrier is
+    labelled with the class `query` counts it in, following the sample's ploidy at the
+    position rather than how the VCF wrote the genotype, so the number of `het`, `hom`,
+    `hemi` and `alt` carriers equals `N_HET`, `N_HOM_ALT`, `N_HEMI` and `N_FAIL` for the
+    same allele and filters, on every chromosome.
 
 By default all samples are queried and results are printed as an aligned text table:
 
@@ -139,9 +139,10 @@ When `--ref` and `--alt` are specified, the `variant` block contains the actual 
 
 | Value | Meaning |
 |---|---|
-| `het` | Heterozygous carrier, FILTER=PASS |
-| `hom` | Homozygous alt carrier, FILTER=PASS |
-| `alt` | Failed call (FILTER≠PASS) for any allele at this position; genotype unknown. Listed for every allele of the position, as in `N_FAIL` |
+| `het` | Heterozygous carrier (diploid `0/1`), FILTER=PASS. Counted in `N_HET` |
+| `hom` | Homozygous alt carrier (diploid `1/1`), FILTER=PASS. On chrM every carrier is `hom`, whatever its GT: AFQuery records no heteroplasmy. Counted in `N_HOM_ALT` |
+| `hemi` | Hemizygous carrier, FILTER=PASS: a male carrying the allele on chrX outside the PARs or on chrY, where he has a single copy (GT `1`, or `1/1` written diploid). Counted in `N_HEMI` |
+| `alt` | Failed call for any allele at this position — FILTER≠PASS, or a genotype inconsistent with the sample's ploidy such as `0/1` in a male on chrX non-PAR; genotype unknown. Listed for every allele of the position, as in `N_FAIL` |
 | `no_coverage` | Sample's tech lacks coverage evidence at this position; not a carrier. Only appears when a coverage-evidence filter (`--min-pass`, `--min-observed`, `--min-quality-evidence`, or build-time `--min-covered`) is active. The FILTER column is empty (text/tsv) or `null` (JSON) — `PASS`/`FAIL` does not apply because there is no call. See [Coverage Evidence](../advanced/coverage-evidence.md). |
 
 ---

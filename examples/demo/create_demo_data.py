@@ -69,7 +69,7 @@ WES_V2_REGIONS = WES_V1_REGIONS + [
 PINNED_VARIANTS = [
     # chr1:925952 — inside wes_v1 + wes_v2 capture region (chr1:900000-950000)
     # Primary teaching variant used throughout steps 4–8 of the tutorial.
-    # Expected (no filter): AC=6, AN=20, AF=0.3000, N_HET=4, N_HOM_ALT=1, N_HOM_REF=5, N_FAIL=0
+    # Expected (no filter): AC=6, AN=20, AF=0.3000, N_HET=4, N_HOM_ALT=1, N_HEMI=0, N_HOM_REF=5, N_FAIL=0
     ("chr1", 925952, "G", "A", {
         "DEMO_001": "0/1",   # female, wgs,    E11.9+I10
         "DEMO_002": "1/1",   # male,   wgs,    E11.9
@@ -84,7 +84,7 @@ PINNED_VARIANTS = [
     }),
     # chr1:925100 — second variant in the same WES region, adds a second row to
     # region queries on chr1:900000-950000.
-    # Expected (no filter): AC=4, AN=20, AF=0.2000, N_HET=4, N_HOM_ALT=0, N_HOM_REF=6, N_FAIL=0
+    # Expected (no filter): AC=4, AN=20, AF=0.2000, N_HET=4, N_HOM_ALT=0, N_HEMI=0, N_HOM_REF=6, N_FAIL=0
     ("chr1", 925100, "C", "T", {
         "DEMO_001": "0/1",
         "DEMO_002": "0/0",
@@ -100,7 +100,7 @@ PINNED_VARIANTS = [
     # chr1:946000 — inside wes_v1 + wes_v2 capture region (chr1:900000-950000)
     # N_FAIL teaching variant: DEMO_002 and DEMO_004 carry the alt allele with
     # a LowQual filter → they contribute to N_FAIL, not AC/AN.
-    # Expected (no filter): AC=2, AN=16, AF=0.1250, N_HET=2, N_HOM_ALT=0, N_HOM_REF=6, N_FAIL=2
+    # Expected (no filter): AC=2, AN=16, AF=0.1250, N_HET=2, N_HOM_ALT=0, N_HEMI=0, N_HOM_REF=6, N_FAIL=2
     ("chr1", 946000, "T", "C", {
         "DEMO_001": ("0/1", "PASS"),
         "DEMO_002": ("0/1", "LowQual"),

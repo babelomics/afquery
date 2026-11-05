@@ -13,8 +13,8 @@ class SampleFilter:
     tech_include: list[str] = field(default_factory=list)       # [] = todas
     tech_exclude: list[str] = field(default_factory=list)
     sex: str = "both"  # 'male' | 'female' | 'both'
-    min_pass: int = 0      # WES tech needs ≥K PASS carriers (het|hom) at position
-    min_observed: int = 0  # WES tech needs ≥K any-VCF entries (het|hom|fail) at position
+    min_pass: int = 0      # WES tech needs ≥K PASS carriers (het|hom|hemi) at position
+    min_observed: int = 0  # WES tech needs ≥K any-VCF entries (het|hom|hemi|fail) at position
     min_quality_evidence: int = 0  # WES tech needs ≥K quality_pass carriers (Phase 2 DB only)
     fail_as_ref: bool = False  # count samples with a failed call as hom-ref in AN
 
@@ -81,8 +81,9 @@ class QueryResult:
     AN: int
     AF: float | None       # None if AN == 0
     n_samples_eligible: int
-    N_HET: int = 0
-    N_HOM_ALT: int = 0
+    N_HET: int = 0          # diploid heterozygous carriers
+    N_HOM_ALT: int = 0      # diploid homozygous alt carriers; every carrier on chrM
+    N_HEMI: int = 0         # hemizygous carriers: males on chrX non-PAR and chrY
     N_HOM_REF: int = 0
     N_FAIL: int = 0
     N_NO_COVERAGE: int = 0
@@ -96,5 +97,5 @@ class SampleCarrier:
     sex: str            # 'male' | 'female'
     tech_name: str
     phenotypes: list[str]
-    genotype: str              # 'het' | 'hom' | 'alt' (FILTER≠PASS) | 'no_coverage' (uncertain hom-ref)
+    genotype: str              # 'het' | 'hom' | 'hemi' | 'alt' (failed call) | 'no_coverage' (uncertain hom-ref)
     filter_pass: bool | None   # True = PASS, False = FILTER≠PASS, None = no call (no_coverage)

@@ -58,7 +58,7 @@ For a given variant (chromosome, position, ref, alt):
 - **AN** (Allele Number) — total number of alleles examined (2× diploid samples, 1× haploid). Samples with a failed call (`FILTER≠PASS`) at the position are left out, as their genotype there is unknown; they are reported as `N_FAIL` (see [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md))
 - **AF** (Allele Frequency) — `AC / AN` (None when AN = 0)
 
-A heterozygous carrier contributes AC=1; a homozygous alt carrier contributes AC=2.
+A heterozygous carrier contributes AC=1; a homozygous alt carrier contributes AC=2; a carrier with a single copy of the locus (a hemizygous male on chrX non-PAR or chrY, or any carrier on chrM) contributes AC=1.
 
 ### Ploidy
 
@@ -129,8 +129,10 @@ graph TB
 
 For each variant row, AFQuery stores per-sample genotype information as [Roaring Bitmaps](https://roaringbitmap.org/). Three of them drive every query:
 
-- **`het_bitmap`** — sample is heterozygous (`GT=0/1`) with `FILTER=PASS`
-- **`hom_bitmap`** — sample is homozygous alt (`GT=1/1`, or `GT=1` on haploid regions) with `FILTER=PASS`
+- **`het_bitmap`** — the sample's genotype holds one copy of the ALT allele (`GT=0/1`, or a haploid `GT=1`) with `FILTER=PASS`
+- **`hom_bitmap`** — the sample's genotype holds two copies of the ALT allele (`GT=1/1`) with `FILTER=PASS`
+
+The bitmaps record the genotype as the VCF wrote it; ploidy is applied at query time. A diploid sample in `het_bitmap` is counted in N_HET and one in `hom_bitmap` in N_HOM_ALT, while a haploid carrier — in either bitmap — has a single copy: N_HEMI for a male on chrX non-PAR or chrY, N_HOM_ALT on chrM.
 - **`fail_bitmap`** — the sample's call at this site failed (`FILTER≠PASS`, or a genotype inconsistent with its ploidy); see [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md)
 
 Each sample has a stable integer ID (0-indexed). The bit position in the bitmap equals the sample ID. Databases built with coverage-quality filters carry two additional bitmaps — see [Data Model](../reference/data-model.md#parquet-schema).

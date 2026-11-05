@@ -150,3 +150,44 @@ def test_chrX_par_stays_diploid_for_everyone():
     assert sample_ploidy("chrX", 100_000, "male", "GRCh37") == 2
     haploid, diploid = split_ploidy(ALL_10, MALES, FEMALES, "chrX", 100_000, "GRCh37")
     assert len(haploid) == 0 and diploid == ALL_10
+
+
+# --- classify_carriers: one source for counts and variant-info labels ---
+
+from afquery.ploidy import classify_carriers
+
+
+def _classes(chrom, pos, het, hom, build="GRCh37"):
+    haploid, diploid = split_ploidy(ALL_10, MALES, FEMALES, chrom, pos, build)
+    return classify_carriers(chrom, haploid, diploid, BitMap(het), BitMap(hom))
+
+
+def test_classify_autosome_by_genotype():
+    het, hom, hemi = _classes("chr1", 1000, het=[0, 2], hom=[4])
+    assert (list(het), list(hom), list(hemi)) == ([0, 2], [4], [])
+
+
+def test_classify_chrX_nonpar_males_are_hemizygous():
+    # males 0 (GT 1, het bitmap) and 1 (GT 1/1, hom bitmap); female 2 het, 3 hom
+    het, hom, hemi = _classes("chrX", 5_000_000, het=[0, 2], hom=[1, 3])
+    assert (list(het), list(hom), list(hemi)) == ([2], [3], [0, 1])
+
+
+def test_classify_chrX_par_is_diploid():
+    het, hom, hemi = _classes("chrX", 100_000, het=[0, 2], hom=[1])
+    assert (list(het), list(hom), list(hemi)) == ([0, 2], [1], [])
+
+
+def test_classify_chrY_nonpar_is_hemizygous():
+    het, hom, hemi = _classes("chrY", 2_700_000, het=[0], hom=[4])
+    assert (list(het), list(hom), list(hemi)) == ([], [], [0, 4])
+
+
+def test_classify_chrY_par_has_no_carriers():
+    het, hom, hemi = _classes("chrY", 500_000, het=[0], hom=[4])
+    assert len(het) == len(hom) == len(hemi) == 0
+
+
+def test_classify_chrM_carriers_are_hom_alt_not_hemizygous():
+    het, hom, hemi = _classes("chrM", 100, het=[0, 2], hom=[5])
+    assert (list(het), list(hom), list(hemi)) == ([], [0, 2, 5], [])

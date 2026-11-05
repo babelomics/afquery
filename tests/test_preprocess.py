@@ -699,6 +699,9 @@ def test_preprocess_query_matches_expected(preprocessed_db, data_dir):
         r = matching[0]
         assert r.AC == case["AC"], f"{case['description']}: AC {r.AC} != {case['AC']}"
         assert r.AN == case["AN"], f"{case['description']}: AN {r.AN} != {case['AN']}"
+        for field in ("N_HET", "N_HOM_ALT", "N_HEMI"):
+            if field in case:
+                assert getattr(r, field) == case[field], f"{case['description']}: {field}"
         assert abs(r.AF - case["AF"]) < 1e-9, f"{case['description']}: AF mismatch"
         assert r.n_samples_eligible == case["n_eligible"], (
             f"{case['description']}: n_eligible {r.n_samples_eligible} != {case['n_eligible']}"

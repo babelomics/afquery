@@ -20,7 +20,7 @@ into `N_HOM_REF`. The flags below decide *which* samples land there.
 under the active criteria. At a biallelic site the genotype invariant becomes:
 
 ```
-N_HET + N_HOM_ALT + N_HOM_REF + N_FAIL + N_NO_COVERAGE = n_eligible
+N_HET + N_HOM_ALT + N_HEMI + N_HOM_REF + N_FAIL + N_NO_COVERAGE = n_eligible
 ```
 
 At a multi-allelic site, eligible samples that carry only another ALT allele at
@@ -74,7 +74,7 @@ afquery query --db ./db/ --locus chr1:925952
 ```
 
 ```
-chr1:925952 G>A  AC=142  AN=2742  AF=0.0518  n_eligible=1371  N_HET=138  N_HOM_ALT=2  N_HOM_REF=1231  N_FAIL=0  N_NO_COVERAGE=0
+chr1:925952 G>A  AC=142  AN=2742  AF=0.0518  n_eligible=1371  N_HET=138  N_HOM_ALT=2  N_HEMI=0  N_HOM_REF=1231  N_FAIL=0  N_NO_COVERAGE=0
 ```
 
 Now require at least one PASS carrier per partially-covered tech:
@@ -84,7 +84,7 @@ afquery query --db ./db/ --locus chr1:925952 --min-pass 1
 ```
 
 ```
-chr1:925952 G>A  AC=142  AN=2742  AF=0.0518  n_eligible=1371  N_HET=138  N_HOM_ALT=2  N_HOM_REF=1108  N_FAIL=0  N_NO_COVERAGE=123
+chr1:925952 G>A  AC=142  AN=2742  AF=0.0518  n_eligible=1371  N_HET=138  N_HOM_ALT=2  N_HEMI=0  N_HOM_REF=1108  N_FAIL=0  N_NO_COVERAGE=123
 ```
 
 Samples on partially-covered techs that did not contribute a single PASS

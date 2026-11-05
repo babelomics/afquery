@@ -7,8 +7,8 @@ to predict its own output would only assert that the code is self-consistent,
 which is exactly what the existing suite already did while add-samples was
 silently dropping samples on the floor.
 
-The coverage half is the half that matters. AC, N_HET and N_HOM_ALT come from
-the VCFs, but AN, N_HOM_REF and N_NO_COVERAGE come from capture-BED coverage
+The coverage half is the half that matters. AC, N_HET, N_HOM_ALT and N_HEMI come
+from the VCFs, but AN, N_HOM_REF and N_NO_COVERAGE come from capture-BED coverage
 crossed with sex-dependent ploidy, and every silent counting bug this project
 has had lived on that side.
 """
@@ -195,7 +195,7 @@ class Cohort:
 
         AN = 0
         AC = 0
-        n_het = n_hom_alt = n_fail = 0
+        n_het = n_hom_alt = n_hemi = n_fail = 0
         for s in elig:
             haploid = self.is_haploid(s, chrom, pos)
             if s in site_fail:
@@ -205,18 +205,22 @@ class Cohort:
                 continue
             AN += 1 if haploid else 2
             state = calls.get(s)
-            if state == "het":
-                if haploid:
-                    AC += 1
+            if state not in ("het", "hom"):
+                continue
+            if haploid:
+                # One copy whatever the GT says. A male on chrX non-PAR or chrY
+                # is hemizygous; chrM is a multi-copy genome with no recorded
+                # heteroplasmy, and its carriers count as homozygous alt.
+                AC += 1
+                if chrom == "chrM":
                     n_hom_alt += 1
                 else:
-                    AC += 1
-                    n_het += 1
-            elif state == "hom":
-                if haploid:
-                    AC += 1
-                else:
-                    AC += 2
+                    n_hemi += 1
+            elif state == "het":
+                AC += 1
+                n_het += 1
+            else:
+                AC += 2
                 n_hom_alt += 1
 
         # A sample carrying only another allele at this position is not hom-ref
@@ -235,8 +239,9 @@ class Cohort:
             "AN": AN,
             "N_HET": n_het,
             "N_HOM_ALT": n_hom_alt,
+            "N_HEMI": n_hemi,
             "N_FAIL": n_fail,
-            "N_HOM_REF": len(elig) - n_het - n_hom_alt - n_fail - n_other,
+            "N_HOM_REF": len(elig) - n_het - n_hom_alt - n_hemi - n_fail - n_other,
             "n_eligible": len(elig),
         }
 

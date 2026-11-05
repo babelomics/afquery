@@ -134,8 +134,9 @@ class Database:
         """Return all samples carrying a variant, with their metadata.
 
         Each element includes sample name, sex, technology, phenotype codes,
-        genotype (``"het"``, ``"hom"``, or ``"alt"`` for FILTER≠PASS samples),
-        and FILTER status.
+        genotype and FILTER status. The genotype is ``"het"``, ``"hom"`` or
+        ``"hemi"`` (counted in N_HET, N_HOM_ALT and N_HEMI), ``"alt"`` for a
+        failed call (N_FAIL), or ``"no_coverage"`` under a coverage filter.
 
         Args:
             chrom: Chromosome (e.g. ``"chr1"`` or ``"1"``).

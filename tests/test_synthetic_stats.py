@@ -112,8 +112,9 @@ class TestSyntheticHaploid:
         assert len(results) == 1
         r = results[0]
         assert r.N_HET == 0         # no diploid samples
-        assert r.N_HOM_ALT == 1     # S1 haploid ALT
-        assert r.N_HOM_REF == 1     # S0 haploid REF
+        assert r.N_HOM_ALT == 0
+        assert r.N_HEMI == 1        # S1 hemizygous ALT
+        assert r.N_HOM_REF == 1     # S0 hemizygous REF
         assert r.AC == 1
         assert r.AN == 2            # 2 males * 1
 
@@ -128,7 +129,8 @@ class TestSyntheticHaploid:
         assert len(results) == 1
         r = results[0]
         assert r.N_HET == 1         # S1 diploid het
-        assert r.N_HOM_ALT == 1     # S0 haploid ALT
+        assert r.N_HOM_ALT == 0
+        assert r.N_HEMI == 1        # S0 hemizygous ALT
         assert r.AC == 2            # 1 (haploid) + 1 (het)
         assert r.AN == 3            # 1 (male) + 2 (female)
         assert r.n_samples_eligible == 2
@@ -144,7 +146,8 @@ class TestSyntheticHaploid:
         assert len(results) == 1
         r = results[0]
         assert r.N_HET == 0
-        assert r.N_HOM_ALT == 2     # S0 haploid + S1 diploid hom
+        assert r.N_HOM_ALT == 1     # S1 diploid hom
+        assert r.N_HEMI == 1        # S0 hemizygous
         assert r.AC == 3            # 1 (haploid) + 2 (hom)
         assert r.AN == 3
 
@@ -160,7 +163,8 @@ class TestSyntheticHaploid:
         assert len(results) == 1
         r = results[0]
         assert r.N_HET == 0         # all haploid
-        assert r.N_HOM_ALT == 2     # S0, S1
+        assert r.N_HOM_ALT == 2     # S0, S1: chrM carriers are not hemizygous
+        assert r.N_HEMI == 0
         assert r.N_HOM_REF == 1     # S2
         assert r.AC == 2
         assert r.AN == 3            # 3 * 1
@@ -169,7 +173,7 @@ class TestSyntheticHaploid:
 class TestSyntheticFilter:
 
     def test_filter_fail_with_haploid(self, tmp_path):
-        """FILTER!=PASS on chrX haploid → tracked as N_FAIL, not N_HOM_ALT."""
+        """FILTER!=PASS on chrX haploid → tracked as N_FAIL, not N_HEMI."""
         samples = [
             ("S0", "male", [("chrX", 5000000, "A", "G", "1", "PASS")]),
             ("S1", "male", [("chrX", 5000000, "A", "G", "1", "LowQual")]),
@@ -178,11 +182,12 @@ class TestSyntheticFilter:
         results = db.query(chrom="chrX", pos=5000000)
         assert len(results) == 1
         r = results[0]
-        # S0 passes → haploid ALT → N_HOM_ALT
-        # S1 fails → N_FAIL (not in het/hom for AC)
+        # S0 passes → haploid ALT → N_HEMI
+        # S1 fails → N_FAIL (not a carrier for AC)
         assert r.AC == 1
         assert r.N_FAIL == 1
-        assert r.N_HOM_ALT == 1     # S0 only
+        assert r.N_HEMI == 1        # S0 only
+        assert r.N_HOM_ALT == 0
 
 
 class TestSyntheticHaploidHeterozygous:
@@ -200,6 +205,8 @@ class TestSyntheticHaploidHeterozygous:
         db = _build_db(tmp_path, samples)
         [r] = db.query(chrom=chrom, pos=pos)
         assert r.N_FAIL == 1          # M_HET
+        assert r.N_HEMI == 1          # M_ALT
+        assert r.N_HET == 0
         assert r.AC == 1              # M_ALT only
         assert r.AN == 2              # M_ALT + M_REF, one allele each
         assert r.n_samples_eligible == 3
@@ -212,12 +219,14 @@ class TestSyntheticHaploidHeterozygous:
         db = _build_db(tmp_path, samples)
         [r] = db.query(chrom="chrX", pos=5000000)
         assert (r.AC, r.AN, r.N_FAIL) == (1, 1, 0)
+        assert (r.N_HEMI, r.N_HOM_ALT) == (1, 0)
 
     def test_male_het_in_chrX_par_is_diploid(self, tmp_path):
         samples = [("M", "male", [("chrX", 100000, "A", "G", "0/1")])]
         db = _build_db(tmp_path, samples)
         [r] = db.query(chrom="chrX", pos=100000)
         assert (r.AC, r.AN, r.N_HET, r.N_FAIL) == (1, 2, 1, 0)
+        assert r.N_HEMI == 0          # the PAR is diploid: no hemizygotes
 
     @pytest.mark.parametrize("sex", ["male", "female"])
     def test_chrM_het_is_a_carrier(self, tmp_path, sex):
@@ -225,6 +234,7 @@ class TestSyntheticHaploidHeterozygous:
         db = _build_db(tmp_path, samples)
         [r] = db.query(chrom="chrM", pos=100)
         assert (r.AC, r.AN, r.N_FAIL) == (1, 1, 0)
+        assert (r.N_HOM_ALT, r.N_HEMI, r.N_HET) == (1, 0, 0)
 
 
 class TestMissingGtFailFilter:
@@ -270,7 +280,7 @@ class TestMissingGtFailFilter:
         r = results[0]
         assert r.N_FAIL == 1
         assert r.AC == 1
-        assert r.N_HOM_ALT == 1  # S0 haploid ALT
+        assert r.N_HEMI == 1  # S0 hemizygous ALT
 
 
 class TestSyntheticInvariants:
@@ -292,7 +302,7 @@ class TestSyntheticInvariants:
             results = db.query(chrom=chrom, pos=pos)
             for r in results:
                 # Genotype sum = eligible
-                total = r.N_HET + r.N_HOM_ALT + r.N_HOM_REF + (r.N_FAIL or 0)
+                total = r.N_HET + r.N_HOM_ALT + r.N_HEMI + r.N_HOM_REF + (r.N_FAIL or 0)
                 assert total == r.n_samples_eligible, \
                     f"Sum mismatch at {chrom}:{pos}"
                 # AC <= AN
@@ -316,4 +326,5 @@ class TestSyntheticInvariants:
             assert point[0].AN == method_result.AN
             assert point[0].N_HET == method_result.N_HET
             assert point[0].N_HOM_ALT == method_result.N_HOM_ALT
+            assert point[0].N_HEMI == method_result.N_HEMI
             assert point[0].N_HOM_REF == method_result.N_HOM_REF

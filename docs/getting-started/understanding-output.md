@@ -11,11 +11,12 @@ This page explains what each field in AFQuery output means and how to interpret 
 | **AC** | int | Allele count — number of alt allele copies in eligible samples |
 | **AN** | int | Allele number — alleles of the eligible samples with a usable call at this position, adjusted for ploidy. Samples in `N_FAIL` are left out (counted as hom-ref with `--fail-as-ref`) |
 | **AF** | float | Allele frequency — `AC / AN`. `NA` (text/TSV) or `null` (JSON) when AN=0 |
-| **N_HET** | int | Number of eligible samples heterozygous for the alt allele (GT=0/1) |
-| **N_HOM_ALT** | int | Number of eligible samples homozygous for the alt allele (GT=1/1 or GT=1). Includes haploid carriers on sex chromosomes and chrM. See [Ploidy](../advanced/ploidy-and-sex-chroms.md#genotype-counting). |
-| **N_HOM_REF** | int | Number of eligible samples homozygous reference (GT=0/0 or GT=0). Samples carrying another ALT allele at the same position are not counted (see [Multi-allelic sites](#multi-allelic-sites)). |
+| **N_HET** | int | Number of eligible samples heterozygous for the alt allele: a diploid `0/1` genotype |
+| **N_HOM_ALT** | int | Number of eligible samples homozygous for the alt allele: a diploid `1/1` genotype. On chrM every carrier is counted here, whatever its GT, because AFQuery records no heteroplasmy. See [Ploidy](../advanced/ploidy-and-sex-chroms.md#genotype-counting). |
+| **N_HEMI** | int | Number of eligible hemizygous carriers: males carrying the alt allele on chrX outside the PARs or on chrY, where they have a single copy (GT `1`, or `1/1` written diploid). Always `0` on autosomes, chrX PARs, chrM and for females. |
+| **N_HOM_REF** | int | Number of eligible samples carrying only the reference allele (GT=0/0, or GT=0 where haploid — for a male on chrX non-PAR or chrY that is hemizygous for the reference, and on chrM a non-carrier). Samples carrying another ALT allele at the same position are not counted (see [Multi-allelic sites](#multi-allelic-sites)). |
 | **n_eligible** | int | Number of eligible samples — those passing the sex/phenotype/tech filters, covered at this position, and carrying at least one copy of the locus (females are not eligible on chrY, and nobody is in the chrY PARs) |
-| **N_FAIL** | int | Number of eligible samples with a failed call (FILTER≠PASS) for any allele at this position — the same value for every allele there. These samples are counted *only* in N_FAIL, not in N_HET, N_HOM_ALT or N_HOM_REF, and are left out of AC and AN. See [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md). |
+| **N_FAIL** | int | Number of eligible samples with a failed call for any allele at this position — a call with FILTER≠PASS, or a genotype inconsistent with the sample's ploidy such as `0/1` in a male on chrX non-PAR — the same value for every allele there. These samples are counted *only* in N_FAIL, not in N_HET, N_HOM_ALT, N_HEMI or N_HOM_REF, and are left out of AC and AN. See [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md). |
 | **N_NO_COVERAGE** | int | Number of eligible samples whose tech lacks coverage evidence at this position. Excluded from `N_HOM_REF`; they still count in AN. Always `0` unless a coverage-evidence filter is active. See [Coverage Evidence](../advanced/coverage-evidence.md). |
 
 
@@ -30,7 +31,7 @@ afquery query --db ./db/ --locus chr1:925952 --ref G --alt A
 ```
 
 ```
-chr1:925952 G>A  AC=3  AN=120  AF=0.0250  n_eligible=60  N_HET=1  N_HOM_ALT=1  N_HOM_REF=57  N_FAIL=0  N_NO_COVERAGE=0
+chr1:925952 G>A  AC=3  AN=120  AF=0.0250  n_eligible=60  N_HET=1  N_HOM_ALT=1  N_HEMI=0  N_HOM_REF=57  N_FAIL=0  N_NO_COVERAGE=0
 ```
 
 ### TSV
@@ -40,8 +41,8 @@ afquery query --db ./db/ --locus chr1:925952 --ref G --alt A --format tsv
 ```
 
 ```
-chrom	pos	ref	alt	AC	AN	AF	n_eligible	N_HET	N_HOM_ALT	N_HOM_REF	N_FAIL	N_NO_COVERAGE
-chr1	925952	G	A	3	120	0.025000	60	1	1	57	0	0
+chrom	pos	ref	alt	AC	AN	AF	n_eligible	N_HET	N_HOM_ALT	N_HEMI	N_HOM_REF	N_FAIL	N_NO_COVERAGE
+chr1	925952	G	A	3	120	0.025000	60	1	1	0	57	0	0
 ```
 
 ### JSON
@@ -62,6 +63,7 @@ afquery query --db ./db/ --locus chr1:925952 --ref G --alt A --format json
   "n_eligible": 60,
   "N_HET": 1,
   "N_HOM_ALT": 1,
+  "N_HEMI": 0,
   "N_HOM_REF": 57,
   "N_FAIL": 0,
   "N_NO_COVERAGE": 0
@@ -93,7 +95,7 @@ Each ALT allele at a position is reported on its own line, and its counts refer 
 that allele only. A sample carrying a different ALT allele at the same position
 (for example `G/T` on the `G>A` line) is neither a carrier nor homozygous
 reference for this allele, so it appears in none of `N_HET`, `N_HOM_ALT`,
-`N_HOM_REF`, `N_FAIL` or `N_NO_COVERAGE`. The five counts add up to
+`N_HEMI`, `N_HOM_REF`, `N_FAIL` or `N_NO_COVERAGE`. The six counts add up to
 `n_eligible` at biallelic sites; at a multi-allelic site they fall short by the
 number of such samples. AC, AN and AF are not affected.
 
@@ -145,9 +147,10 @@ When using `afquery annotate`, the following INFO fields are added to each varia
 | `AFQUERY_AC` | A (per ALT) | Allele count — one value per ALT allele |
 | `AFQUERY_AN` | 1 (per site) | Allele number — shared across all ALT alleles; excludes samples in `AFQUERY_N_FAIL` |
 | `AFQUERY_AF` | A (per ALT) | Allele frequency — one value per ALT allele; `.` when `AFQUERY_AN=0` |
-| `AFQUERY_N_HET` | A (per ALT) | Heterozygous sample count per ALT allele |
-| `AFQUERY_N_HOM_ALT` | A (per ALT) | Homozygous alt sample count per ALT allele |
-| `AFQUERY_N_HOM_REF` | A (per ALT) | Homozygous ref sample count per ALT allele, excluding carriers of other ALT alleles at the position |
+| `AFQUERY_N_HET` | A (per ALT) | Heterozygous sample count per ALT allele (diploid) |
+| `AFQUERY_N_HOM_ALT` | A (per ALT) | Homozygous alt sample count per ALT allele (diploid; every carrier on chrM) |
+| `AFQUERY_N_HEMI` | A (per ALT) | Hemizygous carrier count per ALT allele: males on chrX outside the PARs and on chrY |
+| `AFQUERY_N_HOM_REF` | A (per ALT) | Count of samples carrying only the reference allele per ALT allele (homozygous, or hemizygous where haploid), excluding carriers of other ALT alleles at the position |
 | `AFQUERY_N_FAIL` | 1 (per site) | Samples with a failed call for any ALT allele at the position, each counted once |
 | `AFQUERY_N_NO_COVERAGE` | A (per ALT) | Eligible samples whose tech lacks coverage evidence at this position. Always `0` unless a coverage-evidence filter is active. See [Coverage Evidence](../advanced/coverage-evidence.md). |
 

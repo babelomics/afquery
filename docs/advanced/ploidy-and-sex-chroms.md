@@ -22,6 +22,9 @@ For each eligible sample at a given position, AFQuery adds the appropriate ploid
 
 A sample contributing ploidy 0 is not eligible at that position at all: a female has no chrY to genotype, so she is neither a carrier nor homozygous reference there. On chrY, `n_eligible`, `N_HOM_REF` and `AN` therefore count males only. In the chrY PARs nobody is eligible (see below).
 
+!!! note "Karyotypes"
+    The manifest records each sample as `male` or `female`, read as XY or XX. Other sex-chromosome karyotypes (45,X; 47,XXY; mosaics) are not modelled: a sample is given the ploidy of the sex it is registered with.
+
 ---
 
 ## Pseudoautosomal Regions (PAR)
@@ -84,7 +87,7 @@ afquery query --db ./db/ --locus chrY:2787758 --sex female
 # chrY:2787758 — no results (AN=0 for all variants)
 
 afquery query --db ./db/ --locus chrY:2787758 --sex male
-# chrY:2787758 C>T  AC=3  AN=856  AF=0.0035  n_eligible=856  N_HET=0  N_HOM_ALT=3  N_HOM_REF=853  N_FAIL=0  N_NO_COVERAGE=0
+# chrY:2787758 C>T  AC=3  AN=856  AF=0.0035  n_eligible=856  N_HET=0  N_HOM_ALT=0  N_HEMI=3  N_HOM_REF=853  N_FAIL=0  N_NO_COVERAGE=0
 ```
 
 Inside a chrY PAR (here GRCh38 PAR1), nothing is reported, whatever the filters:
@@ -124,40 +127,44 @@ afquery query --db ./db/ --locus chrM:3243
 
 For every query result at a biallelic site, the following identity holds:
 
-**N_HET + N_HOM_ALT + N_HOM_REF + N_FAIL + N_NO_COVERAGE = n_eligible**
+**N_HET + N_HOM_ALT + N_HEMI + N_HOM_REF + N_FAIL + N_NO_COVERAGE = n_eligible**
 
-This can be used to validate results. At a multi-allelic site, eligible samples that carry only another ALT allele at the position fall in none of these categories, so the sum is lower by exactly that number of samples (see [Multi-allelic sites](../getting-started/understanding-output.md#multi-allelic-sites)). N_HOM_REF is the number of eligible samples that are homozygous reference (i.e., carry no ALT allele at the position and have no failed call there). N_NO_COVERAGE is 0 unless a coverage-evidence filter is active — see [Coverage Evidence](coverage-evidence.md).
+This can be used to validate results. At a multi-allelic site, eligible samples that carry only another ALT allele at the position fall in none of these categories, so the sum is lower by exactly that number of samples (see [Multi-allelic sites](../getting-started/understanding-output.md#multi-allelic-sites)). N_HOM_REF is the number of eligible samples that carry only the reference allele and have no failed call at the position: homozygous reference where they are diploid, and, where they are haploid, hemizygous for the reference (a male on chrX non-PAR or chrY) or a non-carrier on chrM. N_NO_COVERAGE is 0 unless a coverage-evidence filter is active — see [Coverage Evidence](coverage-evidence.md).
 
 !!! note "Mutual exclusivity"
-    N_HET, N_HOM_ALT, N_HOM_REF, N_FAIL, and N_NO_COVERAGE are mutually exclusive. A sample with a failed call (FILTER≠PASS) for any allele at the position is counted in N_FAIL only — it does not appear in N_HET, N_HOM_ALT or N_HOM_REF, and is left out of AC and AN.
+    N_HET, N_HOM_ALT, N_HEMI, N_HOM_REF, N_FAIL, and N_NO_COVERAGE are mutually exclusive. A sample with a failed call for any allele at the position is counted in N_FAIL only — it does not appear in N_HET, N_HOM_ALT, N_HEMI or N_HOM_REF, and is left out of AC and AN.
+
+The genotype counts are counted per sample, not per allele, and each follows the sample's ploidy at the position:
+
+| Count | Who | Copies of the ALT allele (AC) |
+|-------|-----|------------------------------|
+| N_HET | diploid sample, GT `0/1` | 1 |
+| N_HOM_ALT | diploid sample, GT `1/1`; every carrier on chrM | 2; 1 on chrM |
+| N_HEMI | male carrier on chrX non-PAR or chrY (GT `1`, or `1/1` written diploid) | 1 |
+
+So `AC = N_HET + 2 × N_HOM_ALT + N_HEMI` everywhere except chrM, where `AC = N_HOM_ALT`. N_HEMI is always 0 on the autosomes, the chrX PARs and chrM, and for females.
 
 ### chrX non-PAR
 
-- A male with GT=`1` contributes AC=1, AN=1
-- A female with GT=`0/1` contributes AC=1, AN=2
-- A female with GT=`1/1` contributes AC=2, AN=2
+- A male with GT=`1` (or `1/1`) is **hemizygous**: he has a single copy of the locus. He contributes AC=1, AN=1 and is counted in **N_HEMI**.
+- A male with GT=`0/1` is a failed call: REF and ALT cannot both be the genotype of a single copy (see [Genotypes inconsistent with ploidy](#genotypes-inconsistent-with-ploidy)).
+- A female with GT=`0/1` contributes AC=1, AN=2 and is counted in N_HET; with GT=`1/1`, AC=2, AN=2 and N_HOM_ALT.
 
-N_HET and N_HOM_ALT are counted per sample (not per allele):
-
-- Males at chrX non-PAR (haploid positions) are counted in **N_HOM_ALT** when GT=1, because all alleles at that position are alternate. N_HET is reserved for diploid positions where both reference and alternate alleles are present.
-- Females at chrX with GT=`0/1` are counted in N_HET; with GT=`1/1` in N_HOM_ALT.
+N_HET and N_HOM_ALT describe diploid genotypes only, so at a non-PAR chrX position the males are never in them: their carriers are in N_HEMI and the rest in N_HOM_REF (or N_FAIL).
 
 ### chrY
 
-chrY is fully haploid (males only, females contribute AN=0):
+chrY outside the PARs is haploid in males and absent in females (who are not eligible there):
 
-- All carriers are counted in **N_HOM_ALT** (never N_HET)
-- N_HET is always 0 on chrY
+- Every carrier is hemizygous, counted in **N_HEMI**
+- N_HET and N_HOM_ALT are always 0 on chrY
 
 ### chrM
 
-chrM is haploid for all samples (both sexes contribute AN=1):
+chrM is haploid for all samples (both sexes contribute AN=1), but it is not hemizygous: a cell holds hundreds to thousands of mtDNA copies, and a variant may be present in all of them (homoplasmy) or in a fraction (heteroplasmy). AFQuery stores the discretized genotypes of the source VCF and records no heteroplasmy level (see the [FAQ](../faq.md#is-heteroplasmy-taken-into-account-when-calculating-allele-frequency-in-mitochondrial-variants)), so:
 
-- All carriers are counted in **N_HOM_ALT** (never N_HET)
-- N_HET is always 0 on chrM
-
-!!! warning "N_HET is always 0 on haploid regions"
-    On chrY, chrM, and chrX non-PAR for males, all carriers are counted in N_HOM_ALT. N_HET is 0 because haploid samples have only one allele copy — there is no heterozygous state. This is correct behavior, not a bug.
+- Every carrier counts once, in **N_HOM_ALT**, whatever its GT (`1`, `0/1` or `1/1`); a `0/1` call is not an error there
+- N_HET and N_HEMI are always 0 on chrM
 
 ### Genotypes inconsistent with ploidy
 
@@ -184,6 +191,7 @@ When `--sex male` is used on chrX (non-PAR), AN is purely haploid:
 
 - Each eligible male contributes AN=1
 - AF reflects the observed allele frequency in haploid male calls
+- Carriers are all hemizygous: N_HEMI = AC, and N_HET = N_HOM_ALT = 0
 
 This makes it straightforward to compare X-linked variant frequencies between sexes without manual ploidy adjustment.
 

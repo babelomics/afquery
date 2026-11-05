@@ -541,3 +541,60 @@ def test_multiallelic_1_2_sample_listed_for_each_allele(tmp_path):
         warnings.simplefilter("ignore", AfqueryWarning)
         both = [c.sample_name for c in db.variant_info("chr1", 5000)]
     assert sorted(both) == ["S12", "S12", "SA"]
+
+
+# ---------------------------------------------------------------------------
+# 16. Ploidy-aware labels: the same classes query() counts
+# ---------------------------------------------------------------------------
+
+def _labels(carriers):
+    return {c.sample_id: c.genotype for c in carriers}
+
+
+def test_chrX_males_are_hemi_females_het(test_db):
+    """chrX:5000000 het=[0(male),2(female)]: S00 is hemizygous, S02 heterozygous."""
+    db = Database(test_db)
+    assert _labels(db.variant_info("chrX", 5000000, ref="A", alt="G")) == {0: "hemi", 2: "het"}
+
+
+def test_chrY_carriers_are_hemi(test_db):
+    db = Database(test_db)
+    assert _labels(db.variant_info("chrY", 2700000, ref="T", alt="C")) == {0: "hemi", 1: "hemi"}
+
+
+def test_chrM_carriers_are_hom(test_db):
+    """chrM is haploid but not hemizygous; heteroplasmy is not recorded."""
+    db = Database(test_db)
+    assert _labels(db.variant_info("chrM", 100, ref="C", alt="A")) == {0: "hom", 2: "hom"}
+
+
+@pytest.mark.parametrize("sex", ["both", "male", "female"])
+def test_labels_match_query_counts(test_db, sex):
+    """het, hom, hemi and alt carriers are exactly N_HET, N_HOM_ALT, N_HEMI and
+    N_FAIL, on every chromosome, for every sample subset."""
+    from conftest import VARIANTS
+    db = Database(test_db)
+    for chrom, pos, ref, alt, *_ in VARIANTS:
+        results = db.query(chrom=chrom, pos=pos, ref=ref, alt=alt, sex=sex)
+        carriers = db.variant_info(chrom, pos, ref=ref, alt=alt, sex=sex)
+        counts = {g: sum(c.genotype == g for c in carriers) for g in ("het", "hom", "hemi", "alt")}
+        if not results:
+            assert not carriers
+            continue
+        r = results[0]
+        assert counts == {"het": r.N_HET, "hom": r.N_HOM_ALT,
+                          "hemi": r.N_HEMI, "alt": r.N_FAIL}, (chrom, pos, sex)
+
+
+def test_cli_json_hemi(test_db):
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        ["variant-info", "--db", test_db, "--locus", "chrX:5000000",
+         "--ref", "A", "--alt", "G", "--format", "json", "--no-warn"],
+    )
+    assert result.exit_code == 0, result.output
+    by_name = {s["sample_name"]: s for s in json.loads(result.output)["samples"]}
+    assert by_name["S00"]["genotype"] == "hemi"
+    assert by_name["S00"]["filter"] == "PASS"
+    assert by_name["S02"]["genotype"] == "het"
