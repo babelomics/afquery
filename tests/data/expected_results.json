@@ -45,9 +45,9 @@
     "n_eligible": 3
   },
   {
-    "description": "chrY:500000 J45 both sexes (females have no chrY to genotype)",
+    "description": "chrY:2700000 J45 both sexes (females have no chrY to genotype)",
     "chrom": "chrY",
-    "pos": 500000,
+    "pos": 2700000,
     "ref": "T",
     "alt": "C",
     "phenotype": [

@@ -12,7 +12,7 @@ from .bitmaps import deserialize
 from .capture import CaptureIndex, describe_capture_problem, load_capture_indices
 from .constants import normalize_chrom, ALL_CHROMS, CHROM_ORDER
 from .models import AfqueryWarning, QueryParams, QueryResult, SampleCarrier, VariantKey, Sample, Technology, SampleFilter
-from .ploidy import split_ploidy
+from .ploidy import is_par, split_ploidy
 
 BATCH_IN_THRESHOLD = 10_000
 
@@ -428,7 +428,9 @@ class QueryEngine:
     ) -> BitMap:
         """Return the samples of sample_bitmap that can be genotyped at a position.
 
-        Empty when none can; AN is computed per variant by _variant_stats.
+        Empty when none can; AN is computed per variant by _variant_stats. Nobody
+        can be genotyped in the chrY PARs: PAR loci are counted at their chrX
+        coordinates, and split_ploidy gives no allele to anyone there.
         """
         covered = BitMap(self._covered_all_bm)  # start with WGS samples (always covered)
         for tech_id, capture_idx in self._targeted_capture.items():
@@ -447,6 +449,21 @@ class QueryEngine:
             eligible, self._male_bm, self._female_bm, chrom, pos, self._genome_build,
         )
         return haploid | diploid
+
+    def _warn_if_chrY_par(self, chrom: str, pos: int) -> bool:
+        """Warn, and return True, when a single-position lookup falls in a chrY PAR.
+
+        Nobody is genotyped there, so the lookup returns nothing; the warning
+        says why, since the variant may well be in the database at chrX.
+        """
+        if chrom == "chrY" and is_par(chrom, pos, self._genome_build):
+            warnings.warn(
+                f"chrY:{pos} lies in a pseudoautosomal region (PAR); PAR variants "
+                "are counted at their chrX coordinates, so nobody is genotyped here.",
+                AfqueryWarning, stacklevel=4,
+            )
+            return True
+        return False
 
     def _parquet_path(self, chrom: str, pos: int) -> Path | None:
         """Resolve Parquet path for a point query. Partitioned takes priority over flat."""
@@ -474,6 +491,9 @@ class QueryEngine:
                 f"Available: {sorted(self._all_known_chroms)!r}",
                 AfqueryWarning, stacklevel=3,
             )
+            return []
+
+        if self._warn_if_chrY_par(chrom, pos):
             return []
 
         sample_bm = self._build_sample_bitmap(params.filter)
@@ -820,6 +840,9 @@ class QueryEngine:
                 f"Available: {sorted(self._all_known_chroms)!r}",
                 AfqueryWarning, stacklevel=3,
             )
+            return []
+
+        if self._warn_if_chrY_par(chrom, pos):
             return []
 
         sample_bm = self._build_sample_bitmap(params.filter)

@@ -17,7 +17,7 @@ from afquery.models import AfqueryWarning
 #   ("chr1",  3500,    "G", "C", het=[7],      hom=[],     fail=[]),
 #   ("chr1",  5000,    "T", "G", het=[0],     hom=[],     fail=[1,3]),
 #   ("chrX",  5000000, "A", "G", het=[0,2],   hom=[],     fail=[]),
-#   ("chrY",  500000,  "T", "C", het=[0,1],   hom=[4],    fail=[]),
+#   ("chrY",  2700000, "T", "C", het=[0,1],   hom=[4],    fail=[]),
 #   ("chrM",  100,     "C", "A", het=[0,2],   hom=[],     fail=[5]),
 # ]
 # SAMPLES (id, name, sex, tech_id):
@@ -439,9 +439,9 @@ def test_empty_result_no_warning(test_db):
 # ---------------------------------------------------------------------------
 
 def test_out_of_capture_carrier_excluded_chrY(test_db):
-    """chrY:500000 hom=[4]: S04 is WES_kit_A, whose BED does not cover chrY."""
+    """chrY:2700000 hom=[4]: S04 is WES_kit_A, whose BED does not cover chrY."""
     db = Database(test_db)
-    carriers = db.variant_info("chrY", 500000, ref="T", alt="C")
+    carriers = db.variant_info("chrY", 2700000, ref="T", alt="C")
     assert {c.sample_id for c in carriers} == {0, 1}
 
 

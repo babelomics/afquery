@@ -14,7 +14,7 @@ This page explains what each field in AFQuery output means and how to interpret 
 | **N_HET** | int | Number of eligible samples heterozygous for the alt allele (GT=0/1) |
 | **N_HOM_ALT** | int | Number of eligible samples homozygous for the alt allele (GT=1/1 or GT=1). Includes haploid carriers on sex chromosomes and chrM. See [Ploidy](../advanced/ploidy-and-sex-chroms.md#genotype-counting). |
 | **N_HOM_REF** | int | Number of eligible samples homozygous reference (GT=0/0 or GT=0). Samples carrying another ALT allele at the same position are not counted (see [Multi-allelic sites](#multi-allelic-sites)). |
-| **n_eligible** | int | Number of eligible samples — those passing the sex/phenotype/tech filters *and* covered at this position |
+| **n_eligible** | int | Number of eligible samples — those passing the sex/phenotype/tech filters, covered at this position, and carrying at least one copy of the locus (females are not eligible on chrY, and nobody is in the chrY PARs) |
 | **N_FAIL** | int | Number of eligible samples with a failed call (FILTER≠PASS) for any allele at this position — the same value for every allele there. These samples are counted *only* in N_FAIL, not in N_HET, N_HOM_ALT or N_HOM_REF, and are left out of AC and AN. See [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md). |
 | **N_NO_COVERAGE** | int | Number of eligible samples whose tech lacks coverage evidence at this position. Excluded from `N_HOM_REF`; they still count in AN. Always `0` unless a coverage-evidence filter is active. See [Coverage Evidence](../advanced/coverage-evidence.md). |
 

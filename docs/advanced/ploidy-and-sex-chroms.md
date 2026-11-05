@@ -14,18 +14,26 @@ AFQuery computes ploidy-aware AN for sex chromosomes (chrX, chrY) and the mitoch
 | Autosomes (chr1–22) | 2 | 2 |
 | chrX (non-PAR) | 2 | 1 |
 | chrX (PAR1, PAR2) | 2 | 2 |
-| chrY | 0 | 1 |
+| chrY (non-PAR) | 0 | 1 |
+| chrY (PAR1, PAR2) | 0 | 0 — counted on chrX |
 | chrM | 1 | 1 |
 
 For each eligible sample at a given position, AFQuery adds the appropriate ploidy count to AN based on the sample's sex and the chromosome/position.
 
-A sample contributing ploidy 0 is not eligible at that position at all: a female has no chrY to genotype, so she is neither a carrier nor homozygous reference there. On chrY, `n_eligible`, `N_HOM_REF` and `AN` therefore count males only.
+A sample contributing ploidy 0 is not eligible at that position at all: a female has no chrY to genotype, so she is neither a carrier nor homozygous reference there. On chrY, `n_eligible`, `N_HOM_REF` and `AN` therefore count males only. In the chrY PARs nobody is eligible (see below).
 
 ---
 
 ## Pseudoautosomal Regions (PAR)
 
-The pseudoautosomal regions on chrX and chrY behave like autosomes — both males and females contribute AN=2 on chrX PAR. PAR coordinates by genome build:
+PAR1 and PAR2 are the same sequence at the two ends of chrX and chrY, and they recombine like an autosome: a male carries one copy on his X and one on his Y, so at a PAR locus every sample is diploid. The reference genome holds that sequence twice, once on each chromosome, so AFQuery counts every PAR locus once, at its chrX coordinates:
+
+- **chrX PAR**: diploid for both sexes — males and females contribute AN=2.
+- **chrY PAR**: not genotyped. Nobody is eligible there, so a query returns no results and AN is 0. This keeps a PAR variant from being counted twice, and keeps a male carrier from being taken for a hemizygote.
+
+Most analysis references hard-mask the chrY PARs (the GRCh38 analysis sets do), so variant callers report PAR variants on chrX anyway. Calls at chrY PAR coordinates only appear when the reads were aligned to an unmasked reference; they are stored, but not counted. A point query (`query --locus`, `variant-info`) at such a position warns that it lies in a PAR; region and batch queries, `dump` and `annotate` skip it silently (`annotate` writes `AFQUERY_AN=0`).
+
+PAR coordinates by genome build:
 
 <!-- Source of truth: src/afquery/constants.py PAR dict -->
 
@@ -61,7 +69,7 @@ The pseudoautosomal regions on chrX and chrY behave like autosomes — both male
 | PAR1 | 10,001 | 2,649,520 |
 | PAR2 | 59,034,050 | 59,363,566 |
 
-Positions within PAR1 or PAR2 on chrX are treated as diploid for all samples.
+Positions within PAR1 or PAR2 on chrX are treated as diploid for all samples; positions within PAR1 or PAR2 on chrY are not genotyped.
 
 ---
 
@@ -78,6 +86,17 @@ afquery query --db ./db/ --locus chrY:2787758 --sex female
 afquery query --db ./db/ --locus chrY:2787758 --sex male
 # chrY:2787758 C>T  AC=3  AN=856  AF=0.0035  n_eligible=856  N_HET=0  N_HOM_ALT=3  N_HOM_REF=853  N_FAIL=0  N_NO_COVERAGE=0
 ```
+
+Inside a chrY PAR (here GRCh38 PAR1), nothing is reported, whatever the filters:
+
+```bash
+afquery query --db ./db/ --locus chrY:1500000
+# AfqueryWarning: chrY:1500000 lies in a pseudoautosomal region (PAR); PAR variants
+# are counted at their chrX coordinates, so nobody is genotyped here.
+# No variants found for the given filters.
+```
+
+Query the same locus at its chrX coordinates instead (`chrX:1500000`).
 
 ### chrX non-PAR
 

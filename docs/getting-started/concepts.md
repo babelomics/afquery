@@ -69,10 +69,11 @@ AN depends on the chromosome and sex of eligible samples:
 | Autosomes (chr1–22) | 2 | 2 |
 | chrX (non-PAR) | 2 | 1 |
 | chrX (PAR1/PAR2) | 2 | 2 |
-| chrY | 0 | 1 |
+| chrY (non-PAR) | 0 | 1 |
+| chrY (PAR1/PAR2) | 0 | 0 |
 | chrM | 1 | 1 |
 
-See [Ploidy & Special Chromosomes](../advanced/ploidy-and-sex-chroms.md) for PAR coordinates.
+The PARs are the same sequence on chrX and chrY, so AFQuery counts them once, at their chrX coordinates; nobody is genotyped in the chrY PARs. See [Ploidy & Special Chromosomes](../advanced/ploidy-and-sex-chroms.md#pseudoautosomal-regions-par) for PAR coordinates.
 
 ### Worked Example
 

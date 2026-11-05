@@ -31,7 +31,7 @@ GROUP_B = [
                              ("chr1", 5_600_000, "A", "G", "0/1"),
                              ("chr2", 700, "T", "C", "1/1")]),
     ("B1", "male",   "wgs", [("chr1", 2_400_000, "G", "C", "0/1"),
-                             ("chrY", 700_000, "A", "T", "1/1"),
+                             ("chrY", 2_700_000, "A", "T", "1/1"),
                              ("chrX", 4_000_000, "T", "A", "1/1")]),
 ]
 
@@ -161,7 +161,7 @@ def test_remove_undoes_add(tmp_path, groups):
 def test_compact_preserves_carried_variants_and_is_idempotent(tmp_path, groups):
     """Compact may drop rows nobody carries, but must not change any that remain.
 
-    B1 is the only carrier on chrY:700000, so removing it empties that bucket
+    B1 is the only carrier on chrY:2700000, so removing it empties that bucket
     entirely — the case where compact used to crash on an empty row selection.
     """
     a, b = groups

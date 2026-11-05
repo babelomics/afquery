@@ -30,7 +30,7 @@ An interval tree (stored as a `.pkl` file) built from a BED file that defines th
 
 ## Eligible Sample
 
-A sample that passes all query filters (sex, phenotype, technology) and has coverage at the queried position. Only eligible samples contribute to AC and AN, and only if their call there did not fail. See [Sample Filtering](../guides/sample-filtering.md).
+A sample that passes all query filters (sex, phenotype, technology), has coverage at the queried position and carries at least one copy of that locus — females are not eligible on chrY, and nobody is in the chrY [PARs](#par-pseudoautosomal-region). Only eligible samples contribute to AC and AN, and only if their call there did not fail. See [Sample Filtering](../guides/sample-filtering.md).
 
 ## N_FAIL
 
@@ -52,13 +52,17 @@ Legacy term. See [Phenotype Code](#phenotype-code).
 
 A columnar storage format used by AFQuery to store variant bitmaps on disk. Each Parquet file covers one bucket within one chromosome and contains rows sorted by `(pos, alt)`. See [Data Model](data-model.md).
 
+## PAR (Pseudoautosomal Region)
+
+The two regions (PAR1, PAR2) at the ends of chrX and chrY that share the same sequence and recombine like an autosome, so every sample is diploid there. AFQuery counts them once, at their chrX coordinates; positions in the chrY PARs are not genotyped. See [Ploidy & Sex Chromosomes](../advanced/ploidy-and-sex-chroms.md#pseudoautosomal-regions-par).
+
 ## Phenotype Code
 
 An arbitrary string label assigned to a sample in the manifest (e.g., ICD-10 codes, HPO terms, project tags). Multiple codes per sample are supported. Phenotype codes enable cohort stratification at query time. See [Key Concepts](../getting-started/concepts.md#the-metadata-model).
 
 ## Ploidy
 
-The number of allele copies at a given locus, which depends on chromosome type and sex. Autosomes are diploid (ploidy=2) for all samples. chrX non-PAR is haploid for males, diploid for females. See [Ploidy & Sex Chromosomes](../advanced/ploidy-and-sex-chroms.md).
+The number of allele copies at a given locus, which depends on chromosome type and sex. Autosomes and the chrX PARs are diploid (ploidy=2) for all samples. chrX non-PAR is haploid for males, diploid for females; chrY non-PAR is haploid for males and absent in females; chrM is haploid for everyone. The chrY PARs are not genotyped (ploidy 0), because PAR loci are counted on chrX. See [Ploidy & Sex Chromosomes](../advanced/ploidy-and-sex-chroms.md).
 
 ## Roaring Bitmap
 

@@ -115,7 +115,7 @@ class Cohort:
         for (chrom, pos), keys in by_site.items():
             states = [self.calls[k][sample] for k in keys]
             carried = [k for k, st in zip(keys, states) if st in ("het", "hom")]
-            if chrom == "chrY" and self.sex[sample] != "male":
+            if not self.has_locus(sample, chrom, pos):
                 continue
             if self.is_haploid(sample, chrom, pos):
                 over = len({k[2:] for k in carried}) > 1
@@ -130,6 +130,14 @@ class Cohort:
         if regions is None:
             return True
         return any(c == chrom and start <= pos <= end for c, start, end in regions)
+
+    def has_locus(self, sample: str, chrom: str, pos: int) -> bool:
+        """Whether the sample carries any allele of this position that is counted
+        here. A female has no chrY; and the chrY PARs are the same sequence as the
+        chrX PARs, so PAR variants are counted once, at their chrX coordinates."""
+        if chrom == "chrY":
+            return self.sex[sample] == "male" and not self._in_par(chrom, pos)
+        return True
 
     def is_haploid(self, sample: str, chrom: str, pos: int) -> bool:
         if chrom == "chrM":
@@ -149,8 +157,8 @@ class Cohort:
         for s in pool:
             if not self.covers(s, chrom, pos):
                 continue
-            # chrY carries no alleles for females, so they are not eligible there
-            if chrom == "chrY" and self.sex[s] != "male":
+            # No allele counted here (chrY in a female, or a chrY PAR): not eligible
+            if not self.has_locus(s, chrom, pos):
                 continue
             out.append(s)
         return out

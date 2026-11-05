@@ -20,9 +20,9 @@ class TestHaploidPointQuery:
         assert r.AC == 2
 
     def test_chrY_all_haploid(self, test_db):
-        """chrY:500000 het_ids=[0,1] — all haploid → N_HET=0."""
+        """chrY:2700000 het_ids=[0,1] — all haploid → N_HET=0."""
         db = Database(test_db)
-        results = db.query(chrom="chrY", pos=500000)
+        results = db.query(chrom="chrY", pos=2700000)
         assert len(results) == 1
         r = results[0]
         # S00,S01 in het_bm, haploid → both N_HOM_ALT
@@ -64,7 +64,7 @@ class TestHaploidInvariants:
         """N_HET + N_HOM_ALT + N_HOM_REF + N_FAIL + N_NO_COVERAGE == n_eligible for all variants."""
         db = Database(test_db)
         for chrom, pos in [("chr1", 1500), ("chr1", 3500), ("chr1", 5000),
-                           ("chrX", 5000000), ("chrY", 500000), ("chrM", 100)]:
+                           ("chrX", 5000000), ("chrY", 2700000), ("chrM", 100)]:
             for r in db.query(chrom=chrom, pos=pos):
                 total = (
                     r.N_HET + r.N_HOM_ALT + r.N_HOM_REF
@@ -77,7 +77,7 @@ class TestHaploidInvariants:
         """AC <= AN for all variants."""
         db = Database(test_db)
         for chrom, pos in [("chr1", 1500), ("chr1", 3500), ("chr1", 5000),
-                           ("chrX", 5000000), ("chrY", 500000), ("chrM", 100)]:
+                           ("chrX", 5000000), ("chrY", 2700000), ("chrM", 100)]:
             for r in db.query(chrom=chrom, pos=pos):
                 assert r.AC <= r.AN, f"AC ({r.AC}) > AN ({r.AN}) at {chrom}:{pos}"
 
@@ -137,7 +137,7 @@ class TestHaploidBatchAndRegion:
     def test_batch_chrY_haploid(self, test_db):
         """query_batch on chrY also gives N_HET=0."""
         db = Database(test_db)
-        batch = db.query_batch(chrom="chrY", variants=[(500000, "T", "C")])
+        batch = db.query_batch(chrom="chrY", variants=[(2700000, "T", "C")])
         assert len(batch) == 1
         assert batch[0].N_HET == 0
 
@@ -154,7 +154,7 @@ class TestChrYEligibility:
 
     def test_chrY_excludes_females_from_eligible(self, test_db):
         db = Database(test_db)
-        r = db.query(chrom="chrY", pos=500000)[0]
+        r = db.query(chrom="chrY", pos=2700000)[0]
 
         # The fixture is 5 male and 5 female WGS/WES samples; only the males
         # that the capture covers can be genotyped on chrY.
@@ -166,14 +166,14 @@ class TestChrYEligibility:
     def test_chrY_counts_partition_the_eligible_set(self, test_db):
         """The per-genotype counts must add up to the eligible set on every chromosome."""
         db = Database(test_db)
-        for chrom, pos in (("chr1", 1500), ("chrX", 5000000), ("chrY", 500000), ("chrM", 100)):
+        for chrom, pos in (("chr1", 1500), ("chrX", 5000000), ("chrY", 2700000), ("chrM", 100)):
             for r in db.query(chrom=chrom, pos=pos):
                 total = r.N_HET + r.N_HOM_ALT + r.N_HOM_REF + r.N_FAIL + r.N_NO_COVERAGE
                 assert total == r.n_samples_eligible, f"{chrom}:{pos} counts do not partition"
 
     def test_chrY_no_phantom_hom_ref(self, test_db):
-        """S00 and S01 carry chrY:500000; nobody else eligible is homozygous reference."""
+        """S00 and S01 carry chrY:2700000; nobody else eligible is homozygous reference."""
         db = Database(test_db)
-        r = db.query(chrom="chrY", pos=500000)[0]
+        r = db.query(chrom="chrY", pos=2700000)[0]
         assert r.N_HOM_ALT == 2
         assert r.N_HOM_REF == 0

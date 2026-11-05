@@ -291,7 +291,7 @@ class TestInvariantOnSexChroms:
     def test_chry_invariant(self, test_db):
         """Invariant must hold on chrY."""
         db = _db(test_db)
-        for r in db.query(chrom="chrY", pos=500000, min_pass=1):
+        for r in db.query(chrom="chrY", pos=2700000, min_pass=1):
             assert (
                 r.N_HET + r.N_HOM_ALT + r.N_HOM_REF + r.N_FAIL + r.N_NO_COVERAGE
                 == r.n_samples_eligible

@@ -76,12 +76,12 @@ def test_chrX_non_par_males_only():
 
 def test_chrY_all():
     # Only males contribute, ploidy=1
-    AN = compute_AN(ALL_10, MALES, FEMALES, "chrY", 500_000, "GRCh37")
+    AN = compute_AN(ALL_10, MALES, FEMALES, "chrY", 2_700_000, "GRCh37")
     assert AN == 5  # 5 males
 
 
 def test_chrY_females_only():
-    AN = compute_AN(FEMALES, MALES, FEMALES, "chrY", 500_000, "GRCh37")
+    AN = compute_AN(FEMALES, MALES, FEMALES, "chrY", 2_700_000, "GRCh37")
     assert AN == 0
 
 
@@ -106,7 +106,7 @@ def test_empty_eligible():
     empty = BitMap()
     assert compute_AN(empty, MALES, FEMALES, "chr1", 1_000_000, "GRCh37") == 0
     assert compute_AN(empty, MALES, FEMALES, "chrX", 5_000_000, "GRCh37") == 0
-    assert compute_AN(empty, MALES, FEMALES, "chrY", 500_000, "GRCh37") == 0
+    assert compute_AN(empty, MALES, FEMALES, "chrY", 2_700_000, "GRCh37") == 0
     assert compute_AN(empty, MALES, FEMALES, "chrM", 100, "GRCh37") == 0
 
 
@@ -115,3 +115,38 @@ def test_phenotype_subset_eligible():
     subset = BitMap([0, 1, 2])
     AN = compute_AN(subset, MALES, FEMALES, "chrX", 5_000_000, "GRCh37")
     assert AN == 4  # 1 female*2 + 2 males*1
+
+
+# --- chrY PARs: counted at their chrX coordinates, nobody genotyped on chrY ---
+
+from afquery.ploidy import sample_ploidy, split_ploidy
+
+
+@pytest.mark.parametrize("build,pos", [
+    ("GRCh37", 10_001), ("GRCh37", 500_000), ("GRCh37", 2_649_520), ("GRCh37", 59_034_050),
+    ("GRCh38", 10_001), ("GRCh38", 2_781_479), ("GRCh38", 57_000_000),
+])
+def test_chrY_par_has_no_alleles(build, pos):
+    assert compute_AN(ALL_10, MALES, FEMALES, "chrY", pos, build) == 0
+    haploid, diploid = split_ploidy(ALL_10, MALES, FEMALES, "chrY", pos, build)
+    assert len(haploid) == len(diploid) == 0
+    assert sample_ploidy("chrY", pos, "male", build) == 0
+    assert sample_ploidy("chrY", pos, "female", build) == 0
+
+
+@pytest.mark.parametrize("build,pos", [
+    ("GRCh37", 2_649_521), ("GRCh37", 2_700_000), ("GRCh38", 2_781_480),
+])
+def test_chrY_outside_par_is_haploid_in_males(build, pos):
+    assert compute_AN(ALL_10, MALES, FEMALES, "chrY", pos, build) == 5
+    haploid, diploid = split_ploidy(ALL_10, MALES, FEMALES, "chrY", pos, build)
+    assert haploid == MALES and len(diploid) == 0
+    assert sample_ploidy("chrY", pos, "male", build) == 1
+    assert sample_ploidy("chrY", pos, "female", build) == 0
+
+
+def test_chrX_par_stays_diploid_for_everyone():
+    """The PAR loci are counted on chrX, where males carry two copies."""
+    assert sample_ploidy("chrX", 100_000, "male", "GRCh37") == 2
+    haploid, diploid = split_ploidy(ALL_10, MALES, FEMALES, "chrX", 100_000, "GRCh37")
+    assert len(haploid) == 0 and diploid == ALL_10

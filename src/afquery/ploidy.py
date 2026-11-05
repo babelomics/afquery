@@ -13,13 +13,17 @@ def is_par(chrom: str, pos: int, genome_build: str) -> bool:
 
 
 def sample_ploidy(chrom: str, pos: int, sex: str, genome_build: str) -> int:
-    """Number of alleles one sample carries at a position (0 for chrY in a female).
+    """Number of alleles one sample carries at a position.
 
-    Caller must pass a normalized chrom. Same rules as split_ploidy.
+    Caller must pass a normalized chrom. Same rules as split_ploidy. It is 0 where
+    the sample cannot be genotyped: chrY in a female, and the chrY PARs for
+    everyone, because PAR loci are counted at their chrX coordinates.
     """
     if chrom == "chrM":
         return 1
     if chrom == "chrY":
+        if is_par(chrom, pos, genome_build):
+            return 0
         return 1 if sex == "male" else 0
     if chrom == "chrX" and not is_par(chrom, pos, genome_build):
         return 1 if sex == "male" else 2
@@ -41,7 +45,8 @@ def compute_AN(
     Rules:
     - Autosomes: AN = 2 × len(eligible)
     - chrM: AN = len(eligible)
-    - chrY: only males contribute, ploidy=1 → AN = len(eligible & male_bitmap)
+    - chrY non-PAR: only males contribute, ploidy=1 → AN = len(eligible & male_bitmap)
+    - chrY PAR: AN = 0; PAR loci are counted at their chrX coordinates
     - chrX PAR: AN = 2 × len(eligible)
     - chrX non-PAR: females=2, males=1 → AN = 2×females + 1×males
     """
@@ -50,6 +55,8 @@ def compute_AN(
         return len(eligible)
 
     if chrom == "chrY":
+        if is_par(chrom, pos, genome_build):
+            return 0
         return len(eligible & male_bitmap)
 
     if chrom == "chrX":
@@ -78,17 +85,20 @@ def split_ploidy(
 
     Same rules as compute_AN:
     - chrM: all haploid
-    - chrY: only eligible males, all haploid
+    - chrY non-PAR: only eligible males, all haploid
+    - chrY PAR: nobody; PAR loci are counted at their chrX coordinates
     - chrX non-PAR: males haploid, females diploid
-    - rest (autosomes, PAR): all diploid
+    - rest (autosomes, chrX PAR): all diploid
     """
     if chrom == "chrM":
         return eligible, BitMap()
 
     if chrom == "chrY":
+        if is_par(chrom, pos, genome_build):
+            return BitMap(), BitMap()
         return eligible & male_bitmap, BitMap()
 
     if chrom == "chrX" and not is_par(chrom, pos, genome_build):
         return eligible & male_bitmap, eligible & female_bitmap
 
-    return BitMap(), eligible  # autosomes and PAR: all diploid
+    return BitMap(), eligible  # autosomes and chrX PAR: all diploid
