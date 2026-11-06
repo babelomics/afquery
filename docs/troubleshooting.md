@@ -116,7 +116,7 @@ afquery info --db ./db/ --samples | grep SAMP
 | `Missing Parquet for chromosome chr3` | Re-run `create-db` or investigate incomplete build |
 | `Manifest mismatch: expected N samples, found M` | Database may be partially updated; re-run `update-db` |
 | `Capture file missing for wes_v1` | BED file was not provided at build time; rebuild with `--bed-dir` |
-| `chr1: both variants/chr1/ ... and variants/chr1.parquet exist` | Samples added by a pre-0.4.1 `update-db` are invisible to queries; see [Samples Added by update-db Are Missing From Queries](#samples-added-by-update-db-are-missing-from-queries) |
+| `chr1: both variants/chr1/ ... and variants/chr1.parquet exist` | Samples added by a pre-0.4.1 `update-db` are invisible to queries; rebuild the database with `create-db` from the full manifest |
 
 ---
 

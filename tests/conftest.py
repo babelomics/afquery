@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import pickle
 import sqlite3
@@ -52,6 +53,24 @@ VARIANTS = [
     ("chrY",  500000,  "T", "C", [0, 1],    [4],    []),       # no failures
     ("chrM",  100,     "C", "A", [0, 2],    [],     [5]),      # S05 fails FILTER
 ]
+
+
+@pytest.fixture(autouse=True)
+def _restore_afquery_logger():
+    """Undo the CLI's logging setup after each test.
+
+    Every CLI command configures the 'afquery' logger for itself: its own stderr
+    handler, and no propagation to the root logger. Run in-process through
+    CliRunner, that setup outlived the command, so a later test's caplog, which
+    listens on the root logger, saw nothing from afquery and its assertions
+    failed depending on test order.
+    """
+    logger = logging.getLogger("afquery")
+    saved = (logger.level, list(logger.handlers), logger.propagate)
+    yield
+    logger.setLevel(saved[0])
+    logger.handlers[:] = saved[1]
+    logger.propagate = saved[2]
 
 
 @pytest.fixture(scope="session")
