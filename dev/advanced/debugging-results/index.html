@@ -2271,6 +2271,11 @@
 <td>Remove <code>--tech</code> filter</td>
 <td>Check if any samples match the requested technology.</td>
 </tr>
+<tr>
+<td>Position in a chrY PAR</td>
+<td><code>afquery query --db ./db/ --locus chrY:1500000</code></td>
+<td>A warning says the position lies in a pseudoautosomal region. PAR loci are counted at their chrX coordinates; query the chrX position instead.</td>
+</tr>
 </tbody>
 </table>
 <h3 id="2-unexpected-af-value">2. Unexpected AF Value</h3>
@@ -2379,7 +2384,7 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Point query with all fields visible</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--locus<span class="w"> </span>chr1:12345678<span class="w"> </span>--format<span class="w"> </span>json
 </code></pre></div>
-<p>JSON format shows all fields including N_HET, N_HOM_ALT, N_HOM_REF, and N_FAIL — useful for understanding the composition of the result.</p>
+<p>JSON format shows all fields including N_HET, N_HOM_ALT, N_HEMI, N_HOM_REF, and N_FAIL — useful for understanding the composition of the result.</p>
 <h3 id="direct-metadata-inspection">Direct Metadata Inspection</h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">sqlite3</span>
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>

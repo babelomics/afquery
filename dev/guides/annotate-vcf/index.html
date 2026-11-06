@@ -2246,25 +2246,31 @@
 <td><code>AFQUERY_N_HET</code></td>
 <td>Integer</td>
 <td>A (per ALT)</td>
-<td>Heterozygous sample count</td>
+<td>Heterozygous sample count (diploid genotypes)</td>
 </tr>
 <tr>
 <td><code>AFQUERY_N_HOM_ALT</code></td>
 <td>Integer</td>
 <td>A (per ALT)</td>
-<td>Homozygous alt sample count</td>
+<td>Homozygous alt sample count (diploid genotypes); on chrM, every carrier</td>
+</tr>
+<tr>
+<td><code>AFQUERY_N_HEMI</code></td>
+<td>Integer</td>
+<td>A (per ALT)</td>
+<td>Hemizygous carrier count: males carrying the allele on chrX outside the PARs or on chrY. <code>0</code> on autosomes, chrX PARs and chrM</td>
 </tr>
 <tr>
 <td><code>AFQUERY_N_HOM_REF</code></td>
 <td>Integer</td>
 <td>A (per ALT)</td>
-<td>Homozygous ref sample count, excluding carriers of other ALT alleles at the position (including alleles stored in the database but absent from the input record)</td>
+<td>Count of samples carrying only the reference allele (homozygous, or hemizygous where haploid), excluding carriers of other ALT alleles at the position (including alleles stored in the database but absent from the input record)</td>
 </tr>
 <tr>
 <td><code>AFQUERY_N_FAIL</code></td>
 <td>Integer</td>
 <td>1 (per site)</td>
-<td>Eligible samples with a failed call (FILTER≠PASS) for any ALT allele at the position, each counted once. Excluded from AC and AN. Mutually exclusive with N_HET/N_HOM_ALT/N_HOM_REF.</td>
+<td>Eligible samples with a failed call (FILTER≠PASS, or a genotype inconsistent with the sample's ploidy) for any ALT allele at the position, each counted once. Excluded from AC and AN. Mutually exclusive with N_HET/N_HOM_ALT/N_HEMI/N_HOM_REF.</td>
 </tr>
 <tr>
 <td><code>AFQUERY_N_NO_COVERAGE</code></td>

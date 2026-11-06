@@ -2325,7 +2325,7 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./demo_db/<span class="w"> </span>--locus<span class="w"> </span>chr1:925952
 </code></pre></div>
 <p>Example output:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>chr1:925952 G&gt;A  AC=6  AN=20  AF=0.3000  n_eligible=10  N_HET=4  N_HOM_ALT=1  N_HOM_REF=5  N_FAIL=0  N_NO_COVERAGE=0
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>chr1:925952 G&gt;A  AC=6  AN=20  AF=0.3000  n_eligible=10  N_HET=4  N_HOM_ALT=1  N_HEMI=0  N_HOM_REF=5  N_FAIL=0  N_NO_COVERAGE=0
 </code></pre></div>
 <h3 id="reading-the-output">Reading the output</h3>
 <p>Every query result includes the following fields:</p>
@@ -2362,6 +2362,10 @@
 <td>Eligible samples homozygous for the alt allele</td>
 </tr>
 <tr>
+<td><strong>N_HEMI</strong></td>
+<td>Eligible hemizygous carriers: males carrying the alt allele on chrX outside the PARs or on chrY. Always 0 on autosomes such as chr1</td>
+</tr>
+<tr>
 <td><strong>N_HOM_REF</strong></td>
 <td>Eligible samples homozygous reference</td>
 </tr>
@@ -2372,13 +2376,13 @@
 </tbody>
 </table>
 <p>For <code>chr1:925952</code>: AN=20 = 10 diploid samples × 2 alleles; AC=6 = 4 het samples (1 copy each) + 1 hom-alt (2 copies).</p>
-<p><strong>Accounting identity:</strong> <code>n_eligible = N_HET + N_HOM_ALT + N_HOM_REF + N_FAIL + N_NO_COVERAGE</code> always holds. <code>N_NO_COVERAGE</code> is 0 here (it only becomes non-zero with a coverage-evidence filter), so 10 = 4+1+5+0+0 ✓.</p>
+<p><strong>Accounting identity:</strong> <code>n_eligible = N_HET + N_HOM_ALT + N_HEMI + N_HOM_REF + N_FAIL + N_NO_COVERAGE</code> always holds at a biallelic site. <code>N_HEMI</code> and <code>N_NO_COVERAGE</code> are 0 here (an autosome, and no coverage-evidence filter), so 10 = 4+1+0+5+0+0 ✓.</p>
 <h3 id="n_fail-in-practice">N_FAIL in practice</h3>
 <p>Some variants have samples whose call passed genotyping but failed a quality filter in the source VCF. Query the variant at <code>chr1:946000</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./demo_db/<span class="w"> </span>--locus<span class="w"> </span>chr1:946000
 </code></pre></div>
 <p>Example output:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>chr1:946000 T&gt;C  AC=2  AN=16  AF=0.1250  n_eligible=10  N_HET=2  N_HOM_ALT=0  N_HOM_REF=6  N_FAIL=2  N_NO_COVERAGE=0
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>chr1:946000 T&gt;C  AC=2  AN=16  AF=0.1250  n_eligible=10  N_HET=2  N_HOM_ALT=0  N_HEMI=0  N_HOM_REF=6  N_FAIL=2  N_NO_COVERAGE=0
 </code></pre></div>
 <p>Here, 2 samples were flagged as <code>LowQual</code> in their source VCF at this position. Their genotype there is unknown, so they are left out of both AC and AN: <code>AN=2×(10−2)=16</code> and <code>AF=2/16=0.1250</code>. They remain eligible, so the accounting identity still holds: 10 = 2+0+6+2+0 ✓. See <a href="../../advanced/filter-pass-tracking/">FILTER=PASS Tracking</a>.</p>
 <div class="admonition tip">
@@ -2390,9 +2394,9 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./demo_db/<span class="w"> </span>--region<span class="w"> </span>chr1:900000-950000
 </code></pre></div>
 <p>Example output:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>chr1:925100 C&gt;T  AC=4  AN=20  AF=0.2000  n_eligible=10  N_HET=4  N_HOM_ALT=0  N_HOM_REF=6  N_FAIL=0  N_NO_COVERAGE=0
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>chr1:925952 G&gt;A  AC=6  AN=20  AF=0.3000  n_eligible=10  N_HET=4  N_HOM_ALT=1  N_HOM_REF=5  N_FAIL=0  N_NO_COVERAGE=0
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>chr1:946000 T&gt;C  AC=2  AN=16  AF=0.1250  n_eligible=10  N_HET=2  N_HOM_ALT=0  N_HOM_REF=6  N_FAIL=2  N_NO_COVERAGE=0
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>chr1:925100 C&gt;T  AC=4  AN=20  AF=0.2000  n_eligible=10  N_HET=4  N_HOM_ALT=0  N_HEMI=0  N_HOM_REF=6  N_FAIL=0  N_NO_COVERAGE=0
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>chr1:925952 G&gt;A  AC=6  AN=20  AF=0.3000  n_eligible=10  N_HET=4  N_HOM_ALT=1  N_HEMI=0  N_HOM_REF=5  N_FAIL=0  N_NO_COVERAGE=0
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>chr1:946000 T&gt;C  AC=2  AN=16  AF=0.1250  n_eligible=10  N_HET=2  N_HOM_ALT=0  N_HEMI=0  N_HOM_REF=6  N_FAIL=2  N_NO_COVERAGE=0
 </code></pre></div>
 <hr />
 <h2 id="5-inspect-variant-carriers">5. Inspect Variant Carriers</h2>
@@ -2400,76 +2404,86 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>afquery<span class="w"> </span>variant-info<span class="w"> </span>--db<span class="w"> </span>./demo_db/<span class="w"> </span>--locus<span class="w"> </span>chr1:925952
 </code></pre></div>
 <p>Example output:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>sample_id  sample_name  sex     tech    phenotypes       genotype  filter
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>---------  -----------  ------  ------  ---------------  --------  ------
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>0          DEMO_001     female  wgs     E11.9,I10        het       PASS
-<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>2          DEMO_003     male    wgs     E11.9            het       PASS
-<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>4          DEMO_005     female  wes_v1  E11.9,control    het       PASS
-<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>6          DEMO_007     male    wes_v2  control          het       PASS
-<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>8          DEMO_009     female  wgs     E11.9            hom       PASS
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>sample_id  sample_name  sex     tech    phenotypes  genotype  filter
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>---------  -----------  ------  ------  ----------  --------  ------
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>0          DEMO_001     female  wgs     E11.9,I10   het       PASS
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>1          DEMO_002     male    wgs     E11.9       hom       PASS
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>2          DEMO_003     female  wgs     I10         het       PASS
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>4          DEMO_005     female  wes_v1  E11.9,I10   het       PASS
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>7          DEMO_008     male    wes_v2  E11.9       het       PASS
 </code></pre></div>
-<p>Each row is one carrier. The <code>genotype</code> column shows <code>het</code> (heterozygous), <code>hom</code> (homozygous alt), or <code>alt</code> (non-ref with FILTER≠PASS). The <code>filter</code> column indicates whether the call passed quality filters in the source VCF.</p>
+<p>Each row is one carrier: the four heterozygous and the one homozygous-alt sample counted by the query in Step 4 (<code>N_HET=4</code>, <code>N_HOM_ALT=1</code>). The <code>genotype</code> column shows <code>het</code> (heterozygous), <code>hom</code> (homozygous alt), <code>hemi</code> (hemizygous: a male carrier on chrX outside the PARs or on chrY), or <code>alt</code> (a failed call, such as non-ref with FILTER≠PASS). These are the classes counted in N_HET, N_HOM_ALT, N_HEMI and N_FAIL. The <code>filter</code> column indicates whether the call passed quality filters in the source VCF.</p>
 <p>For machine-readable output, use <code>--format tsv</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>afquery<span class="w"> </span>variant-info<span class="w"> </span>--db<span class="w"> </span>./demo_db/<span class="w"> </span>--locus<span class="w"> </span>chr1:925952<span class="w"> </span>--format<span class="w"> </span>tsv<span class="w"> </span>&gt;<span class="w"> </span>carriers.tsv
 </code></pre></div>
+<p>On chrX outside the PARs, a male carrier has a single copy of the locus and is listed as <code>hemi</code>. For example, at one of the demo's chrX variants:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>afquery<span class="w"> </span>variant-info<span class="w"> </span>--db<span class="w"> </span>./demo_db/<span class="w"> </span>--locus<span class="w"> </span>chrX:14736572
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>sample_id  sample_name  sex     tech  phenotypes  genotype  filter
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>---------  -----------  ------  ----  ----------  --------  ------
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>0          DEMO_001     female  wgs   E11.9,I10   het       PASS
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>2          DEMO_003     female  wgs   I10         het       PASS
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>3          DEMO_004     male    wgs   control     hemi      PASS
+</code></pre></div>
+<p>The matching query reports <code>N_HET=2  N_HOM_ALT=0  N_HEMI=1</code>, and AN=6: the two WGS females contribute two alleles each and the two WGS males one each (the WES kits do not cover chrX).</p>
 <p>See <a href="../../guides/variant-info/">Variant Info</a> for full options including allele-specific queries and sample filtering.</p>
 <hr />
 <h2 id="6-filter-by-sex">6. Filter by Sex</h2>
 <p>Query only female samples:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./demo_db/<span class="w"> </span>--locus<span class="w"> </span>chr1:925952<span class="w"> </span>--sex<span class="w"> </span>female
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./demo_db/<span class="w"> </span>--locus<span class="w"> </span>chr1:925952<span class="w"> </span>--sex<span class="w"> </span>female
 </code></pre></div>
 <p>Example output:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>chr1:925952 G&gt;A  AC=3  AN=10  AF=0.3000  n_eligible=5  N_HET=3  N_HOM_ALT=0  N_HOM_REF=2  N_FAIL=0  N_NO_COVERAGE=0
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>chr1:925952 G&gt;A  AC=3  AN=10  AF=0.3000  n_eligible=5  N_HET=3  N_HOM_ALT=0  N_HEMI=0  N_HOM_REF=2  N_FAIL=0  N_NO_COVERAGE=0
 </code></pre></div>
 <p>Now query male samples:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./demo_db/<span class="w"> </span>--locus<span class="w"> </span>chr1:925952<span class="w"> </span>--sex<span class="w"> </span>male
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./demo_db/<span class="w"> </span>--locus<span class="w"> </span>chr1:925952<span class="w"> </span>--sex<span class="w"> </span>male
 </code></pre></div>
 <p>Example output:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>chr1:925952 G&gt;A  AC=3  AN=10  AF=0.3000  n_eligible=5  N_HET=1  N_HOM_ALT=1  N_HOM_REF=3  N_FAIL=0  N_NO_COVERAGE=0
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>chr1:925952 G&gt;A  AC=3  AN=10  AF=0.3000  n_eligible=5  N_HET=1  N_HOM_ALT=1  N_HEMI=0  N_HOM_REF=3  N_FAIL=0  N_NO_COVERAGE=0
 </code></pre></div>
 <p>AN drops from 20 to 10 in both cases because only 5 samples are eligible. The AF happens to be identical here (0.3000), but the genotype distributions differ: the male group has one homozygous-alt carrier while the female group has three heterozygous carriers.</p>
 <hr />
 <h2 id="7-filter-by-phenotype">7. Filter by Phenotype</h2>
 <p>Query samples tagged with <code>E11.9</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./demo_db/<span class="w"> </span>--locus<span class="w"> </span>chr1:925952<span class="w"> </span>--phenotype<span class="w"> </span>E11.9
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./demo_db/<span class="w"> </span>--locus<span class="w"> </span>chr1:925952<span class="w"> </span>--phenotype<span class="w"> </span>E11.9
 </code></pre></div>
 <p>Example output:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>chr1:925952 G&gt;A  AC=5  AN=8  AF=0.6250  n_eligible=4  N_HET=3  N_HOM_ALT=1  N_HOM_REF=0  N_FAIL=0  N_NO_COVERAGE=0
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>chr1:925952 G&gt;A  AC=5  AN=8  AF=0.6250  n_eligible=4  N_HET=3  N_HOM_ALT=1  N_HEMI=0  N_HOM_REF=0  N_FAIL=0  N_NO_COVERAGE=0
 </code></pre></div>
 <p>Exclude control samples:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./demo_db/<span class="w"> </span>--locus<span class="w"> </span>chr1:925952<span class="w"> </span>--phenotype<span class="w"> </span>^control
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./demo_db/<span class="w"> </span>--locus<span class="w"> </span>chr1:925952<span class="w"> </span>--phenotype<span class="w"> </span>^control
 </code></pre></div>
 <p>Example output:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>chr1:925952 G&gt;A  AC=6  AN=12  AF=0.5000  n_eligible=6  N_HET=4  N_HOM_ALT=1  N_HOM_REF=1  N_FAIL=0  N_NO_COVERAGE=0
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>chr1:925952 G&gt;A  AC=6  AN=12  AF=0.5000  n_eligible=6  N_HET=4  N_HOM_ALT=1  N_HEMI=0  N_HOM_REF=1  N_FAIL=0  N_NO_COVERAGE=0
 </code></pre></div>
 <p>The <code>^</code> prefix means "exclude". Excluding controls removes 4 samples, leaving 6. See <a href="../../guides/sample-filtering/">Sample Filtering</a> for the full syntax.</p>
 <hr />
 <h2 id="8-filter-by-technology">8. Filter by Technology</h2>
 <p>Restrict to WGS samples only:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./demo_db/<span class="w"> </span>--locus<span class="w"> </span>chr1:925952<span class="w"> </span>--tech<span class="w"> </span>wgs
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./demo_db/<span class="w"> </span>--locus<span class="w"> </span>chr1:925952<span class="w"> </span>--tech<span class="w"> </span>wgs
 </code></pre></div>
 <p>Example output:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>chr1:925952 G&gt;A  AC=4  AN=8  AF=0.5000  n_eligible=4  N_HET=2  N_HOM_ALT=1  N_HOM_REF=1  N_FAIL=0  N_NO_COVERAGE=0
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>chr1:925952 G&gt;A  AC=4  AN=8  AF=0.5000  n_eligible=4  N_HET=2  N_HOM_ALT=1  N_HEMI=0  N_HOM_REF=1  N_FAIL=0  N_NO_COVERAGE=0
 </code></pre></div>
 <p>Now query each WES technology separately:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./demo_db/<span class="w"> </span>--locus<span class="w"> </span>chr1:925952<span class="w"> </span>--tech<span class="w"> </span>wes_v1
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./demo_db/<span class="w"> </span>--locus<span class="w"> </span>chr1:925952<span class="w"> </span>--tech<span class="w"> </span>wes_v1
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>chr1:925952 G&gt;A  AC=1  AN=6  AF=0.1667  n_eligible=3  N_HET=1  N_HOM_ALT=0  N_HOM_REF=2  N_FAIL=0  N_NO_COVERAGE=0
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>chr1:925952 G&gt;A  AC=1  AN=6  AF=0.1667  n_eligible=3  N_HET=1  N_HOM_ALT=0  N_HEMI=0  N_HOM_REF=2  N_FAIL=0  N_NO_COVERAGE=0
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./demo_db/<span class="w"> </span>--locus<span class="w"> </span>chr1:925952<span class="w"> </span>--tech<span class="w"> </span>wes_v2
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./demo_db/<span class="w"> </span>--locus<span class="w"> </span>chr1:925952<span class="w"> </span>--tech<span class="w"> </span>wes_v2
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>chr1:925952 G&gt;A  AC=1  AN=6  AF=0.1667  n_eligible=3  N_HET=1  N_HOM_ALT=0  N_HOM_REF=2  N_FAIL=0  N_NO_COVERAGE=0
+<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>chr1:925952 G&gt;A  AC=1  AN=6  AF=0.1667  n_eligible=3  N_HET=1  N_HOM_ALT=0  N_HEMI=0  N_HOM_REF=2  N_FAIL=0  N_NO_COVERAGE=0
 </code></pre></div>
 <p><code>chr1:925952</code> falls inside the <code>chr1:900000-950000</code> capture region shared by both WES kits. All 3 wes_v1 samples and all 3 wes_v2 samples are covered, so AN=6 (3 samples × 2 alleles) for both.</p>
 <h3 id="the-critical-case-a-position-outside-all-wes-capture-regions">The critical case: a position outside all WES capture regions</h3>
 <p>Now query a position that is not in any WES BED file:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./demo_db/<span class="w"> </span>--locus<span class="w"> </span>chr1:1399914<span class="w"> </span>--tech<span class="w"> </span>wgs
+<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./demo_db/<span class="w"> </span>--locus<span class="w"> </span>chr1:1399914<span class="w"> </span>--tech<span class="w"> </span>wgs
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>chr1:1399914 G&gt;T  AC=2  AN=8  AF=0.2500  n_eligible=4  N_HET=2  N_HOM_ALT=0  N_HOM_REF=2  N_FAIL=0  N_NO_COVERAGE=0
+<div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>chr1:1399914 G&gt;T  AC=2  AN=8  AF=0.2500  n_eligible=4  N_HET=2  N_HOM_ALT=0  N_HEMI=0  N_HOM_REF=2  N_FAIL=0  N_NO_COVERAGE=0
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./demo_db/<span class="w"> </span>--locus<span class="w"> </span>chr1:1399914<span class="w"> </span>--tech<span class="w"> </span>wes_v1
+<div class="highlight"><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./demo_db/<span class="w"> </span>--locus<span class="w"> </span>chr1:1399914<span class="w"> </span>--tech<span class="w"> </span>wes_v1
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>No variants found for the given filters.
+<div class="highlight"><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a>No variants found for the given filters.
 </code></pre></div>
 <p><code>chr1:1399914</code> lies between the two chr1 WES capture regions (<code>900000–950000</code> and <code>1200000–1250000</code>). When you restrict to <code>--tech wes_v1</code>, AFQuery excludes all wes_v1 samples from AN because none of them have coverage at this position — AN=0, so no results are returned.</p>
 <div class="admonition note">
@@ -2479,54 +2493,54 @@
 <hr />
 <h2 id="9-combine-filters">9. Combine Filters</h2>
 <p>All filter dimensions compose with AND:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a>afquery<span class="w"> </span>query<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-31-2" name="__codelineno-31-2" href="#__codelineno-31-2"></a><span class="w">  </span>--db<span class="w"> </span>./demo_db/<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-31-3" name="__codelineno-31-3" href="#__codelineno-31-3"></a><span class="w">  </span>--locus<span class="w"> </span>chr1:925952<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-31-4" name="__codelineno-31-4" href="#__codelineno-31-4"></a><span class="w">  </span>--sex<span class="w"> </span>female<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-31-5" name="__codelineno-31-5" href="#__codelineno-31-5"></a><span class="w">  </span>--phenotype<span class="w"> </span>E11.9<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-31-6" name="__codelineno-31-6" href="#__codelineno-31-6"></a><span class="w">  </span>--tech<span class="w"> </span>wgs
+<div class="highlight"><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a>afquery<span class="w"> </span>query<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-33-2" name="__codelineno-33-2" href="#__codelineno-33-2"></a><span class="w">  </span>--db<span class="w"> </span>./demo_db/<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-33-3" name="__codelineno-33-3" href="#__codelineno-33-3"></a><span class="w">  </span>--locus<span class="w"> </span>chr1:925952<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-33-4" name="__codelineno-33-4" href="#__codelineno-33-4"></a><span class="w">  </span>--sex<span class="w"> </span>female<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-33-5" name="__codelineno-33-5" href="#__codelineno-33-5"></a><span class="w">  </span>--phenotype<span class="w"> </span>E11.9<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-33-6" name="__codelineno-33-6" href="#__codelineno-33-6"></a><span class="w">  </span>--tech<span class="w"> </span>wgs
 </code></pre></div>
 <p>Example output:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a>chr1:925952 G&gt;A  AC=1  AN=2  AF=0.5000  n_eligible=1  N_HET=1  N_HOM_ALT=0  N_HOM_REF=0  N_FAIL=0  N_NO_COVERAGE=0
+<div class="highlight"><pre><span></span><code><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a>chr1:925952 G&gt;A  AC=1  AN=2  AF=0.5000  n_eligible=1  N_HET=1  N_HOM_ALT=0  N_HEMI=0  N_HOM_REF=0  N_FAIL=0  N_NO_COVERAGE=0
 </code></pre></div>
 <p>Only one sample meets all three criteria (DEMO_001: female, wgs, E11.9). With n_eligible=1, AN=2 (one diploid sample on an autosome) and AC=1 (heterozygous carrier).</p>
 <hr />
 <h2 id="10-annotate-a-vcf">10. Annotate a VCF</h2>
 <p>Use one of the demo VCFs as input:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a>afquery<span class="w"> </span>annotate<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-33-2" name="__codelineno-33-2" href="#__codelineno-33-2"></a><span class="w">  </span>--db<span class="w"> </span>./demo_db/<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-33-3" name="__codelineno-33-3" href="#__codelineno-33-3"></a><span class="w">  </span>--input<span class="w"> </span>examples/demo/demo_output/vcfs/DEMO_001.vcf.gz<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-33-4" name="__codelineno-33-4" href="#__codelineno-33-4"></a><span class="w">  </span>--output<span class="w"> </span>./annotated_demo.vcf
+<div class="highlight"><pre><span></span><code><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a>afquery<span class="w"> </span>annotate<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-35-2" name="__codelineno-35-2" href="#__codelineno-35-2"></a><span class="w">  </span>--db<span class="w"> </span>./demo_db/<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-35-3" name="__codelineno-35-3" href="#__codelineno-35-3"></a><span class="w">  </span>--input<span class="w"> </span>examples/demo/demo_output/vcfs/DEMO_001.vcf.gz<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-35-4" name="__codelineno-35-4" href="#__codelineno-35-4"></a><span class="w">  </span>--output<span class="w"> </span>./annotated_demo.vcf
 </code></pre></div>
-<p>The output VCF gains <code>AFQUERY_AC</code>, <code>AFQUERY_AN</code>, <code>AFQUERY_AF</code>, <code>AFQUERY_N_HET</code>, <code>AFQUERY_N_HOM_ALT</code>, <code>AFQUERY_N_HOM_REF</code>, <code>AFQUERY_N_FAIL</code>, and <code>AFQUERY_N_NO_COVERAGE</code> INFO fields. Inspect the chr1 variants:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a>grep<span class="w"> </span>-v<span class="w"> </span><span class="s2">"^##"</span><span class="w"> </span>./annotated_demo.vcf<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span><span class="s2">"^chr1"</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>head<span class="w"> </span>-3
+<p>The output VCF gains <code>AFQUERY_AC</code>, <code>AFQUERY_AN</code>, <code>AFQUERY_AF</code>, <code>AFQUERY_N_HET</code>, <code>AFQUERY_N_HOM_ALT</code>, <code>AFQUERY_N_HEMI</code>, <code>AFQUERY_N_HOM_REF</code>, <code>AFQUERY_N_FAIL</code>, and <code>AFQUERY_N_NO_COVERAGE</code> INFO fields. Inspect the chr1 variants:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a>grep<span class="w"> </span>-v<span class="w"> </span><span class="s2">"^##"</span><span class="w"> </span>./annotated_demo.vcf<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span><span class="s2">"^chr1"</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>head<span class="w"> </span>-3
 </code></pre></div>
 <p>Example output (columns: CHROM, POS, ID, REF, ALT, QUAL, FILTER, INFO, FORMAT, DEMO_001):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a>chr1    925100  .   C   T   50  PASS    AFQUERY_AC=4;AFQUERY_AN=20;AFQUERY_AF=0.2;AFQUERY_N_HET=4;AFQUERY_N_HOM_ALT=0;AFQUERY_N_HOM_REF=6;AFQUERY_N_FAIL=0;AFQUERY_N_NO_COVERAGE=0  GT  0/1
-<a id="__codelineno-35-2" name="__codelineno-35-2" href="#__codelineno-35-2"></a>chr1    925952  .   G   A   50  PASS    AFQUERY_AC=6;AFQUERY_AN=20;AFQUERY_AF=0.3;AFQUERY_N_HET=4;AFQUERY_N_HOM_ALT=1;AFQUERY_N_HOM_REF=5;AFQUERY_N_FAIL=0;AFQUERY_N_NO_COVERAGE=0  GT  0/1
-<a id="__codelineno-35-3" name="__codelineno-35-3" href="#__codelineno-35-3"></a>chr1    946000  .   T   C   50  PASS    AFQUERY_AC=2;AFQUERY_AN=16;AFQUERY_AF=0.125;AFQUERY_N_HET=2;AFQUERY_N_HOM_ALT=0;AFQUERY_N_HOM_REF=6;AFQUERY_N_FAIL=2;AFQUERY_N_NO_COVERAGE=0    GT  0/1
+<div class="highlight"><pre><span></span><code><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a>chr1    925100  .   C   T   50  PASS    AFQUERY_AC=4;AFQUERY_AN=20;AFQUERY_AF=0.2;AFQUERY_N_HET=4;AFQUERY_N_HOM_ALT=0;AFQUERY_N_HEMI=0;AFQUERY_N_HOM_REF=6;AFQUERY_N_FAIL=0;AFQUERY_N_NO_COVERAGE=0 GT  0/1
+<a id="__codelineno-37-2" name="__codelineno-37-2" href="#__codelineno-37-2"></a>chr1    925952  .   G   A   50  PASS    AFQUERY_AC=6;AFQUERY_AN=20;AFQUERY_AF=0.3;AFQUERY_N_HET=4;AFQUERY_N_HOM_ALT=1;AFQUERY_N_HEMI=0;AFQUERY_N_HOM_REF=5;AFQUERY_N_FAIL=0;AFQUERY_N_NO_COVERAGE=0 GT  0/1
+<a id="__codelineno-37-3" name="__codelineno-37-3" href="#__codelineno-37-3"></a>chr1    946000  .   T   C   50  PASS    AFQUERY_AC=2;AFQUERY_AN=16;AFQUERY_AF=0.125;AFQUERY_N_HET=2;AFQUERY_N_HOM_ALT=0;AFQUERY_N_HEMI=0;AFQUERY_N_HOM_REF=6;AFQUERY_N_FAIL=2;AFQUERY_N_NO_COVERAGE=0   GT  0/1
 </code></pre></div>
 <p><code>AFQUERY_N_FAIL=2</code> for <code>chr1:946000</code> matches the query output from Step 4. The annotated values reflect cohort-wide frequencies across all 10 samples, not just DEMO_001.</p>
 <p>See <a href="../../guides/annotate-vcf/">Annotate a VCF</a> for filtering and downstream usage.</p>
 <hr />
 <h2 id="11-bulk-export-with-dump">11. Bulk Export with Dump</h2>
 <p>Export all variant frequencies to CSV:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a>afquery<span class="w"> </span>dump<span class="w"> </span>--db<span class="w"> </span>./demo_db/<span class="w"> </span>--output<span class="w"> </span>demo_dump.csv
+<div class="highlight"><pre><span></span><code><a id="__codelineno-38-1" name="__codelineno-38-1" href="#__codelineno-38-1"></a>afquery<span class="w"> </span>dump<span class="w"> </span>--db<span class="w"> </span>./demo_db/<span class="w"> </span>--output<span class="w"> </span>demo_dump.csv
 </code></pre></div>
 <p>Preview the first rows:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a>head<span class="w"> </span>-6<span class="w"> </span>demo_dump.csv
+<div class="highlight"><pre><span></span><code><a id="__codelineno-39-1" name="__codelineno-39-1" href="#__codelineno-39-1"></a>head<span class="w"> </span>-6<span class="w"> </span>demo_dump.csv
 </code></pre></div>
 <p>Example output:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-38-1" name="__codelineno-38-1" href="#__codelineno-38-1"></a>chrom,pos,ref,alt,AC,AN,AF,N_HET,N_HOM_ALT,N_HOM_REF,N_FAIL,N_NO_COVERAGE
-<a id="__codelineno-38-2" name="__codelineno-38-2" href="#__codelineno-38-2"></a>chr1,925100,C,T,4,20,0.2,4,0,6,0,0
-<a id="__codelineno-38-3" name="__codelineno-38-3" href="#__codelineno-38-3"></a>chr1,925952,G,A,6,20,0.3,4,1,5,0,0
-<a id="__codelineno-38-4" name="__codelineno-38-4" href="#__codelineno-38-4"></a>chr1,946000,T,C,2,16,0.125,2,0,6,2,0
-<a id="__codelineno-38-5" name="__codelineno-38-5" href="#__codelineno-38-5"></a>chr1,1225000,A,G,5,20,0.25,5,0,5,0,0
-<a id="__codelineno-38-6" name="__codelineno-38-6" href="#__codelineno-38-6"></a>chr1,1399914,G,T,2,8,0.25,2,0,2,0,0
+<div class="highlight"><pre><span></span><code><a id="__codelineno-40-1" name="__codelineno-40-1" href="#__codelineno-40-1"></a>chrom,pos,ref,alt,AC,AN,AF,n_eligible,N_HET,N_HOM_ALT,N_HEMI,N_HOM_REF,N_FAIL,N_NO_COVERAGE
+<a id="__codelineno-40-2" name="__codelineno-40-2" href="#__codelineno-40-2"></a>chr1,925100,C,T,4,20,0.2,10,4,0,0,6,0,0
+<a id="__codelineno-40-3" name="__codelineno-40-3" href="#__codelineno-40-3"></a>chr1,925952,G,A,6,20,0.3,10,4,1,0,5,0,0
+<a id="__codelineno-40-4" name="__codelineno-40-4" href="#__codelineno-40-4"></a>chr1,946000,T,C,2,16,0.125,10,2,0,0,6,2,0
+<a id="__codelineno-40-5" name="__codelineno-40-5" href="#__codelineno-40-5"></a>chr1,1225000,A,G,5,20,0.25,10,5,0,0,5,0,0
+<a id="__codelineno-40-6" name="__codelineno-40-6" href="#__codelineno-40-6"></a>chr1,1399914,G,T,2,8,0.25,4,2,0,0,2,0,0
 </code></pre></div>
 <p>Note that <code>chr1:1399914</code> has AN=8 even in the full-cohort dump — technology-aware AN is applied automatically (WES samples are excluded for positions outside their capture regions).</p>
 <p>Disaggregate by sex and technology:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-39-1" name="__codelineno-39-1" href="#__codelineno-39-1"></a>afquery<span class="w"> </span>dump<span class="w"> </span>--db<span class="w"> </span>./demo_db/<span class="w"> </span>--output<span class="w"> </span>demo_dump_stratified.csv<span class="w"> </span>--by-sex<span class="w"> </span>--by-tech
+<div class="highlight"><pre><span></span><code><a id="__codelineno-41-1" name="__codelineno-41-1" href="#__codelineno-41-1"></a>afquery<span class="w"> </span>dump<span class="w"> </span>--db<span class="w"> </span>./demo_db/<span class="w"> </span>--output<span class="w"> </span>demo_dump_stratified.csv<span class="w"> </span>--by-sex<span class="w"> </span>--by-tech
 </code></pre></div>
 <p>This adds columns following the pattern <code>AC_{sex}_{tech}</code>, <code>AN_{sex}_{tech}</code>, <code>AF_{sex}_{tech}</code> (and genotype counts) for each sex-technology combination. The stratified dump is useful for case-control comparisons and population-specific frequency analysis.</p>
 <hr />

@@ -1681,10 +1681,32 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#hemizygous" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hemizygous
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#n_fail" class="md-nav__link">
     <span class="md-ellipsis">
       
         N_FAIL
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#n_hemi" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        N_HEMI
       
     </span>
   </a>
@@ -1729,6 +1751,17 @@
     <span class="md-ellipsis">
       
         Parquet
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#par-pseudoautosomal-region" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PAR (Pseudoautosomal Region)
       
     </span>
   </a>
@@ -2277,7 +2310,7 @@
 
 <h1 id="glossary">Glossary</h1>
 <h2 id="ac-allele-count">AC (Allele Count)</h2>
-<p>Number of copies of the alternate allele observed across eligible samples. A heterozygous carrier contributes 1; a homozygous alt carrier contributes 2. See <a href="../../getting-started/concepts/#allele-frequency-ac-an-af">Key Concepts</a>.</p>
+<p>Number of copies of the alternate allele observed across eligible samples. A heterozygous carrier contributes 1; a homozygous alt carrier contributes 2; a carrier with a single copy of the locus (<a href="#hemizygous">hemizygous</a>, or on chrM) contributes 1. See <a href="../../getting-started/concepts/#allele-frequency-ac-an-af">Key Concepts</a>.</p>
 <h2 id="af-allele-frequency">AF (Allele Frequency)</h2>
 <p>Ratio of AC to AN (<code>AC / AN</code>). Represents the proportion of alleles that are the alternate allele among eligible samples. Returns <code>None</code> when AN=0. See <a href="../../getting-started/concepts/#allele-frequency-ac-an-af">Key Concepts</a>.</p>
 <h2 id="an-allele-number">AN (Allele Number)</h2>
@@ -2287,13 +2320,17 @@
 <h2 id="bucket">Bucket</h2>
 <p>A 1 Mbp (1,000,000 base pair) genomic interval used to partition variant data within each chromosome. Bucket 0 covers positions 0–999,999; bucket 1 covers 1,000,000–1,999,999; and so on. See <a href="../data-model/">Data Model</a>.</p>
 <h2 id="carrier">Carrier</h2>
-<p>A sample that has at least one copy of the alternate allele at a given position (heterozygous or homozygous alt). Use <code>variant-info</code> to list carriers with their metadata. See <a href="../../guides/variant-info/">Variant Info</a>.</p>
+<p>A sample that has at least one copy of the alternate allele at a given position (heterozygous, homozygous alt, or <a href="#hemizygous">hemizygous</a>). Use <code>variant-info</code> to list carriers with their metadata. See <a href="../../guides/variant-info/">Variant Info</a>.</p>
 <h2 id="capture-index">Capture Index</h2>
 <p>An interval tree (stored as a <code>.pkl</code> file) built from a BED file that defines the genomic regions covered by a whole-exome sequencing (WES) technology. Used to determine which WES samples are eligible at a given position. WGS samples do not require a capture index. See <a href="../../getting-started/concepts/#capture-index-wes">Key Concepts</a>.</p>
 <h2 id="eligible-sample">Eligible Sample</h2>
-<p>A sample that passes all query filters (sex, phenotype, technology) and has coverage at the queried position. Only eligible samples contribute to AC and AN, and only if their call there did not fail. See <a href="../../guides/sample-filtering/">Sample Filtering</a>.</p>
+<p>A sample that passes all query filters (sex, phenotype, technology), has coverage at the queried position and carries at least one copy of that locus — females are not eligible on chrY, and nobody is in the chrY <a href="#par-pseudoautosomal-region">PARs</a>. Only eligible samples contribute to AC and AN, and only if their call there did not fail. See <a href="../../guides/sample-filtering/">Sample Filtering</a>.</p>
+<h2 id="hemizygous">Hemizygous</h2>
+<p>Having a single copy of a locus that is normally present in two. In AFQuery this is a male on chrX outside the <a href="#par-pseudoautosomal-region">PARs</a> or on chrY: a male carrying the alternate allele there is counted in <a href="#n_hemi">N_HEMI</a> and contributes 1 to AC and AN. chrM is haploid but not hemizygous — it is a multi-copy genome — so its carriers are counted in <code>N_HOM_ALT</code>. See <a href="../../advanced/ploidy-and-sex-chroms/#genotype-counting">Ploidy &amp; Sex Chromosomes</a>.</p>
 <h2 id="n_fail">N_FAIL</h2>
-<p>The count of eligible samples with a failed call (FILTER≠PASS) for any allele at a position. Their genotype there is unknown, so they are left out of AC and AN for every allele at the position. See <a href="../../advanced/filter-pass-tracking/">FILTER=PASS Tracking</a>.</p>
+<p>The count of eligible samples with a failed call for any allele at a position: a call with FILTER≠PASS, or a genotype inconsistent with the sample's ploidy (such as <code>0/1</code> on chrX non-PAR in a male). Their genotype there is unknown, so they are left out of AC and AN for every allele at the position. See <a href="../../advanced/filter-pass-tracking/">FILTER=PASS Tracking</a>.</p>
+<h2 id="n_hemi">N_HEMI</h2>
+<p>The count of eligible <a href="#hemizygous">hemizygous</a> carriers: males carrying the alternate allele on chrX outside the PARs or on chrY, whether the VCF wrote the genotype haploid (<code>1</code>) or diploid (<code>1/1</code>). A male's heterozygous call (<code>0/1</code>) there is a failed call (<a href="#n_fail">N_FAIL</a>) instead. Always <code>0</code> on autosomes, the chrX PARs, chrM and for females. See <a href="../../getting-started/understanding-output/#output-fields">Understanding Output</a>.</p>
 <h2 id="n_no_coverage">N_NO_COVERAGE</h2>
 <p>The count of eligible samples whose tech lacks coverage evidence at this position. Excluded from <code>N_HOM_REF</code>; they still count in AN. Always <code>0</code> unless a coverage-evidence filter (<code>--min-pass</code>, <code>--min-observed</code>, <code>--min-quality-evidence</code>, or build-time <code>--min-covered</code>) is active. See <a href="../../advanced/coverage-evidence/">Coverage Evidence</a>.</p>
 <h2 id="manifest">Manifest</h2>
@@ -2302,10 +2339,12 @@
 <p>Legacy term. See <a href="#phenotype-code">Phenotype Code</a>.</p>
 <h2 id="parquet">Parquet</h2>
 <p>A columnar storage format used by AFQuery to store variant bitmaps on disk. Each Parquet file covers one bucket within one chromosome and contains rows sorted by <code>(pos, alt)</code>. See <a href="../data-model/">Data Model</a>.</p>
+<h2 id="par-pseudoautosomal-region">PAR (Pseudoautosomal Region)</h2>
+<p>The two regions (PAR1, PAR2) at the ends of chrX and chrY that share the same sequence and recombine like an autosome, so every sample is diploid there. AFQuery counts them once, at their chrX coordinates; positions in the chrY PARs are not genotyped. See <a href="../../advanced/ploidy-and-sex-chroms/#pseudoautosomal-regions-par">Ploidy &amp; Sex Chromosomes</a>.</p>
 <h2 id="phenotype-code">Phenotype Code</h2>
 <p>An arbitrary string label assigned to a sample in the manifest (e.g., ICD-10 codes, HPO terms, project tags). Multiple codes per sample are supported. Phenotype codes enable cohort stratification at query time. See <a href="../../getting-started/concepts/#the-metadata-model">Key Concepts</a>.</p>
 <h2 id="ploidy">Ploidy</h2>
-<p>The number of allele copies at a given locus, which depends on chromosome type and sex. Autosomes are diploid (ploidy=2) for all samples. chrX non-PAR is haploid for males, diploid for females. See <a href="../../advanced/ploidy-and-sex-chroms/">Ploidy &amp; Sex Chromosomes</a>.</p>
+<p>The number of allele copies at a given locus, which depends on chromosome type and sex. Autosomes and the chrX PARs are diploid (ploidy=2) for all samples. chrX non-PAR is haploid for males, diploid for females; chrY non-PAR is haploid for males and absent in females; chrM is haploid for everyone. The chrY PARs are not genotyped (ploidy 0), because PAR loci are counted on chrX. See <a href="../../advanced/ploidy-and-sex-chroms/">Ploidy &amp; Sex Chromosomes</a>.</p>
 <h2 id="roaring-bitmap">Roaring Bitmap</h2>
 <p>A compressed bitset data structure that efficiently stores sets of integers. AFQuery uses Roaring Bitmaps (via the <code>pyroaring</code> library) to represent which samples carry a given genotype. Typical compression: ~2 bytes per sample per variant. See <a href="https://roaringbitmap.org/">roaringbitmap.org</a>.</p>
 <h2 id="schema-version">Schema Version</h2>

@@ -2432,13 +2432,13 @@ taken from the Git release tag at build time. In an editable install
 <td><code>--min-pass</code></td>
 <td>INTEGER</td>
 <td><code>0</code></td>
-<td>Min PASS carriers (<code>het\|hom</code>) per partially-covered tech for hom-ref to be assumed. Non-carriers move to <code>N_NO_COVERAGE</code> if a tech falls below the threshold. (0 = disabled)</td>
+<td>Min PASS carriers (<code>het\|hom\|hemi</code>) per partially-covered tech for hom-ref to be assumed. Non-carriers move to <code>N_NO_COVERAGE</code> if a tech falls below the threshold. (0 = disabled)</td>
 </tr>
 <tr>
 <td><code>--min-observed</code></td>
 <td>INTEGER</td>
 <td><code>0</code></td>
-<td>Min any-VCF entries (<code>het\|hom\|fail</code>) per partially-covered tech for hom-ref to be assumed. (0 = disabled)</td>
+<td>Min any-VCF entries (<code>het\|hom\|hemi\|fail</code>) per partially-covered tech for hom-ref to be assumed. (0 = disabled)</td>
 </tr>
 <tr>
 <td><code>--min-quality-evidence</code></td>
@@ -2556,8 +2556,9 @@ taken from the Git release tag at build time. In an editable install
 </tbody>
 </table>
 <p>The annotated VCF gains <code>AFQUERY_AC</code>, <code>AFQUERY_AN</code>, <code>AFQUERY_AF</code>,
-<code>AFQUERY_N_HET</code>, <code>AFQUERY_N_HOM_ALT</code>, <code>AFQUERY_N_HOM_REF</code>, <code>AFQUERY_N_FAIL</code>,
-and <code>AFQUERY_N_NO_COVERAGE</code> INFO fields.</p>
+<code>AFQUERY_N_HET</code>, <code>AFQUERY_N_HOM_ALT</code>, <code>AFQUERY_N_HEMI</code>, <code>AFQUERY_N_HOM_REF</code>,
+<code>AFQUERY_N_FAIL</code>, and <code>AFQUERY_N_NO_COVERAGE</code> INFO fields
+(see <a href="../../guides/annotate-vcf/#added-info-fields">Annotate a VCF</a>).</p>
 <hr />
 <h2 id="dump">dump</h2>
 <p>Export allele frequency data to CSV.</p>
@@ -2689,8 +2690,10 @@ and <code>AFQUERY_N_NO_COVERAGE</code> INFO fields.</p>
 </tr>
 </tbody>
 </table>
-<p>CSV output adds an <code>N_NO_COVERAGE</code> column (and per-group variants
-<code>N_NO_COVERAGE_&lt;label&gt;</code> when disaggregating).</p>
+<p>CSV columns: <code>chrom,pos,ref,alt,AC,AN,AF,n_eligible,N_HET,N_HOM_ALT,N_HEMI,N_HOM_REF,N_FAIL,N_NO_COVERAGE</code>.
+Each disaggregation group adds the same columns from <code>AC</code> onwards, suffixed
+with its label (<code>AC_&lt;label&gt;</code>, <code>AN_&lt;label&gt;</code>, <code>AF_&lt;label&gt;</code>, <code>n_eligible_&lt;label&gt;</code>, …).
+See <a href="../../guides/dump-export/#disaggregate-output">Bulk Export</a>.</p>
 <hr />
 <h2 id="variant-info">variant-info</h2>
 <p>List samples carrying a specific variant, with their metadata.</p>
@@ -2780,7 +2783,7 @@ and <code>AFQUERY_N_NO_COVERAGE</code> INFO fields.</p>
 </tr>
 </tbody>
 </table>
-<p>Returns one row per carrier sample with genotype (<code>het</code>/<code>hom</code>/<code>alt</code>/<code>no_coverage</code>) and FILTER status (<code>PASS</code>/<code>FAIL</code>). For <code>no_coverage</code> rows the FILTER column is empty in TSV, <code>null</code> in JSON, and <code>-</code> in text — these samples have no call at this position, so <code>PASS</code>/<code>FAIL</code> does not apply. Use <code>--ref</code>/<code>--alt</code> to restrict to a specific allele when multiple alleles share the same position. Samples reported as <code>no_coverage</code> are non-carriers on a partially-covered tech that has been excluded from the hom-ref assumption by one of the coverage filters.</p>
+<p>Returns one row per carrier sample with genotype (<code>het</code>/<code>hom</code>/<code>hemi</code>/<code>alt</code>/<code>no_coverage</code>) and FILTER status (<code>PASS</code>/<code>FAIL</code>). <code>het</code>, <code>hom</code>, <code>hemi</code> and <code>alt</code> are the classes <code>query</code> counts in <code>N_HET</code>, <code>N_HOM_ALT</code>, <code>N_HEMI</code> and <code>N_FAIL</code> (see <a href="../../guides/variant-info/#genotype-values">Genotype values</a>). For <code>no_coverage</code> rows the FILTER column is empty in TSV, <code>null</code> in JSON, and <code>-</code> in text — these samples have no call at this position, so <code>PASS</code>/<code>FAIL</code> does not apply. Use <code>--ref</code>/<code>--alt</code> to restrict to a specific allele when multiple alleles share the same position. Samples reported as <code>no_coverage</code> are non-carriers on a partially-covered tech that has been excluded from the hom-ref assumption by one of the coverage filters.</p>
 <hr />
 <h2 id="update-db">update-db</h2>
 <p>Add samples, remove samples, update sample metadata, or compact the database.</p>

@@ -2158,10 +2158,10 @@
 <li><strong>Incremental updates</strong> — add or remove samples without rebuilding the database.</li>
 <li><strong>Multi-dimensional filtering</strong> — filter by sex, phenotype codes, and sequencing technology with include/exclude semantics.</li>
 <li><strong>Server-less</strong> — a directory of Parquet files + SQLite. Copy to share, no daemon required.</li>
-<li><strong>Ploidy-aware</strong> — correct AN on chrX PAR/non-PAR, chrY, and chrM.</li>
+<li><strong>Ploidy-aware</strong> — correct AN on chrX PAR/non-PAR, chrY, and chrM, with hemizygous carriers counted on their own (<code>N_HEMI</code>).</li>
 <li><strong>Technology-aware AN</strong> — per-position capture BED intersection across WGS, WES kits, and panels.</li>
 <li><strong>Carrier lookup</strong> — list samples carrying any variant with full metadata (sex, tech, phenotypes, genotype, FILTER status).</li>
-<li><strong>VCF annotation</strong> — add <code>AFQUERY_AC/AN/AF/N_HET/N_HOM_ALT/N_HOM_REF/N_FAIL/N_NO_COVERAGE</code> INFO fields from any sample subset.</li>
+<li><strong>VCF annotation</strong> — add <code>AFQUERY_AC/AN/AF/N_HET/N_HOM_ALT/N_HEMI/N_HOM_REF/N_FAIL/N_NO_COVERAGE</code> INFO fields from any sample subset.</li>
 <li><strong>Audit changelog</strong> — every database operation is recorded for reproducibility.</li>
 </ul>
 <hr />

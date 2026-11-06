@@ -2200,10 +2200,19 @@
 </code></pre></div>
 <hr />
 <h2 id="disaggregate-output">Disaggregate Output</h2>
-<p>All three disaggregation modes work on the same principle: add stratified columns alongside the totals. They can be combined in a single command.</p>
+<p>All three disaggregation modes work on the same principle: add stratified columns alongside the totals. They can be combined in a single command. Each group adds the same columns as the base block, suffixed with the group label; <code>n_eligible_&lt;label&gt;</code> counts the samples of that group that can be genotyped at the position, and is <code>0</code> where none can.</p>
 <p>Base columns (always present):
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>chrom,pos,ref,alt,AC,AN,AF,N_HET,N_HOM_ALT,N_HOM_REF,N_FAIL,N_NO_COVERAGE
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>chrom,pos,ref,alt,AC,AN,AF,n_eligible,N_HET,N_HOM_ALT,N_HEMI,N_HOM_REF,N_FAIL,N_NO_COVERAGE
 </code></pre></div></p>
+<p><code>n_eligible</code> is the number of samples that can be genotyped at the position:
+they pass the sample filters, their technology covers the position, and they
+carry at least one copy of the locus. It counts samples, not alleles, so on
+chrX non-PAR a cohort of 2 males and 2 females has <code>n_eligible=4</code> and <code>AN=6</code>.
+It is the same value <a href="../query/"><code>query</code></a> reports.</p>
+<p>The genotype columns mean the same as in <a href="../../getting-started/understanding-output/#output-fields"><code>query</code></a>:
+<code>N_HET</code> and <code>N_HOM_ALT</code> are diploid genotypes (every chrM carrier is in
+<code>N_HOM_ALT</code>), and <code>N_HEMI</code> counts the males carrying the allele on chrX outside
+the PARs or on chrY. With <code>--by-sex</code>, <code>N_HEMI_female</code> is always <code>0</code>.</p>
 <p><code>N_NO_COVERAGE</code> is always emitted but is <code>0</code> unless a coverage-evidence
 filter is active (see <a href="../../advanced/coverage-evidence/">Coverage Evidence</a>).
 <code>AF</code> and every <code>AF_&lt;group&gt;</code> column are left empty when the matching <code>AN</code> is 0,
@@ -2215,14 +2224,14 @@ i.e. when no eligible sample of that group has a usable call at the position.</p
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>afquery<span class="w"> </span>dump<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--by-sex<span class="w"> </span>--output<span class="w"> </span>by_sex.csv
 </code></pre></div>
 <p>Output columns:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>chrom,pos,ref,alt,AC,AN,AF,N_HET,N_HOM_ALT,N_HOM_REF,N_FAIL,N_NO_COVERAGE,AC_male,AN_male,AF_male,N_HET_male,N_HOM_ALT_male,N_HOM_REF_male,N_FAIL_male,N_NO_COVERAGE_male,AC_female,AN_female,AF_female,N_HET_female,N_HOM_ALT_female,N_HOM_REF_female,N_FAIL_female,N_NO_COVERAGE_female
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>chrom,pos,ref,alt,AC,AN,AF,n_eligible,N_HET,N_HOM_ALT,N_HEMI,N_HOM_REF,N_FAIL,N_NO_COVERAGE,AC_male,AN_male,AF_male,n_eligible_male,N_HET_male,N_HOM_ALT_male,N_HEMI_male,N_HOM_REF_male,N_FAIL_male,N_NO_COVERAGE_male,AC_female,AN_female,AF_female,n_eligible_female,N_HET_female,N_HOM_ALT_female,N_HEMI_female,N_HOM_REF_female,N_FAIL_female,N_NO_COVERAGE_female
 </code></pre></div></p>
 </div>
 <div class="tabbed-block">
 <p>Add separate columns per sequencing technology:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>afquery<span class="w"> </span>dump<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--by-tech<span class="w"> </span>--output<span class="w"> </span>by_tech.csv
 </code></pre></div>
-<p>Output columns include <code>AC_wgs</code>, <code>AN_wgs</code>, <code>AF_wgs</code>, <code>N_HET_wgs</code>, <code>N_HOM_ALT_wgs</code>, <code>N_HOM_REF_wgs</code>, <code>N_FAIL_wgs</code>, <code>N_NO_COVERAGE_wgs</code>, <code>AC_wes_v1</code>, <code>AN_wes_v1</code>, etc. (one group of eight columns per registered technology).</p>
+<p>Output columns include <code>AC_wgs</code>, <code>AN_wgs</code>, <code>AF_wgs</code>, <code>n_eligible_wgs</code>, <code>N_HET_wgs</code>, <code>N_HOM_ALT_wgs</code>, <code>N_HEMI_wgs</code>, <code>N_HOM_REF_wgs</code>, <code>N_FAIL_wgs</code>, <code>N_NO_COVERAGE_wgs</code>, <code>AC_wes_v1</code>, <code>AN_wes_v1</code>, etc. (one group of ten columns per registered technology).</p>
 </div>
 <div class="tabbed-block">
 <p>Add separate columns for specific phenotype groups:</p>
@@ -2231,7 +2240,7 @@ i.e. when no eligible sample of that group has a usable call at the position.</p
 <a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">  </span>--by-phenotype<span class="w"> </span>I10<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">  </span>--output<span class="w"> </span>by_phenotype.csv
 </code></pre></div>
-<p>Output includes <code>AC_E11.9</code>, <code>AN_E11.9</code>, <code>AF_E11.9</code>, <code>N_HET_E11.9</code>, <code>N_HOM_ALT_E11.9</code>, <code>N_HOM_REF_E11.9</code>, <code>N_FAIL_E11.9</code>, <code>N_NO_COVERAGE_E11.9</code>, <code>AC_I10</code>, etc.</p>
+<p>Output includes <code>AC_E11.9</code>, <code>AN_E11.9</code>, <code>AF_E11.9</code>, <code>n_eligible_E11.9</code>, <code>N_HET_E11.9</code>, <code>N_HOM_ALT_E11.9</code>, <code>N_HEMI_E11.9</code>, <code>N_HOM_REF_E11.9</code>, <code>N_FAIL_E11.9</code>, <code>N_NO_COVERAGE_E11.9</code>, <code>AC_I10</code>, etc.</p>
 </div>
 <div class="tabbed-block">
 <p>Disaggregate by all combinations of sex × technology × phenotype simultaneously:</p>

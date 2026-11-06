@@ -2193,7 +2193,7 @@
 
 
 <h1 id="variant-info">Variant Info</h1>
-<p><code>afquery variant-info</code> returns the list of samples carrying a specific variant, together with each sample's metadata: sex, sequencing technology, phenotype codes, genotype (het/hom), and FILTER status (PASS/FAIL).</p>
+<p><code>afquery variant-info</code> returns the list of samples carrying a specific variant, together with each sample's metadata: sex, sequencing technology, phenotype codes, genotype (het/hom/hemi), and FILTER status (PASS/FAIL).</p>
 <p>This avoids the need to re-query raw VCF files when inspecting individual variant carriers.</p>
 <hr />
 <h2 id="basic-usage">Basic usage</h2>
@@ -2207,11 +2207,11 @@
 <p class="admonition-title">Carriers match the counts reported by <code>query</code></p>
 <p><code>variant-info</code> lists only samples whose capture regions cover the position, the same
 eligible set <code>query</code> uses. A WES sample with a call outside its own BED is not counted
-in <code>AN</code>, <code>AC</code> or the genotype tallies, and is not listed here either. On diploid
-regions the number of <code>het</code>, <code>hom</code> and <code>alt</code> carriers therefore equals <code>N_HET</code>,
-<code>N_HOM_ALT</code> and <code>N_FAIL</code> for the same allele and filters. (In haploid regions a
-single-allele call is listed as <code>het</code> but counted in <code>N_HOM_ALT</code>.) Earlier versions
-also listed off-target carriers, so the two commands could disagree.</p>
+in <code>AN</code>, <code>AC</code> or the genotype tallies, and is not listed here either. Each carrier is
+labelled with the class <code>query</code> counts it in, following the sample's ploidy at the
+position rather than how the VCF wrote the genotype, so the number of <code>het</code>, <code>hom</code>,
+<code>hemi</code> and <code>alt</code> carriers equals <code>N_HET</code>, <code>N_HOM_ALT</code>, <code>N_HEMI</code> and <code>N_FAIL</code> for the
+same allele and filters, on every chromosome.</p>
 </div>
 <p>By default all samples are queried and results are printed as an aligned text table:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>sample_id  sample_name  sex     tech       phenotypes    genotype  filter
@@ -2306,15 +2306,19 @@ also listed off-target carriers, so the two commands could disagree.</p>
 <tbody>
 <tr>
 <td><code>het</code></td>
-<td>Heterozygous carrier, FILTER=PASS</td>
+<td>Heterozygous carrier (diploid <code>0/1</code>), FILTER=PASS. Counted in <code>N_HET</code></td>
 </tr>
 <tr>
 <td><code>hom</code></td>
-<td>Homozygous alt carrier, FILTER=PASS</td>
+<td>Homozygous alt carrier (diploid <code>1/1</code>), FILTER=PASS. On chrM every carrier is <code>hom</code>, whatever its GT: AFQuery records no heteroplasmy. Counted in <code>N_HOM_ALT</code></td>
+</tr>
+<tr>
+<td><code>hemi</code></td>
+<td>Hemizygous carrier, FILTER=PASS: a male carrying the allele on chrX outside the PARs or on chrY, where he has a single copy (GT <code>1</code>, or <code>1/1</code> written diploid). Counted in <code>N_HEMI</code></td>
 </tr>
 <tr>
 <td><code>alt</code></td>
-<td>Failed call (FILTER≠PASS) for any allele at this position; genotype unknown. Listed for every allele of the position, as in <code>N_FAIL</code></td>
+<td>Failed call for any allele at this position — FILTER≠PASS, or a genotype inconsistent with the sample's ploidy such as <code>0/1</code> in a male on chrX non-PAR; genotype unknown. Listed for every allele of the position, as in <code>N_FAIL</code></td>
 </tr>
 <tr>
 <td><code>no_coverage</code></td>

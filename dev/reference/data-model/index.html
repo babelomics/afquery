@@ -2493,12 +2493,12 @@ every sample stored only in it.</p>
 <tr>
 <td><code>het_bitmap</code></td>
 <td><code>large_binary</code></td>
-<td>Roaring Bitmap of heterozygous, <code>FILTER=PASS</code> sample IDs</td>
+<td>Roaring Bitmap of <code>FILTER=PASS</code> sample IDs whose genotype holds one copy of the ALT allele (<code>0/1</code>, or haploid <code>1</code>)</td>
 </tr>
 <tr>
 <td><code>hom_bitmap</code></td>
 <td><code>large_binary</code></td>
-<td>Roaring Bitmap of homozygous-alt, <code>FILTER=PASS</code> sample IDs</td>
+<td>Roaring Bitmap of <code>FILTER=PASS</code> sample IDs whose genotype holds two copies of the ALT allele (<code>1/1</code>)</td>
 </tr>
 <tr>
 <td><code>fail_bitmap</code></td>
@@ -2528,9 +2528,10 @@ every sample stored only in it.</p>
 <p>Bitmaps use the <a href="https://roaringbitmap.org/">Roaring Bitmap</a> format, serialized by pyroaring's portable serialization.</p>
 <ul>
 <li>Bit position = sample ID (0-indexed integer)</li>
-<li><code>het_bitmap</code>: bit set iff the sample is heterozygous with <code>FILTER=PASS</code></li>
-<li><code>hom_bitmap</code>: bit set iff the sample is homozygous alt with <code>FILTER=PASS</code></li>
-<li><code>fail_bitmap</code>: bit set iff the sample's call failed — a carrier whose call has <code>FILTER≠PASS</code>, a missing genotype (<code>./.</code>) at a failed site, or a genotype carrying more alleles than the sample's ploidy. A sample set in the <code>fail_bitmap</code> of any allele at a position is left out of AC, and by default of AN, for every allele there</li>
+<li><code>het_bitmap</code>: bit set iff the sample's genotype holds one copy of the ALT allele (<code>0/1</code>, or a haploid <code>1</code>) with <code>FILTER=PASS</code></li>
+<li><code>hom_bitmap</code>: bit set iff the sample's genotype holds two copies of the ALT allele (<code>1/1</code>) with <code>FILTER=PASS</code></li>
+<li>Ploidy is applied at query time: a haploid carrier, in either bitmap, has a single copy (see <a href="../../advanced/ploidy-and-sex-chroms/#genotype-counting">Genotype Counting</a>)</li>
+<li><code>fail_bitmap</code>: bit set iff the sample's call failed — a carrier whose call has <code>FILTER≠PASS</code>, a missing genotype (<code>./.</code>) at a failed site, or a genotype carrying more alleles than the sample's ploidy (such as <code>0/1</code> or <code>1/2</code> on chrX non-PAR or chrY in a male; see <a href="../../advanced/ploidy-and-sex-chroms/#genotypes-inconsistent-with-ploidy">Genotypes inconsistent with ploidy</a>). A sample set in the <code>fail_bitmap</code> of any allele at a position is left out of AC, and by default of AN, for every allele there</li>
 <li><code>filtered_bitmap</code>, <code>quality_pass_bitmap</code>: see the Parquet schema above; both are empty unless the database was built with coverage-quality filters</li>
 </ul>
 <p>To deserialize in Python:

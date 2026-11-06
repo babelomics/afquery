@@ -2422,6 +2422,7 @@ log reports which ones it dropped.</p>
 </ul>
 <p>As a result, intermediate heteroplasmy levels (such as 20%) are not explicitly represented. Instead, they are forced into one of these discrete genotype states or lost as uncertainty.</p>
 <p>Therefore, this limitation arises from the variant calling step. The application operates on already discretized genotypes according to ploidy and does not model heteroplasmy as a continuous variable.</p>
+<p>In practice, every chrM call carrying the ALT allele (<code>1</code>, <code>0/1</code> or <code>1/1</code>) counts once: in <code>N_HOM_ALT</code>, and as <code>hom</code> in <code>variant-info</code>. A <code>0/1</code> call is not treated as an error on chrM, and chrM carriers are never counted as hemizygous (<code>N_HEMI</code>), a term that applies to the single-copy sex chromosomes in males.</p>
 <h2 id="common-pitfalls">Common Pitfalls</h2>
 <h3 id="what-if-an-is-very-low">What if AN is very low?</h3>
 <p>Low AN means the allele frequency estimate is unreliable.</p>
@@ -2447,7 +2448,7 @@ log reports which ones it dropped.</p>
 <p>AFQuery is purpose-built for fast subcohort AF computation and is not a general-purpose genomic database:</p>
 <ul>
 <li><strong>Not a joint genotyper</strong>: AFQuery does not perform joint genotyping. Input VCFs should be individually called before ingestion.</li>
-<li><strong>Not a genotype store</strong>: AFQuery stores genotype summaries as bitmaps, not raw FORMAT fields. Use <code>variant-info</code> to list carriers and their genotype class (het/hom) at a specific position; for full per-sample VCF fields (GQ, DP, AD, etc.), consult the source VCFs.</li>
+<li><strong>Not a genotype store</strong>: AFQuery stores genotype summaries as bitmaps, not raw FORMAT fields. Use <code>variant-info</code> to list carriers and their genotype class (het/hom/hemi) at a specific position; for full per-sample VCF fields (GQ, DP, AD, etc.), consult the source VCFs.</li>
 <li><strong>No statistical genetics</strong>: AFQuery does not compute Hardy-Weinberg equilibrium, population stratification, or other statistical genetics metrics.</li>
 <li><strong>Batch queries</strong>: The <code>--from-file</code> batch mode supports variants across multiple chromosomes in a single call. Point queries (<code>--locus</code>) and region queries (<code>--region</code>) target a single position or range; for multi-position multi-chromosome lookups, use <code>--from-file</code>.</li>
 <li><strong>Cohort size limit</strong>: Performance at &gt;100K samples has not been validated. Memory requirements for the build phase scale with cohort size.</li>
