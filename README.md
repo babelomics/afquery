@@ -179,11 +179,11 @@ VCF INFO field names use the `AFQUERY_` prefix (e.g. `AFQUERY_AF`, `AFQUERY_N_NO
 | `version show` / `version set` | Inspect or set the database version label |
 | `benchmark` | Run synthetic or on-database performance benchmarks |
 
-See the [CLI reference](https://babelomics.github.io/afquery/reference/cli/) for all options.
+See the [CLI reference](https://babelomics.github.io/afquery/latest/reference/cli/) for all options.
 
 ## How it works
 
-AFQuery indexes each variant as three Roaring Bitmaps — heterozygous PASS carriers, homozygous-alt PASS carriers, and FILTER≠PASS carriers — stored in Apache Parquet, partitioned by chromosome and 1-Mbp positional buckets. Sample metadata (sex, technology, phenotype) is precomputed as bitmaps in SQLite. A query resolves its sample filter into a single candidate bitmap by intersection/difference in microseconds, then intersects it against each variant's genotype bitmaps to compute AC. AN is computed per position from the same candidate bitmap, restricted to samples whose technology actually covers the position (via BED-derived capture indices) and adjusted for ploidy on sex chromosomes. See the [data model reference](https://babelomics.github.io/afquery/reference/data-model/) for details.
+AFQuery indexes each variant as three Roaring Bitmaps — heterozygous PASS carriers, homozygous-alt PASS carriers, and FILTER≠PASS carriers — stored in Apache Parquet, partitioned by chromosome and 1-Mbp positional buckets. Sample metadata (sex, technology, phenotype) is precomputed as bitmaps in SQLite. A query resolves its sample filter into a single candidate bitmap by intersection/difference in microseconds, then intersects it against each variant's genotype bitmaps to compute AC. AN is computed per position from the same candidate bitmap, restricted to samples whose technology actually covers the position (via BED-derived capture indices) and adjusted for ploidy on sex chromosomes. See the [data model reference](https://babelomics.github.io/afquery/latest/reference/data-model/) for details.
 
 ## How AFQuery compares
 
@@ -208,11 +208,11 @@ Point-query latency on AFQuery is ~14 ms and constant from 1K to 50K samples (me
 ## Documentation
 
 - [Full documentation](https://babelomics.github.io/afquery/)
-- [Getting started](https://babelomics.github.io/afquery/getting-started/)
-- [Why local allele frequencies?](https://babelomics.github.io/afquery/getting-started/motivation/)
-- [Manifest format](https://babelomics.github.io/afquery/guides/manifest-format/)
-- [CLI reference](https://babelomics.github.io/afquery/reference/cli/)
-- [FAQ](https://babelomics.github.io/afquery/faq/)
+- [Getting started](https://babelomics.github.io/afquery/latest/getting-started/quickstart/)
+- [Why local allele frequencies?](https://babelomics.github.io/afquery/latest/getting-started/motivation/)
+- [Manifest format](https://babelomics.github.io/afquery/latest/guides/manifest-format/)
+- [CLI reference](https://babelomics.github.io/afquery/latest/reference/cli/)
+- [FAQ](https://babelomics.github.io/afquery/latest/faq/)
 
 ## Citation
 
