@@ -40,6 +40,21 @@ def _dump_to_string(db_path, **kwargs) -> tuple[str, dict]:
     return buf.getvalue(), stats
 
 
+# Column order of a dump, base block and one disaggregation group
+BASE_COLUMNS = [
+    "chrom", "pos", "ref", "alt", "AC", "AN", "AF", "n_eligible",
+    "N_HET", "N_HOM_ALT", "N_HEMI", "N_HOM_REF", "N_FAIL", "N_NO_COVERAGE",
+]
+GROUP_FIELDS = [
+    "AC", "AN", "AF", "n_eligible",
+    "N_HET", "N_HOM_ALT", "N_HEMI", "N_HOM_REF", "N_FAIL", "N_NO_COVERAGE",
+]
+
+
+def _group_columns(label: str) -> list[str]:
+    return [f"{field}_{label}" for field in GROUP_FIELDS]
+
+
 # ---------------------------------------------------------------------------
 # Unit tests: _build_groups
 # ---------------------------------------------------------------------------
@@ -396,6 +411,56 @@ class TestDumpDisaggregation:
             assert f"AC_{tech}" in rows[0], f"Missing AC_{tech}"
 
 
+class TestDumpEligible:
+    """n_eligible counts the samples genotyped at the position, not alleles."""
+
+    def test_header_order(self, test_db):
+        text, _ = _dump_to_string(test_db)
+        assert text.splitlines()[0].split(",") == BASE_COLUMNS
+
+    def test_header_order_by_sex(self, test_db):
+        text, _ = _dump_to_string(test_db, by_sex=True)
+        assert text.splitlines()[0].split(",") == (
+            BASE_COLUMNS + _group_columns("male") + _group_columns("female")
+        )
+
+    def test_matches_query(self, test_db):
+        database = Database(test_db)
+        rows = _parse_csv(_dump_to_string(test_db)[0])
+        assert rows
+        for row in rows:
+            [r] = database.query(chrom=row["chrom"], pos=int(row["pos"]),
+                                 ref=row["ref"], alt=row["alt"])
+            assert int(row["n_eligible"]) == r.n_samples_eligible
+            assert int(row["N_HEMI"]) == r.N_HEMI
+            assert int(row["N_HOM_ALT"]) == r.N_HOM_ALT
+
+    def test_samples_not_alleles_on_chrX(self, test_db):
+        """chrX:5000000 non-PAR: 2 males and 2 females eligible carry 6 alleles."""
+        rows = _parse_csv(_dump_to_string(test_db, chrom="chrX")[0])
+        [row] = [r for r in rows if r["pos"] == "5000000"]
+        assert (row["n_eligible"], row["AN"]) == ("4", "6")
+
+    def test_by_sex_matches_query(self, test_db):
+        database = Database(test_db)
+        rows = _parse_csv(_dump_to_string(test_db, by_sex=True)[0])
+        for row in rows:
+            for sx in ("male", "female"):
+                results = database.query(chrom=row["chrom"], pos=int(row["pos"]),
+                                         ref=row["ref"], alt=row["alt"], sex=sx)
+                expected = results[0].n_samples_eligible if results else 0
+                assert int(row[f"n_eligible_{sx}"]) == expected, (row, sx)
+
+    def test_present_on_ac_zero_rows(self, test_db):
+        """A position is exported only when someone is eligible there."""
+        rows = _parse_csv(_dump_to_string(
+            test_db, chrom="chr1", phenotype=["I10"], include_ac_zero=True,
+        )[0])
+        ac_zero = [r for r in rows if r["AC"] == "0"]
+        assert ac_zero
+        assert all(int(r["n_eligible"]) > 0 for r in ac_zero)
+
+
 # ---------------------------------------------------------------------------
 # CLI tests
 # ---------------------------------------------------------------------------
@@ -560,3 +625,24 @@ class TestDumpEdgeCases:
         assert result.exit_code == 0
         assert "chrom,pos,ref,alt" in result.output
         assert "chr1" in result.output
+
+
+class TestDumpHemizygous:
+    """N_HEMI counts males carrying the allele on chrX non-PAR and chrY."""
+
+    def test_chrX_by_sex(self, test_db):
+        """chrX:5000000: S00 (male) hemizygous, S02 (female) heterozygous."""
+        rows = _parse_csv(_dump_to_string(test_db, chrom="chrX", by_sex=True)[0])
+        [row] = [r for r in rows if r["pos"] == "5000000"]
+        assert (row["N_HET"], row["N_HOM_ALT"], row["N_HEMI"]) == ("1", "0", "1")
+        assert (row["N_HEMI_male"], row["n_eligible_male"], row["AN_male"]) == ("1", "2", "2")
+        assert (row["N_HEMI_female"], row["N_HET_female"], row["n_eligible_female"]) == ("0", "1", "2")
+
+    def test_chrY_and_chrM(self, test_db):
+        rows = {r["chrom"]: r for r in _parse_csv(_dump_to_string(test_db)[0])}
+        assert (rows["chrY"]["N_HEMI"], rows["chrY"]["N_HOM_ALT"]) == ("2", "0")
+        assert (rows["chrM"]["N_HEMI"], rows["chrM"]["N_HOM_ALT"]) == ("0", "2")
+
+    def test_none_on_autosomes(self, test_db):
+        rows = _parse_csv(_dump_to_string(test_db, chrom="chr1", include_ac_zero=True)[0])
+        assert rows and all(r["N_HEMI"] == "0" for r in rows)

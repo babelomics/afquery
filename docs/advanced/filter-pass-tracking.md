@@ -10,7 +10,7 @@ A sample has a failed call at a position when its VCF holds, for any ALT allele 
 
 - a call carrying the ALT allele with `FILTER` other than `PASS` or `.`;
 - a missing genotype (`./.`) at a site that failed a filter; or
-- calls that carry more alleles than the sample has at the position, such as two ALT alleles on chrX in a male. These are detected when the VCF is ingested, which logs a warning (see [Genotypes inconsistent with ploidy](ploidy-and-sex-chroms.md#genotypes-inconsistent-with-ploidy)).
+- calls that carry more alleles than the sample has at the position, such as a heterozygous call (`0/1`) or two ALT alleles (`1/2`) on chrX non-PAR or chrY in a male. These are detected when the VCF is ingested, which logs a warning (see [Genotypes inconsistent with ploidy](ploidy-and-sex-chroms.md#genotypes-inconsistent-with-ploidy)).
 
 These samples are stored in the variant's `fail_bitmap` and reported as `N_FAIL`. A homozygous-reference call (`0/0`) is never stored, so at a failed site it would count as hom-ref; [`normalize_vcf.sh`](../getting-started/preprocessing.md) avoids this by masking every genotype at a failed site as missing.
 
@@ -23,7 +23,7 @@ A failed call is judged per **position**, not per allele: a sample with a failed
 - adds nothing to **AC**, even if another record at the position called it with `FILTER=PASS`;
 - is left out of **AN**, which counts only the alleles of samples with a usable call;
 - is counted in **N_FAIL**, which therefore has the same value on every line of a multi-allelic site;
-- stays in **n_eligible**, so `N_HET + N_HOM_ALT + N_HOM_REF + N_FAIL + N_NO_COVERAGE` still accounts for every eligible sample (see [Multi-allelic sites](../getting-started/understanding-output.md#multi-allelic-sites) for the one exception).
+- stays in **n_eligible**, so `N_HET + N_HOM_ALT + N_HEMI + N_HOM_REF + N_FAIL + N_NO_COVERAGE` still accounts for every eligible sample (see [Multi-allelic sites](../getting-started/understanding-output.md#multi-allelic-sites) for the one exception).
 
 Leaving failed calls out of AN keeps AF an estimate over the genotypes that were actually observed. At every position, AN equals the reference alleles plus the AC of all its ALT alleles.
 
@@ -32,7 +32,7 @@ afquery query --db ./db/ --locus chr1:925952
 ```
 
 ```
-chr1:925952 G>A  AC=142  AN=2728  AF=0.0521  n_eligible=1371  N_HET=138  N_HOM_ALT=2  N_HOM_REF=1224  N_FAIL=7  N_NO_COVERAGE=0
+chr1:925952 G>A  AC=142  AN=2728  AF=0.0521  n_eligible=1371  N_HET=138  N_HOM_ALT=2  N_HEMI=0  N_HOM_REF=1224  N_FAIL=7  N_NO_COVERAGE=0
 ```
 
 The 7 samples with a failed call are part of `n_eligible` (138 + 2 + 1224 + 7 = 1371) but not of AN: 2 × (1371 − 7) = 2728.
@@ -52,7 +52,7 @@ afquery query --db ./db/ --locus chr1:925952 --fail-as-ref
 ```
 
 ```
-chr1:925952 G>A  AC=142  AN=2742  AF=0.0518  n_eligible=1371  N_HET=138  N_HOM_ALT=2  N_HOM_REF=1224  N_FAIL=7  N_NO_COVERAGE=0
+chr1:925952 G>A  AC=142  AN=2742  AF=0.0518  n_eligible=1371  N_HET=138  N_HOM_ALT=2  N_HEMI=0  N_HOM_REF=1224  N_FAIL=7  N_NO_COVERAGE=0
 ```
 
 Because every failed sample is then treated as a non-carrier, the AF is never higher than the default one, which makes it a conservative lower estimate when a site has many failures. AN then no longer equals the reference alleles plus the AC of all ALT alleles.

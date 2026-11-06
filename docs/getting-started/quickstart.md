@@ -70,7 +70,7 @@ afquery query --db ./my_db/ --locus chr1:925952
 
 Example output:
 ```
-chr1:925952 G>A  AC=2  AN=6  AF=0.3333  n_eligible=3  N_HET=2  N_HOM_ALT=0  N_HOM_REF=1  N_FAIL=0  N_NO_COVERAGE=0
+chr1:925952 G>A  AC=2  AN=6  AF=0.3333  n_eligible=3  N_HET=2  N_HOM_ALT=0  N_HEMI=0  N_HOM_REF=1  N_FAIL=0  N_NO_COVERAGE=0
 ```
 
 Filter to female samples with a specific phenotype:
@@ -98,7 +98,7 @@ See which samples carry the variant you just queried:
 afquery variant-info --db ./my_db/ --locus chr1:925952
 ```
 
-This lists each carrier with their sex, technology, phenotype codes, genotype (het/hom), and FILTER status. See [Variant Info](../guides/variant-info.md) for details.
+This lists each carrier with their sex, technology, phenotype codes, genotype (het/hom/hemi), and FILTER status. See [Variant Info](../guides/variant-info.md) for details.
 
 ---
 
@@ -133,8 +133,9 @@ The output VCF gains INFO fields (see [Annotate a VCF](../guides/annotate-vcf.md
 | `AFQUERY_AF` | A (per ALT) | Allele frequency |
 | `AFQUERY_N_HET` | A (per ALT) | Heterozygous sample count |
 | `AFQUERY_N_HOM_ALT` | A (per ALT) | Homozygous alt sample count |
+| `AFQUERY_N_HEMI` | A (per ALT) | Hemizygous carrier count (males on chrX non-PAR and chrY) |
 | `AFQUERY_N_HOM_REF` | A (per ALT) | Homozygous ref sample count |
-| `AFQUERY_N_FAIL` | 1 (per site) | Samples with a failed call (FILTER≠PASS), left out of AN |
+| `AFQUERY_N_FAIL` | 1 (per site) | Samples with a failed call (FILTER≠PASS, or a genotype inconsistent with ploidy), left out of AN |
 | `AFQUERY_N_NO_COVERAGE` | A (per ALT) | Eligible samples lacking coverage evidence (0 unless a coverage-evidence filter is active) |
 
 ---

@@ -2,7 +2,7 @@
 
 ## AC (Allele Count)
 
-Number of copies of the alternate allele observed across eligible samples. A heterozygous carrier contributes 1; a homozygous alt carrier contributes 2. See [Key Concepts](../getting-started/concepts.md#allele-frequency-ac-an-af).
+Number of copies of the alternate allele observed across eligible samples. A heterozygous carrier contributes 1; a homozygous alt carrier contributes 2; a carrier with a single copy of the locus ([hemizygous](#hemizygous), or on chrM) contributes 1. See [Key Concepts](../getting-started/concepts.md#allele-frequency-ac-an-af).
 
 ## AF (Allele Frequency)
 
@@ -22,7 +22,7 @@ A 1 Mbp (1,000,000 base pair) genomic interval used to partition variant data wi
 
 ## Carrier
 
-A sample that has at least one copy of the alternate allele at a given position (heterozygous or homozygous alt). Use `variant-info` to list carriers with their metadata. See [Variant Info](../guides/variant-info.md).
+A sample that has at least one copy of the alternate allele at a given position (heterozygous, homozygous alt, or [hemizygous](#hemizygous)). Use `variant-info` to list carriers with their metadata. See [Variant Info](../guides/variant-info.md).
 
 ## Capture Index
 
@@ -30,11 +30,19 @@ An interval tree (stored as a `.pkl` file) built from a BED file that defines th
 
 ## Eligible Sample
 
-A sample that passes all query filters (sex, phenotype, technology) and has coverage at the queried position. Only eligible samples contribute to AC and AN, and only if their call there did not fail. See [Sample Filtering](../guides/sample-filtering.md).
+A sample that passes all query filters (sex, phenotype, technology), has coverage at the queried position and carries at least one copy of that locus — females are not eligible on chrY, and nobody is in the chrY [PARs](#par-pseudoautosomal-region). Only eligible samples contribute to AC and AN, and only if their call there did not fail. See [Sample Filtering](../guides/sample-filtering.md).
+
+## Hemizygous
+
+Having a single copy of a locus that is normally present in two. In AFQuery this is a male on chrX outside the [PARs](#par-pseudoautosomal-region) or on chrY: a male carrying the alternate allele there is counted in [N_HEMI](#n_hemi) and contributes 1 to AC and AN. chrM is haploid but not hemizygous — it is a multi-copy genome — so its carriers are counted in `N_HOM_ALT`. See [Ploidy & Sex Chromosomes](../advanced/ploidy-and-sex-chroms.md#genotype-counting).
 
 ## N_FAIL
 
-The count of eligible samples with a failed call (FILTER≠PASS) for any allele at a position. Their genotype there is unknown, so they are left out of AC and AN for every allele at the position. See [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md).
+The count of eligible samples with a failed call for any allele at a position: a call with FILTER≠PASS, or a genotype inconsistent with the sample's ploidy (such as `0/1` on chrX non-PAR in a male). Their genotype there is unknown, so they are left out of AC and AN for every allele at the position. See [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md).
+
+## N_HEMI
+
+The count of eligible [hemizygous](#hemizygous) carriers: males carrying the alternate allele on chrX outside the PARs or on chrY, whether the VCF wrote the genotype haploid (`1`) or diploid (`1/1`). A male's heterozygous call (`0/1`) there is a failed call ([N_FAIL](#n_fail)) instead. Always `0` on autosomes, the chrX PARs, chrM and for females. See [Understanding Output](../getting-started/understanding-output.md#output-fields).
 
 ## N_NO_COVERAGE
 
@@ -52,13 +60,17 @@ Legacy term. See [Phenotype Code](#phenotype-code).
 
 A columnar storage format used by AFQuery to store variant bitmaps on disk. Each Parquet file covers one bucket within one chromosome and contains rows sorted by `(pos, alt)`. See [Data Model](data-model.md).
 
+## PAR (Pseudoautosomal Region)
+
+The two regions (PAR1, PAR2) at the ends of chrX and chrY that share the same sequence and recombine like an autosome, so every sample is diploid there. AFQuery counts them once, at their chrX coordinates; positions in the chrY PARs are not genotyped. See [Ploidy & Sex Chromosomes](../advanced/ploidy-and-sex-chroms.md#pseudoautosomal-regions-par).
+
 ## Phenotype Code
 
 An arbitrary string label assigned to a sample in the manifest (e.g., ICD-10 codes, HPO terms, project tags). Multiple codes per sample are supported. Phenotype codes enable cohort stratification at query time. See [Key Concepts](../getting-started/concepts.md#the-metadata-model).
 
 ## Ploidy
 
-The number of allele copies at a given locus, which depends on chromosome type and sex. Autosomes are diploid (ploidy=2) for all samples. chrX non-PAR is haploid for males, diploid for females. See [Ploidy & Sex Chromosomes](../advanced/ploidy-and-sex-chroms.md).
+The number of allele copies at a given locus, which depends on chromosome type and sex. Autosomes and the chrX PARs are diploid (ploidy=2) for all samples. chrX non-PAR is haploid for males, diploid for females; chrY non-PAR is haploid for males and absent in females; chrM is haploid for everyone. The chrY PARs are not genotyped (ploidy 0), because PAR loci are counted on chrX. See [Ploidy & Sex Chromosomes](../advanced/ploidy-and-sex-chroms.md).
 
 ## Roaring Bitmap
 

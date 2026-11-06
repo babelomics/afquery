@@ -7,8 +7,8 @@ to predict its own output would only assert that the code is self-consistent,
 which is exactly what the existing suite already did while add-samples was
 silently dropping samples on the floor.
 
-The coverage half is the half that matters. AC, N_HET and N_HOM_ALT come from
-the VCFs, but AN, N_HOM_REF and N_NO_COVERAGE come from capture-BED coverage
+The coverage half is the half that matters. AC, N_HET, N_HOM_ALT and N_HEMI come
+from the VCFs, but AN, N_HOM_REF and N_NO_COVERAGE come from capture-BED coverage
 crossed with sex-dependent ploidy, and every silent counting bug this project
 has had lived on that side.
 """
@@ -53,6 +53,8 @@ class Cohort:
         self.phenotypes: dict[str, list[str]] = {}
         # (chrom, pos, ref, alt) -> {sample: "het" | "hom" | "fail"}
         self.calls: dict[tuple[str, int, str, str], dict[str, str]] = {}
+        # (chrom, pos, sample) where a record's GT names two different alleles
+        self.het_gt: set[tuple[str, int, str]] = set()
         # tech -> list of (chrom, start_1based, end_1based); None means whole genome
         self.regions: dict[str, list[tuple[str, int, int]] | None] = {}
 
@@ -96,6 +98,8 @@ class Cohort:
                     continue
                 n = alleles.count(str(i))
                 key = (chrom, pos, ref, one_alt)
+                if n > 0 and len(set(alleles)) > 1:
+                    self.het_gt.add((chrom, pos, sample))
                 if not passed and not alleles:
                     self.calls.setdefault(key, {})[sample] = "fail"
                 elif n == 0:
@@ -107,7 +111,12 @@ class Cohort:
 
     def _fail_beyond_ploidy(self, sample: str) -> None:
         """A position where the sample's calls carry more alleles than its
-        ploidy allows has no usable genotype: all its calls there fail."""
+        ploidy allows has no usable genotype: all its calls there fail.
+
+        A haploid sample has one allele, so on chrX non-PAR and chrY a call
+        naming two different alleles (1/2, or 0/1 in a male) fails. On chrM a
+        0/1 call is heteroplasmy and counts as a carrier; only two ALT alleles
+        fail there."""
         by_site: dict[tuple[str, int], list[tuple[str, int, str, str]]] = {}
         for key, site_calls in self.calls.items():
             if sample in site_calls:
@@ -115,10 +124,12 @@ class Cohort:
         for (chrom, pos), keys in by_site.items():
             states = [self.calls[k][sample] for k in keys]
             carried = [k for k, st in zip(keys, states) if st in ("het", "hom")]
-            if chrom == "chrY" and self.sex[sample] != "male":
+            if not self.has_locus(sample, chrom, pos):
                 continue
             if self.is_haploid(sample, chrom, pos):
-                over = len({k[2:] for k in carried}) > 1
+                over = len({k[2:] for k in carried}) > 1 or (
+                    chrom != "chrM" and (chrom, pos, sample) in self.het_gt
+                )
             else:
                 over = sum(2 if st == "hom" else 1 for st in states if st in ("het", "hom")) > 2
             if over:
@@ -130,6 +141,14 @@ class Cohort:
         if regions is None:
             return True
         return any(c == chrom and start <= pos <= end for c, start, end in regions)
+
+    def has_locus(self, sample: str, chrom: str, pos: int) -> bool:
+        """Whether the sample carries any allele of this position that is counted
+        here. A female has no chrY; and the chrY PARs are the same sequence as the
+        chrX PARs, so PAR variants are counted once, at their chrX coordinates."""
+        if chrom == "chrY":
+            return self.sex[sample] == "male" and not self._in_par(chrom, pos)
+        return True
 
     def is_haploid(self, sample: str, chrom: str, pos: int) -> bool:
         if chrom == "chrM":
@@ -149,8 +168,8 @@ class Cohort:
         for s in pool:
             if not self.covers(s, chrom, pos):
                 continue
-            # chrY carries no alleles for females, so they are not eligible there
-            if chrom == "chrY" and self.sex[s] != "male":
+            # No allele counted here (chrY in a female, or a chrY PAR): not eligible
+            if not self.has_locus(s, chrom, pos):
                 continue
             out.append(s)
         return out
@@ -176,7 +195,7 @@ class Cohort:
 
         AN = 0
         AC = 0
-        n_het = n_hom_alt = n_fail = 0
+        n_het = n_hom_alt = n_hemi = n_fail = 0
         for s in elig:
             haploid = self.is_haploid(s, chrom, pos)
             if s in site_fail:
@@ -186,18 +205,22 @@ class Cohort:
                 continue
             AN += 1 if haploid else 2
             state = calls.get(s)
-            if state == "het":
-                if haploid:
-                    AC += 1
+            if state not in ("het", "hom"):
+                continue
+            if haploid:
+                # One copy whatever the GT says. A male on chrX non-PAR or chrY
+                # is hemizygous; chrM is a multi-copy genome with no recorded
+                # heteroplasmy, and its carriers count as homozygous alt.
+                AC += 1
+                if chrom == "chrM":
                     n_hom_alt += 1
                 else:
-                    AC += 1
-                    n_het += 1
-            elif state == "hom":
-                if haploid:
-                    AC += 1
-                else:
-                    AC += 2
+                    n_hemi += 1
+            elif state == "het":
+                AC += 1
+                n_het += 1
+            else:
+                AC += 2
                 n_hom_alt += 1
 
         # A sample carrying only another allele at this position is not hom-ref
@@ -216,8 +239,9 @@ class Cohort:
             "AN": AN,
             "N_HET": n_het,
             "N_HOM_ALT": n_hom_alt,
+            "N_HEMI": n_hemi,
             "N_FAIL": n_fail,
-            "N_HOM_REF": len(elig) - n_het - n_hom_alt - n_fail - n_other,
+            "N_HOM_REF": len(elig) - n_het - n_hom_alt - n_hemi - n_fail - n_other,
             "n_eligible": len(elig),
         }
 

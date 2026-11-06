@@ -97,7 +97,7 @@ Batch queries support variants across multiple chromosomes in a single file.
 Human-readable, one block per variant:
 
 ```
-chr1:925952 G>A  AC=142  AN=2742  AF=0.0518  n_eligible=1371  N_HET=138  N_HOM_ALT=2  N_HOM_REF=1231  N_FAIL=0  N_NO_COVERAGE=0
+chr1:925952 G>A  AC=142  AN=2742  AF=0.0518  n_eligible=1371  N_HET=138  N_HOM_ALT=2  N_HEMI=0  N_HOM_REF=1231  N_FAIL=0  N_NO_COVERAGE=0
 ```
 
 ### tsv
@@ -109,8 +109,8 @@ afquery query --db ./db/ --region chr1:900000-1000000 --format tsv
 ```
 
 ```
-chrom	pos	ref	alt	AC	AN	AF	n_eligible	N_HET	N_HOM_ALT	N_HOM_REF	N_FAIL	N_NO_COVERAGE
-chr1	925952	G	A	142	2742	0.051782	1371	138	2	1231	0	0
+chrom	pos	ref	alt	AC	AN	AF	n_eligible	N_HET	N_HOM_ALT	N_HEMI	N_HOM_REF	N_FAIL	N_NO_COVERAGE
+chr1	925952	G	A	142	2742	0.051782	1371	138	2	0	1231	0	0
 ```
 
 
@@ -135,6 +135,7 @@ afquery query --db ./db/ --locus chr1:925952 --format json
     "n_eligible": 1371,
     "N_HET": 138,
     "N_HOM_ALT": 2,
+    "N_HEMI": 0,
     "N_HOM_REF": 1231,
     "N_FAIL": 0,
     "N_NO_COVERAGE": 0
@@ -155,8 +156,8 @@ that fall below a threshold are reported in **N_NO_COVERAGE** instead of N_HOM_R
 
 | Flag | Meaning |
 |------|---------|
-| `--min-pass K` | A partially-covered tech is valid for hom-ref at a position only if it has ≥K PASS carriers (het\|hom) of any ALT allele there. Otherwise its non-carrier samples move to `N_NO_COVERAGE`. |
-| `--min-observed K` | Same as `--min-pass`, but counts any VCF entry (`het\|hom\|fail`). Useful when you want to include calls that failed FILTER as evidence the position was sequenced. |
+| `--min-pass K` | A partially-covered tech is valid for hom-ref at a position only if it has ≥K PASS carriers (het\|hom\|hemi) of any ALT allele there. Otherwise its non-carrier samples move to `N_NO_COVERAGE`. |
+| `--min-observed K` | Same as `--min-pass`, but counts any VCF entry (`het\|hom\|hemi\|fail`). Useful when you want to include calls that failed FILTER as evidence the position was sequenced. |
 | `--min-quality-evidence K` | Requires ≥K quality-passing carriers per partially-covered tech. Requires a database built with `--min-dp`, `--min-gq`, `--min-qual`, or `--min-covered`. |
 
 `--min-pass` and `--min-observed` combine with AND (both must hold). Both
@@ -168,13 +169,13 @@ afquery query --db ./db/ --region chr1:900000-1000000 --min-observed 2 --min-pas
 ```
 
 At a biallelic site the genotype invariant becomes:
-`N_HET + N_HOM_ALT + N_HOM_REF + N_FAIL + N_NO_COVERAGE = n_eligible`.
+`N_HET + N_HOM_ALT + N_HEMI + N_HOM_REF + N_FAIL + N_NO_COVERAGE = n_eligible`.
 At a multi-allelic site, eligible samples that carry only another ALT allele at
 the position fall in none of these categories for this allele, so the sum is
 lower than `n_eligible` by exactly that number of samples.
 
 Fully-covered samples (those whose tech was registered without a BED) are
-never affected. Carrier samples (het/hom/fail) are never moved to
+never affected. Carrier samples (het/hom/hemi/fail) are never moved to
 `N_NO_COVERAGE`. See [Coverage Evidence](../advanced/coverage-evidence.md)
 for when to reach for each flag.
 

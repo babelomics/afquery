@@ -39,7 +39,7 @@ class TestPhase1Defaults:
         db = _db(test_db)
         for r in db.query_region("chr1", 1, 10000):
             assert (
-                r.N_HET + r.N_HOM_ALT + r.N_HOM_REF + r.N_FAIL + r.N_NO_COVERAGE
+                r.N_HET + r.N_HOM_ALT + r.N_HEMI + r.N_HOM_REF + r.N_FAIL + r.N_NO_COVERAGE
                 == r.n_samples_eligible
             )
 
@@ -78,7 +78,7 @@ class TestPhase1MinPass:
         db = _db(test_db)
         for r in db.query_region("chr1", 1, 10000, min_pass=2):
             assert (
-                r.N_HET + r.N_HOM_ALT + r.N_HOM_REF + r.N_FAIL + r.N_NO_COVERAGE
+                r.N_HET + r.N_HOM_ALT + r.N_HEMI + r.N_HOM_REF + r.N_FAIL + r.N_NO_COVERAGE
                 == r.n_samples_eligible
             )
 
@@ -94,7 +94,8 @@ class TestPhase1MinObserved:
         baseline = db.query(chrom="chr1", pos=1500)[0]
         filtered = db.query(chrom="chr1", pos=1500, min_observed=2)[0]
         assert filtered.N_NO_COVERAGE >= 1
-        assert filtered.N_HET + filtered.N_HOM_ALT == baseline.N_HET + baseline.N_HOM_ALT
+        assert (filtered.N_HET + filtered.N_HOM_ALT + filtered.N_HEMI
+                == baseline.N_HET + baseline.N_HOM_ALT + baseline.N_HEMI)
 
 
 class TestPhase1AndLogic:
@@ -284,15 +285,15 @@ class TestInvariantOnSexChroms:
         db = _db(test_db)
         for r in db.query(chrom="chrM", pos=100, min_pass=1):
             assert (
-                r.N_HET + r.N_HOM_ALT + r.N_HOM_REF + r.N_FAIL + r.N_NO_COVERAGE
+                r.N_HET + r.N_HOM_ALT + r.N_HEMI + r.N_HOM_REF + r.N_FAIL + r.N_NO_COVERAGE
                 == r.n_samples_eligible
             )
 
     def test_chry_invariant(self, test_db):
         """Invariant must hold on chrY."""
         db = _db(test_db)
-        for r in db.query(chrom="chrY", pos=500000, min_pass=1):
+        for r in db.query(chrom="chrY", pos=2700000, min_pass=1):
             assert (
-                r.N_HET + r.N_HOM_ALT + r.N_HOM_REF + r.N_FAIL + r.N_NO_COVERAGE
+                r.N_HET + r.N_HOM_ALT + r.N_HEMI + r.N_HOM_REF + r.N_FAIL + r.N_NO_COVERAGE
                 == r.n_samples_eligible
             )

@@ -12,7 +12,7 @@ from .bitmaps import deserialize
 from .capture import CaptureIndex, describe_capture_problem, load_capture_indices
 from .constants import normalize_chrom, ALL_CHROMS, CHROM_ORDER
 from .models import AfqueryWarning, QueryParams, QueryResult, SampleCarrier, VariantKey, Sample, Technology, SampleFilter
-from .ploidy import split_ploidy
+from .ploidy import classify_carriers, is_par, split_ploidy
 
 BATCH_IN_THRESHOLD = 10_000
 
@@ -30,6 +30,7 @@ class VariantStats(NamedTuple):
     AN: int
     N_HET: int
     N_HOM_ALT: int
+    N_HEMI: int
     N_HOM_REF: int
     N_FAIL: int
     N_NO_COVERAGE: int
@@ -371,10 +372,15 @@ class QueryEngine:
         of the site, and left out of AC. It is also left out of AN unless
         ``fail_as_ref``, which counts it as homozygous reference there.
 
+        Carriers are split by classify_carriers: N_HET and N_HOM_ALT are diploid
+        genotypes, N_HEMI the haploid carriers on chrX non-PAR and chrY (males);
+        on chrM every carrier is in N_HOM_ALT. Each carrier adds its copies of
+        the allele to AC: two for a diploid homozygote, one otherwise.
+
         Eligible samples carrying only another allele are in none of the
         returned categories, so at a multi-allelic site
-        N_HET + N_HOM_ALT + N_HOM_REF + N_FAIL + N_NO_COVERAGE falls short of
-        n_eligible by exactly that number of samples.
+        N_HET + N_HOM_ALT + N_HEMI + N_HOM_REF + N_FAIL + N_NO_COVERAGE falls
+        short of n_eligible by exactly that number of samples.
         """
         het_bm, hom_bm, fail_bm, filtered_bm, quality_pass_bm = bitmaps
         site_fail = (site.fail_bm if site is not None else fail_bm) & eligible
@@ -389,8 +395,12 @@ class QueryEngine:
               + 2 * len(hom_elig & diploid_elig))
         in_AN = eligible if fail_as_ref else called
         AN = len(haploid_elig & in_AN) + 2 * len(diploid_elig & in_AN)
-        N_HET = len(het_elig & diploid_elig)
-        N_HOM_ALT = len(hom_elig & diploid_elig) + len((het_elig | hom_elig) & haploid_elig)
+        het_cls, hom_cls, hemi_cls = classify_carriers(
+            chrom, haploid_elig, diploid_elig, het_elig, hom_elig,
+        )
+        N_HET = len(het_cls)
+        N_HOM_ALT = len(hom_cls)
+        N_HEMI = len(hemi_cls)
         N_FAIL = len(site_fail)
         no_cov_bm = self._compute_no_coverage_bm(
             eligible, het_bm, hom_bm, fail_bm,
@@ -404,8 +414,9 @@ class QueryEngine:
         N_OTHER = 0
         if site is not None:
             N_OTHER = len((site.carrier_bm - (het_bm | hom_bm | site.fail_bm)) & eligible)
-        N_HOM_REF = len(eligible) - N_HET - N_HOM_ALT - N_FAIL - N_NO_COVERAGE - N_OTHER
-        return VariantStats(AC, AN, N_HET, N_HOM_ALT, N_HOM_REF, N_FAIL, N_NO_COVERAGE)
+        N_HOM_REF = (len(eligible) - N_HET - N_HOM_ALT - N_HEMI
+                     - N_FAIL - N_NO_COVERAGE - N_OTHER)
+        return VariantStats(AC, AN, N_HET, N_HOM_ALT, N_HEMI, N_HOM_REF, N_FAIL, N_NO_COVERAGE)
 
     @staticmethod
     def _make_result(
@@ -416,7 +427,8 @@ class QueryEngine:
             variant=VariantKey(chrom=chrom, pos=pos, ref=ref, alt=alt),
             AC=stats.AC, AN=stats.AN, AF=stats.AC / stats.AN if stats.AN > 0 else None,
             n_samples_eligible=len(eligible),
-            N_HET=stats.N_HET, N_HOM_ALT=stats.N_HOM_ALT, N_HOM_REF=stats.N_HOM_REF,
+            N_HET=stats.N_HET, N_HOM_ALT=stats.N_HOM_ALT, N_HEMI=stats.N_HEMI,
+            N_HOM_REF=stats.N_HOM_REF,
             N_FAIL=stats.N_FAIL, N_NO_COVERAGE=stats.N_NO_COVERAGE,
         )
 
@@ -428,7 +440,9 @@ class QueryEngine:
     ) -> BitMap:
         """Return the samples of sample_bitmap that can be genotyped at a position.
 
-        Empty when none can; AN is computed per variant by _variant_stats.
+        Empty when none can; AN is computed per variant by _variant_stats. Nobody
+        can be genotyped in the chrY PARs: PAR loci are counted at their chrX
+        coordinates, and split_ploidy gives no allele to anyone there.
         """
         covered = BitMap(self._covered_all_bm)  # start with WGS samples (always covered)
         for tech_id, capture_idx in self._targeted_capture.items():
@@ -447,6 +461,21 @@ class QueryEngine:
             eligible, self._male_bm, self._female_bm, chrom, pos, self._genome_build,
         )
         return haploid | diploid
+
+    def _warn_if_chrY_par(self, chrom: str, pos: int) -> bool:
+        """Warn, and return True, when a single-position lookup falls in a chrY PAR.
+
+        Nobody is genotyped there, so the lookup returns nothing; the warning
+        says why, since the variant may well be in the database at chrX.
+        """
+        if chrom == "chrY" and is_par(chrom, pos, self._genome_build):
+            warnings.warn(
+                f"chrY:{pos} lies in a pseudoautosomal region (PAR); PAR variants "
+                "are counted at their chrX coordinates, so nobody is genotyped here.",
+                AfqueryWarning, stacklevel=4,
+            )
+            return True
+        return False
 
     def _parquet_path(self, chrom: str, pos: int) -> Path | None:
         """Resolve Parquet path for a point query. Partitioned takes priority over flat."""
@@ -474,6 +503,9 @@ class QueryEngine:
                 f"Available: {sorted(self._all_known_chroms)!r}",
                 AfqueryWarning, stacklevel=3,
             )
+            return []
+
+        if self._warn_if_chrY_par(chrom, pos):
             return []
 
         sample_bm = self._build_sample_bitmap(params.filter)
@@ -800,8 +832,10 @@ class QueryEngine:
         """Return all samples carrying the variant at params.chrom:params.pos.
 
         Each returned :class:`~afquery.models.SampleCarrier` includes the
-        sample's name, sex, technology, phenotype codes, genotype (het/hom/alt),
-        and FILTER status.
+        sample's name, sex, technology, phenotype codes, genotype and FILTER
+        status. The genotype labels are the classes counted by query():
+        ``het``, ``hom`` and ``hemi`` for N_HET, N_HOM_ALT and N_HEMI, ``alt``
+        for N_FAIL and ``no_coverage`` for N_NO_COVERAGE.
 
         Args:
             params: Query parameters (chrom, pos, optional ref/alt, sample filter).
@@ -820,6 +854,9 @@ class QueryEngine:
                 f"Available: {sorted(self._all_known_chroms)!r}",
                 AfqueryWarning, stacklevel=3,
             )
+            return []
+
+        if self._warn_if_chrY_par(chrom, pos):
             return []
 
         sample_bm = self._build_sample_bitmap(params.filter)
@@ -860,6 +897,9 @@ class QueryEngine:
         # Same eligible set as query(): a call outside the sample's capture
         # region is not counted there, so it is not listed here either.
         eligible = self._compute_eligible(chrom, pos, sample_bm)
+        haploid, diploid = split_ploidy(
+            eligible, self._male_bm, self._female_bm, chrom, pos, self._genome_build,
+        )
         sf = params.filter
 
         carriers: list[SampleCarrier] = []
@@ -880,15 +920,16 @@ class QueryEngine:
                 site=site,
             )
             no_cov_elig = no_cov_bm & eligible
+            het_cls, hom_cls, hemi_cls = classify_carriers(
+                chrom, haploid, diploid, het_elig, hom_elig,
+            )
 
             seen: set[int] = set()
-            for sid in sorted(hom_elig):
-                seen.add(sid)
-                carriers.append(self._make_carrier(sid, "hom", True))
-            for sid in sorted(het_elig):
-                if sid not in seen:
-                    seen.add(sid)
-                    carriers.append(self._make_carrier(sid, "het", True))
+            for label, cls in (("hom", hom_cls), ("het", het_cls), ("hemi", hemi_cls)):
+                for sid in sorted(cls):
+                    if sid not in seen:
+                        seen.add(sid)
+                        carriers.append(self._make_carrier(sid, label, True))
             for sid in sorted(fail_elig):
                 seen.add(sid)
                 carriers.append(self._make_carrier(sid, "alt", False))

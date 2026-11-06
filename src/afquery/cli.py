@@ -75,7 +75,8 @@ def _print_results(results, fmt: str) -> None:
                 "chrom": r.variant.chrom, "pos": r.variant.pos,
                 "ref": r.variant.ref, "alt": r.variant.alt,
                 "AC": r.AC, "AN": r.AN, "AF": r.AF, "n_eligible": r.n_samples_eligible,
-                "N_HET": r.N_HET, "N_HOM_ALT": r.N_HOM_ALT, "N_HOM_REF": r.N_HOM_REF,
+                "N_HET": r.N_HET, "N_HOM_ALT": r.N_HOM_ALT, "N_HEMI": r.N_HEMI,
+                "N_HOM_REF": r.N_HOM_REF,
                 "N_FAIL": r.N_FAIL, "N_NO_COVERAGE": r.N_NO_COVERAGE,
             }
             out.append(entry)
@@ -83,7 +84,7 @@ def _print_results(results, fmt: str) -> None:
     elif fmt == "tsv":
         header = (
             "chrom\tpos\tref\talt\tAC\tAN\tAF\tn_eligible\t"
-            "N_HET\tN_HOM_ALT\tN_HOM_REF\tN_FAIL\tN_NO_COVERAGE"
+            "N_HET\tN_HOM_ALT\tN_HEMI\tN_HOM_REF\tN_FAIL\tN_NO_COVERAGE"
         )
         click.echo(header)
         for r in results:
@@ -91,7 +92,8 @@ def _print_results(results, fmt: str) -> None:
             line = (
                 f"{r.variant.chrom}\t{r.variant.pos}\t{r.variant.ref}\t"
                 f"{r.variant.alt}\t{r.AC}\t{r.AN}\t{af}\t{r.n_samples_eligible}\t"
-                f"{r.N_HET}\t{r.N_HOM_ALT}\t{r.N_HOM_REF}\t{r.N_FAIL}\t{r.N_NO_COVERAGE}"
+                f"{r.N_HET}\t{r.N_HOM_ALT}\t{r.N_HEMI}\t{r.N_HOM_REF}\t{r.N_FAIL}\t"
+                f"{r.N_NO_COVERAGE}"
             )
             click.echo(line)
     else:  # text
@@ -103,8 +105,8 @@ def _print_results(results, fmt: str) -> None:
             click.echo(
                 f"{r.variant.chrom}:{r.variant.pos} {r.variant.ref}>{r.variant.alt}  "
                 f"AC={r.AC}  AN={r.AN}  AF={af}  n_eligible={r.n_samples_eligible}  "
-                f"N_HET={r.N_HET}  N_HOM_ALT={r.N_HOM_ALT}  N_HOM_REF={r.N_HOM_REF}  "
-                f"N_FAIL={r.N_FAIL}  N_NO_COVERAGE={r.N_NO_COVERAGE}"
+                f"N_HET={r.N_HET}  N_HOM_ALT={r.N_HOM_ALT}  N_HEMI={r.N_HEMI}  "
+                f"N_HOM_REF={r.N_HOM_REF}  N_FAIL={r.N_FAIL}  N_NO_COVERAGE={r.N_NO_COVERAGE}"
             )
 
 
@@ -195,8 +197,8 @@ def cli():
 @click.option("--alt",   default=None, help="Filter to specific alternate allele (only for --locus).")
 @click.option("--tech",  multiple=True, help="Technology filter to include. Repeatable; comma-separated or multiple flags. Use ^ prefix to exclude. (default: include all samples)")
 @click.option("--format", "fmt", default="text", type=click.Choice(["text", "json", "tsv"]), help="Output format. Options: text, json, tsv. (default: text)")
-@click.option("--min-pass", default=0, type=int, help="Min PASS carriers (het|hom) per WES tech for hom-ref to be assumed. Non-carriers move to N_NO_COVERAGE if tech falls below the threshold. (default: 0 = disabled)")
-@click.option("--min-observed", default=0, type=int, help="Min any-VCF entries (het|hom|fail) per WES tech for hom-ref to be assumed. (default: 0 = disabled)")
+@click.option("--min-pass", default=0, type=int, help="Min PASS carriers (het|hom|hemi) per WES tech for hom-ref to be assumed. Non-carriers move to N_NO_COVERAGE if tech falls below the threshold. (default: 0 = disabled)")
+@click.option("--min-observed", default=0, type=int, help="Min any-VCF entries (het|hom|hemi|fail) per WES tech for hom-ref to be assumed. (default: 0 = disabled)")
 @click.option("--min-quality-evidence", default=0, type=int, help="Min quality-passing carriers per WES tech (Phase 2 DBs only — created with --min-dp/--min-gq). (default: 0 = disabled)")
 @click.option("--fail-as-ref", is_flag=True, default=False, help="Count samples with a failed call at the position (N_FAIL) as hom-ref in AN instead of leaving them out. (default: false)")
 @click.option("--no-warn", is_flag=True, default=False, help="Suppress AfqueryWarning messages.")
@@ -270,9 +272,11 @@ def variant_info_cmd(db, locus, ref, alt, phenotype, sex, tech, fmt,
                      min_pass, min_observed, min_quality_evidence, no_warn):
     """List samples carrying a specific variant, with their metadata.
 
-    Returns one row per carrier sample with genotype (het/hom/alt) and FILTER
-    status (PASS/FAIL).  Use --ref/--alt to restrict to a specific allele when
-    multiple alleles share the same position.
+    Returns one row per carrier sample with genotype (het/hom/hemi/alt, or
+    no_coverage under a coverage filter) and FILTER status (PASS/FAIL). The
+    genotypes are the classes counted by query: het, hom and hemi in N_HET,
+    N_HOM_ALT and N_HEMI, alt (a failed call) in N_FAIL. Use --ref/--alt to
+    restrict to a specific allele when multiple alleles share the same position.
 
     \b
     Examples:
@@ -325,10 +329,12 @@ def annotate(db, input_vcf, output_vcf, phenotype, sex, tech, threads, verbose,
       AFQUERY_AC          allele count (per ALT)
       AFQUERY_AN          allele number (per site)
       AFQUERY_AF          allele frequency (per ALT)
-      AFQUERY_N_HET       heterozygous carrier count (per ALT)
-      AFQUERY_N_HOM_ALT   homozygous alt count (per ALT)
+      AFQUERY_N_HET       heterozygous carrier count, diploid (per ALT)
+      AFQUERY_N_HOM_ALT   homozygous alt count, diploid; every carrier on chrM (per ALT)
+      AFQUERY_N_HEMI      hemizygous carrier count, males on chrX non-PAR and chrY (per ALT)
       AFQUERY_N_HOM_REF   homozygous ref count (per ALT)
-      AFQUERY_N_FAIL      samples with a failed call, FILTER!=PASS (per site)
+      AFQUERY_N_FAIL      samples with a failed call: FILTER!=PASS or a genotype
+                          inconsistent with ploidy (per site)
       AFQUERY_N_NO_COVERAGE  eligible samples lacking coverage evidence (per ALT)
     """
     if no_warn:
@@ -378,8 +384,13 @@ def dump(db, output, chrom, start, end, phenotype, sex, tech,
     By default only variants with AC > 0 are exported. Use --all-variants to
     include positions that are covered but have no observed carriers (AC=0).
 
+    \b
+    Columns: chrom, pos, ref, alt, AC, AN, AF, n_eligible, N_HET, N_HOM_ALT,
+    N_HEMI, N_HOM_REF, N_FAIL, N_NO_COVERAGE.
+
     Supports disaggregation by sex (--by-sex), technology (--by-tech),
-    phenotype (--by-phenotype), or all combinations (--all-groups).
+    phenotype (--by-phenotype), or all combinations (--all-groups); each
+    group repeats the columns from AC onwards, suffixed with its label.
     """
     _configure_logging(verbose)
 

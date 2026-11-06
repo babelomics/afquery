@@ -34,7 +34,7 @@ This adds to each variant:
 - `AFQUERY_AC`: allele count in cohort
 - `AFQUERY_AN`: allele number (eligible samples at this position)
 - `AFQUERY_AF`: allele frequency
-- `AFQUERY_N_HET`, `AFQUERY_N_HOM_ALT`: genotype counts
+- `AFQUERY_N_HET`, `AFQUERY_N_HOM_ALT`, `AFQUERY_N_HEMI`: genotype counts (heterozygous, homozygous, and hemizygous males on chrX/chrY)
 
 ### 2. Filter for rare variants with reliable AN
 

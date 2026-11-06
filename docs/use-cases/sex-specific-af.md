@@ -34,10 +34,10 @@ afquery query --db ./db/ --locus chrX:153296777
 ```
 
 ```
-chrX:153296777 C>T  AC=15  AN=2500  AF=0.0060  n_eligible=1500  N_HET=5  N_HOM_ALT=10  N_HOM_REF=1485  N_FAIL=0  N_NO_COVERAGE=0
+chrX:153296777 C>T  AC=15  AN=2500  AF=0.0060  n_eligible=1500  N_HET=5  N_HOM_ALT=0  N_HEMI=10  N_HOM_REF=1485  N_FAIL=0  N_NO_COVERAGE=0
 ```
 
-AN=2500: 500 males × 1 + 1000 females × 2 = 2500 (mixed ploidy). The 10 hemizygous male carriers land in N_HOM_ALT, not N_HET — on haploid positions there is no heterozygous state.
+AN=2500: 500 males × 1 + 1000 females × 2 = 2500 (mixed ploidy). The 10 hemizygous male carriers are counted in N_HEMI, and the 5 heterozygous females in N_HET; N_HOM_ALT counts only females homozygous for the allele (none here). N_HOM_REF holds 490 males hemizygous for the reference and 995 homozygous-reference females.
 
 ### 2. Query males only (hemizygous frequency)
 
@@ -46,10 +46,10 @@ afquery query --db ./db/ --locus chrX:153296777 --sex male
 ```
 
 ```
-chrX:153296777 C>T  AC=10  AN=500  AF=0.0200  n_eligible=500  N_HET=0  N_HOM_ALT=10  N_HOM_REF=490  N_FAIL=0  N_NO_COVERAGE=0
+chrX:153296777 C>T  AC=10  AN=500  AF=0.0200  n_eligible=500  N_HET=0  N_HOM_ALT=0  N_HEMI=10  N_HOM_REF=490  N_FAIL=0  N_NO_COVERAGE=0
 ```
 
-Hemizygous rate: 2%. The carriers appear in N_HOM_ALT, not N_HET — males are haploid at chrX non-PAR, so `GT=1` carriers are counted as homozygous-alt.
+Hemizygous rate: 2%. Males are haploid at chrX non-PAR, so every carrier is hemizygous: N_HEMI = AC = 10, and N_HET and N_HOM_ALT are 0. A male whose call there is heterozygous (`0/1`) is counted in N_FAIL instead, since a single copy cannot hold both alleles.
 
 ### 3. Query females only (carrier frequency)
 
@@ -58,7 +58,7 @@ afquery query --db ./db/ --locus chrX:153296777 --sex female
 ```
 
 ```
-chrX:153296777 C>T  AC=5  AN=2000  AF=0.0025  n_eligible=1000  N_HET=5  N_HOM_ALT=0  N_HOM_REF=995  N_FAIL=0  N_NO_COVERAGE=0
+chrX:153296777 C>T  AC=5  AN=2000  AF=0.0025  n_eligible=1000  N_HET=5  N_HOM_ALT=0  N_HEMI=0  N_HOM_REF=995  N_FAIL=0  N_NO_COVERAGE=0
 ```
 
 Carrier rate: 0.25%
@@ -74,7 +74,7 @@ male = db.query("chrX", pos=153296777, sex="male")[0]
 female = db.query("chrX", pos=153296777, sex="female")[0]
 combined = db.query("chrX", pos=153296777)[0]
 
-print(f"Male hemizygous rate:  {male.AF:.4f}  (AN={male.AN})")
+print(f"Male hemizygous rate:  {male.AF:.4f}  (AN={male.AN}, hemizygotes={male.N_HEMI})")
 print(f"Female carrier rate:   {female.AF:.4f}  (AN={female.AN})")
 print(f"Combined AF:           {combined.AF:.4f}  (AN={combined.AN})")
 ```

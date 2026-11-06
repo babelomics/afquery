@@ -67,8 +67,8 @@ Exactly one of `--locus`, `--region`, or `--from-file` must be provided.
 | `--ref` | TEXT | None | Filter to specific reference allele (only for `--locus`) |
 | `--alt` | TEXT | None | Filter to specific alternate allele (only for `--locus`) |
 | `--format` | `text`\|`json`\|`tsv` | `text` | Output format |
-| `--min-pass` | INTEGER | `0` | Min PASS carriers (`het\|hom`) per partially-covered tech for hom-ref to be assumed. Non-carriers move to `N_NO_COVERAGE` if a tech falls below the threshold. (0 = disabled) |
-| `--min-observed` | INTEGER | `0` | Min any-VCF entries (`het\|hom\|fail`) per partially-covered tech for hom-ref to be assumed. (0 = disabled) |
+| `--min-pass` | INTEGER | `0` | Min PASS carriers (`het\|hom\|hemi`) per partially-covered tech for hom-ref to be assumed. Non-carriers move to `N_NO_COVERAGE` if a tech falls below the threshold. (0 = disabled) |
+| `--min-observed` | INTEGER | `0` | Min any-VCF entries (`het\|hom\|hemi\|fail`) per partially-covered tech for hom-ref to be assumed. (0 = disabled) |
 | `--min-quality-evidence` | INTEGER | `0` | Min quality-passing carriers per partially-covered tech. Requires a database built with `--min-dp`, `--min-gq`, `--min-qual`, or `--min-covered`. (0 = disabled) |
 | `--fail-as-ref` | flag | False | Count samples with a failed call at the position (`N_FAIL`) as hom-ref in AN instead of leaving them out. See [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md#counting-failed-calls-as-reference). |
 | `--no-warn` | flag | False | Suppress warnings for unknown phenotypes, technologies, and chromosomes |
@@ -100,8 +100,9 @@ afquery annotate [OPTIONS]
 | `--no-warn` | flag | False | Suppress warnings for unknown phenotypes, technologies, and chromosomes |
 
 The annotated VCF gains `AFQUERY_AC`, `AFQUERY_AN`, `AFQUERY_AF`,
-`AFQUERY_N_HET`, `AFQUERY_N_HOM_ALT`, `AFQUERY_N_HOM_REF`, `AFQUERY_N_FAIL`,
-and `AFQUERY_N_NO_COVERAGE` INFO fields.
+`AFQUERY_N_HET`, `AFQUERY_N_HOM_ALT`, `AFQUERY_N_HEMI`, `AFQUERY_N_HOM_REF`,
+`AFQUERY_N_FAIL`, and `AFQUERY_N_NO_COVERAGE` INFO fields
+(see [Annotate a VCF](../guides/annotate-vcf.md#added-info-fields)).
 
 ---
 
@@ -135,8 +136,10 @@ afquery dump [OPTIONS]
 | `--min-quality-evidence` | INTEGER | `0` | Min quality-passing carriers per partially-covered tech. Requires a database built with `--min-dp`, `--min-gq`, `--min-qual`, or `--min-covered`. (0 = disabled) |
 | `--fail-as-ref` | flag | False | Count samples with a failed call at the position (`N_FAIL`) as hom-ref in AN instead of leaving them out. See [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md#counting-failed-calls-as-reference). |
 
-CSV output adds an `N_NO_COVERAGE` column (and per-group variants
-`N_NO_COVERAGE_<label>` when disaggregating).
+CSV columns: `chrom,pos,ref,alt,AC,AN,AF,n_eligible,N_HET,N_HOM_ALT,N_HEMI,N_HOM_REF,N_FAIL,N_NO_COVERAGE`.
+Each disaggregation group adds the same columns from `AC` onwards, suffixed
+with its label (`AC_<label>`, `AN_<label>`, `AF_<label>`, `n_eligible_<label>`, …).
+See [Bulk Export](../guides/dump-export.md#disaggregate-output).
 
 ---
 
@@ -163,7 +166,7 @@ afquery variant-info [OPTIONS]
 | `--min-quality-evidence` | INTEGER | `0` | Min quality-passing carriers per partially-covered tech. Requires a database built with `--min-dp`, `--min-gq`, `--min-qual`, or `--min-covered`. (0 = disabled) |
 | `--no-warn` | flag | False | Suppress `AfqueryWarning` messages |
 
-Returns one row per carrier sample with genotype (`het`/`hom`/`alt`/`no_coverage`) and FILTER status (`PASS`/`FAIL`). For `no_coverage` rows the FILTER column is empty in TSV, `null` in JSON, and `-` in text — these samples have no call at this position, so `PASS`/`FAIL` does not apply. Use `--ref`/`--alt` to restrict to a specific allele when multiple alleles share the same position. Samples reported as `no_coverage` are non-carriers on a partially-covered tech that has been excluded from the hom-ref assumption by one of the coverage filters.
+Returns one row per carrier sample with genotype (`het`/`hom`/`hemi`/`alt`/`no_coverage`) and FILTER status (`PASS`/`FAIL`). `het`, `hom`, `hemi` and `alt` are the classes `query` counts in `N_HET`, `N_HOM_ALT`, `N_HEMI` and `N_FAIL` (see [Genotype values](../guides/variant-info.md#genotype-values)). For `no_coverage` rows the FILTER column is empty in TSV, `null` in JSON, and `-` in text — these samples have no call at this position, so `PASS`/`FAIL` does not apply. Use `--ref`/`--alt` to restrict to a specific allele when multiple alleles share the same position. Samples reported as `no_coverage` are non-carriers on a partially-covered tech that has been excluded from the hom-ref assumption by one of the coverage filters.
 
 ---
 

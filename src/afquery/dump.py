@@ -217,8 +217,10 @@ def _dump_bucket_worker(
             "AC": s.AC,
             "AN": s.AN,
             "AF": _af(s),
+            "n_eligible": len(eligible),
             "N_HET": s.N_HET,
             "N_HOM_ALT": s.N_HOM_ALT,
+            "N_HEMI": s.N_HEMI,
             "N_HOM_REF": s.N_HOM_REF,
             "N_FAIL": s.N_FAIL,
             "N_NO_COVERAGE": s.N_NO_COVERAGE,
@@ -241,8 +243,10 @@ def _dump_bucket_worker(
             out_row[f"AC_{label}"] = g.AC
             out_row[f"AN_{label}"] = g.AN
             out_row[f"AF_{label}"] = _af(g)
+            out_row[f"n_eligible_{label}"] = len(g_eligible)
             out_row[f"N_HET_{label}"] = g.N_HET
             out_row[f"N_HOM_ALT_{label}"] = g.N_HOM_ALT
+            out_row[f"N_HEMI_{label}"] = g.N_HEMI
             out_row[f"N_HOM_REF_{label}"] = g.N_HOM_REF
             out_row[f"N_FAIL_{label}"] = g.N_FAIL
             out_row[f"N_NO_COVERAGE_{label}"] = g.N_NO_COVERAGE
@@ -332,15 +336,15 @@ def dump_database(
     )
 
     # Build CSV header
-    base_cols = ["chrom", "pos", "ref", "alt", "AC", "AN", "AF",
-                 "N_HET", "N_HOM_ALT", "N_HOM_REF", "N_FAIL", "N_NO_COVERAGE"]
+    base_cols = ["chrom", "pos", "ref", "alt", "AC", "AN", "AF", "n_eligible",
+                 "N_HET", "N_HOM_ALT", "N_HEMI", "N_HOM_REF", "N_FAIL", "N_NO_COVERAGE"]
 
     group_cols = []
     for label, _ in groups:
         group_cols += [
-            f"AC_{label}", f"AN_{label}", f"AF_{label}",
-            f"N_HET_{label}", f"N_HOM_ALT_{label}", f"N_HOM_REF_{label}",
-            f"N_FAIL_{label}", f"N_NO_COVERAGE_{label}",
+            f"AC_{label}", f"AN_{label}", f"AF_{label}", f"n_eligible_{label}",
+            f"N_HET_{label}", f"N_HOM_ALT_{label}", f"N_HEMI_{label}",
+            f"N_HOM_REF_{label}", f"N_FAIL_{label}", f"N_NO_COVERAGE_{label}",
         ]
 
     fieldnames = base_cols + group_cols

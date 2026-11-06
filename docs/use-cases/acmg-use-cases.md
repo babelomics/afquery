@@ -30,7 +30,7 @@ afquery query \
 Example output:
 
 ```
-chr7:117559590 C>T  AC=160  AN=2000  AF=0.0800  n_eligible=1000  N_HET=140  N_HOM_ALT=10  N_HOM_REF=850  N_FAIL=0  N_NO_COVERAGE=0
+chr7:117559590 C>T  AC=160  AN=2000  AF=0.0800  n_eligible=1000  N_HET=140  N_HOM_ALT=10  N_HEMI=0  N_HOM_REF=850  N_FAIL=0  N_NO_COVERAGE=0
 ```
 
 **Interpretation**: AF=0.08 (8%) with AN=2000 → BA1 criterion met. This variant is benign in the controls subgroup of your cohort.
@@ -175,11 +175,11 @@ AC=3, AF=0.000625 → the variant is present, so strict PM2 (absent) does not ap
 ```bash
 # Cases: 300 samples tagged with the disease
 afquery query --db ./db/ --locus chr15:48762884 --ref C --alt T --phenotype DISEASE_X
-# chr15:48762884 C>T  AC=3  AN=580  AF=0.005172  n_eligible=290  N_HET=3  N_HOM_ALT=0  N_HOM_REF=287  N_FAIL=0  N_NO_COVERAGE=0
+# chr15:48762884 C>T  AC=3  AN=580  AF=0.005172  n_eligible=290  N_HET=3  N_HOM_ALT=0  N_HEMI=0  N_HOM_REF=287  N_FAIL=0  N_NO_COVERAGE=0
 
 # Controls: remaining 2200 samples
 afquery query --db ./db/ --locus chr15:48762884 --ref C --alt T --phenotype ^DISEASE_X
-# chr15:48762884 C>T  AC=0  AN=4220  AF=0.000000  n_eligible=2110  N_HET=0  N_HOM_ALT=0  N_HOM_REF=2110  N_FAIL=0  N_NO_COVERAGE=0
+# chr15:48762884 C>T  AC=0  AN=4220  AF=0.000000  n_eligible=2110  N_HET=0  N_HOM_ALT=0  N_HEMI=0  N_HOM_REF=2110  N_FAIL=0  N_NO_COVERAGE=0
 ```
 
 All 3 carriers are in the disease group. Enrichment is significant (AF=0.005 vs AF=0.000, Fisher's exact p < 0.001). **PS4 applicable** — the variant is enriched in affected individuals.
@@ -203,7 +203,7 @@ AC=0 with AN=50 does **not** mean the variant is absent — it means you have no
 
 ### chrX Ploidy Effects
 
-On chrX non-PAR regions, males contribute AN=1 and females AN=2. A cohort with 80% males has lower AN than expected from sample count alone, and hemizygous males who carry the variant contribute AC=1 as homozygotes. See [Ploidy & Sex Chromosomes](../advanced/ploidy-and-sex-chroms.md).
+On chrX non-PAR regions, males contribute AN=1 and females AN=2. A cohort with 80% males has lower AN than expected from sample count alone, and hemizygous males who carry the variant contribute AC=1 each and are counted in `N_HEMI`, not `N_HOM_ALT`. See [Ploidy & Sex Chromosomes](../advanced/ploidy-and-sex-chroms.md).
 
 ### High N_FAIL at the Variant Site
 

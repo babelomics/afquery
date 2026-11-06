@@ -31,6 +31,9 @@ def test_query_expected(test_db, case):
     assert match.AN == case["AN"], f"{case['description']}: AN mismatch"
     assert match.n_samples_eligible == case["n_eligible"], \
         f"{case['description']}: n_eligible mismatch"
+    for field in ("N_HET", "N_HOM_ALT", "N_HEMI"):
+        if field in case:
+            assert getattr(match, field) == case[field], f"{case['description']}: {field}"
 
     if case["AF"] is None:
         assert match.AF is None

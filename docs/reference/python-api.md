@@ -292,6 +292,8 @@ db.dump(
 
 Export allele frequency data to CSV. If `output` is None, writes to stdout.
 `include_ac_zero=True` includes positions with `AC=0` (equivalent to `--all-variants` in the CLI).
+The CSV columns, including `n_eligible` and the per-group columns, are described in
+[Bulk Export](../guides/dump-export.md#disaggregate-output).
 
 ---
 
@@ -464,15 +466,16 @@ class QueryResult:
     AN: int                  # Allele number (samples in N_FAIL left out)
     AF: float | None         # Allele frequency (None if AN == 0)
     n_samples_eligible: int  # Number of eligible samples at this position
-    N_HET: int               # Heterozygous count
-    N_HOM_ALT: int           # Homozygous alt count
-    N_HOM_REF: int           # Homozygous ref count
+    N_HET: int               # Heterozygous count (diploid)
+    N_HOM_ALT: int           # Homozygous alt count (diploid); every carrier on chrM
+    N_HEMI: int              # Hemizygous count: males carrying the allele on chrX non-PAR or chrY
+    N_HOM_REF: int           # Homozygous ref count (hemizygous for REF where haploid)
     N_FAIL: int              # Eligible samples with a failed call at the position (out of AC and AN)
     N_NO_COVERAGE: int       # Eligible samples whose tech lacks evidence (excluded from N_HOM_REF)
 ```
 
 At a biallelic site the genotype categories partition the eligible samples:
-`N_HET + N_HOM_ALT + N_HOM_REF + N_FAIL + N_NO_COVERAGE == n_samples_eligible`.
+`N_HET + N_HOM_ALT + N_HEMI + N_HOM_REF + N_FAIL + N_NO_COVERAGE == n_samples_eligible`.
 At a multi-allelic site, eligible samples that carry only another ALT allele at
 the position fall in none of these categories for this allele, so the sum is
 lower than `n_samples_eligible` by exactly that number of samples.
@@ -502,7 +505,7 @@ class SampleCarrier:
     sex: str              # 'male' | 'female'
     tech_name: str        # Sequencing technology
     phenotypes: list[str] # Sorted phenotype codes
-    genotype: str            # 'het' | 'hom' | 'alt' | 'no_coverage'
+    genotype: str            # 'het' | 'hom' | 'hemi' | 'alt' | 'no_coverage'
     filter_pass: bool | None # True=PASS, False=FILTER≠PASS, None=no call (no_coverage)
 ```
 
@@ -515,7 +518,7 @@ Returned by `Database.variant_info()`. Each instance represents one sample carry
 | `sex` | str | `"male"` or `"female"` |
 | `tech_name` | str | Sequencing technology name |
 | `phenotypes` | list[str] | Sorted list of phenotype codes |
-| `genotype` | str | `"het"` (heterozygous, PASS), `"hom"` (homozygous alt, PASS), `"alt"` (non-ref, FILTER≠PASS), or `"no_coverage"` (WES sample whose tech lacks evidence — see [Coverage Evidence](../advanced/coverage-evidence.md)) |
+| `genotype` | str | `"het"` (heterozygous, PASS), `"hom"` (homozygous alt, PASS; every carrier on chrM), `"hemi"` (hemizygous male on chrX non-PAR or chrY, PASS), `"alt"` (failed call: FILTER≠PASS or a genotype inconsistent with ploidy), or `"no_coverage"` (WES sample whose tech lacks evidence — see [Coverage Evidence](../advanced/coverage-evidence.md)) |
 | `filter_pass` | bool \| None | `True` if FILTER=PASS, `False` if FILTER≠PASS, `None` when `genotype == "no_coverage"` (the sample has no call at this position) |
 
 ---
@@ -580,7 +583,7 @@ db = Database("./my_db/")
 # Point query
 results = db.query("chr1", pos=925952, phenotype=["E11.9"], sex="female")
 for r in results:
-    print(f"AF={r.AF:.4f}  AC={r.AC}/{r.AN}  HET={r.N_HET}  HOM={r.N_HOM_ALT}")
+    print(f"AF={r.AF:.4f}  AC={r.AC}/{r.AN}  HET={r.N_HET}  HOM={r.N_HOM_ALT}  HEMI={r.N_HEMI}")
 
 # Region query
 region_results = db.query_region("chrX", start=154931044, end=155270560)

@@ -22,7 +22,7 @@ from test_update import write_manifest, write_vcf
 GROUP_A = [
     ("A0", "male",   "wgs", [("chr1", 1000, "A", "T", "0/1"),
                              ("chr1", 2_400_000, "G", "C", "1/1"),
-                             ("chrX", 4_000_000, "T", "A", "0/1")]),
+                             ("chrX", 4_000_000, "T", "A", "1")]),
     ("A1", "female", "wgs", [("chr1", 1000, "A", "T", "1/1"),
                              ("chrM", 300, "C", "T", "0/1")]),
 ]
@@ -31,7 +31,7 @@ GROUP_B = [
                              ("chr1", 5_600_000, "A", "G", "0/1"),
                              ("chr2", 700, "T", "C", "1/1")]),
     ("B1", "male",   "wgs", [("chr1", 2_400_000, "G", "C", "0/1"),
-                             ("chrY", 700_000, "A", "T", "1/1"),
+                             ("chrY", 2_700_000, "A", "T", "1/1"),
                              ("chrX", 4_000_000, "T", "A", "1/1")]),
 ]
 
@@ -64,7 +64,7 @@ def _snapshot(db_dir):
     for chrom, pos, ref, alt in ALL_SITES:
         for r in db.query(chrom=chrom, pos=pos, sex="both"):
             out[(chrom, pos, r.variant.ref, r.variant.alt)] = (
-                r.AC, r.AN, r.N_HET, r.N_HOM_ALT, r.N_HOM_REF, r.N_FAIL,
+                r.AC, r.AN, r.N_HET, r.N_HOM_ALT, r.N_HEMI, r.N_HOM_REF, r.N_FAIL,
             )
     return out
 
@@ -152,8 +152,8 @@ def test_remove_undoes_add(tmp_path, groups):
         assert after[key] == counts, f"{key} changed across add-then-remove"
     for key, counts in after.items():
         if key not in before:
-            AC, _AN, n_het, n_hom_alt, _n_hom_ref, n_fail = counts
-            assert (AC, n_het, n_hom_alt, n_fail) == (0, 0, 0, 0), (
+            AC, _AN, n_het, n_hom_alt, n_hemi, _n_hom_ref, n_fail = counts
+            assert (AC, n_het, n_hom_alt, n_hemi, n_fail) == (0, 0, 0, 0, 0), (
                 f"{key} still has carriers after their only samples were removed"
             )
 
@@ -161,7 +161,7 @@ def test_remove_undoes_add(tmp_path, groups):
 def test_compact_preserves_carried_variants_and_is_idempotent(tmp_path, groups):
     """Compact may drop rows nobody carries, but must not change any that remain.
 
-    B1 is the only carrier on chrY:700000, so removing it empties that bucket
+    B1 is the only carrier on chrY:2700000, so removing it empties that bucket
     entirely — the case where compact used to crash on an empty row selection.
     """
     a, b = groups

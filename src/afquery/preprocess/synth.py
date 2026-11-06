@@ -18,6 +18,10 @@ def generate_synthetic_manifest(
     Genotype distribution: 95% 0/0, 3% 0/1, 2% 1/1 (sparse / rare-variant model).
     Sex alternates male/female. Tech is WGS (no BED file required).
 
+    Genotypes are diploid, so ``chroms`` should be autosomes: on chrX outside
+    the PARs or on chrY, a male's 0/1 is inconsistent with his single copy and
+    would be ingested as a failed call.
+
     Returns path to manifest.tsv.
     """
     output_dir = Path(output_dir)

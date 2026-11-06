@@ -9,6 +9,7 @@ import shutil
 import pytest
 
 from afquery.database import Database
+from afquery.models import AfqueryWarning
 from afquery.preprocess import run_preprocess
 from afquery.preprocess.build import build_all_parquets
 from afquery.preprocess.update import add_samples
@@ -37,7 +38,7 @@ def _assert_matches(db_dir, cohort, samples=None, phenotype=None, label="",
         r = got[0]
         actual = {
             "AC": r.AC, "AN": r.AN, "N_HET": r.N_HET, "N_HOM_ALT": r.N_HOM_ALT,
-            "N_FAIL": r.N_FAIL, "N_HOM_REF": r.N_HOM_REF,
+            "N_HEMI": r.N_HEMI, "N_FAIL": r.N_FAIL, "N_HOM_REF": r.N_HOM_REF,
             "n_eligible": r.n_samples_eligible,
         }
         assert actual == want, f"{label} {chrom}:{pos} {ref}>{alt}"
@@ -117,6 +118,8 @@ def grown_db(built_db, tmp_path, data_dir):
 
     entries = []
     for name, tech, sex, variants in [
+        # S10's 0/1 on chrX non-PAR is a heterozygous call in a male, which has
+        # one allele there: a failed call, on purpose, in the add-samples path.
         ("S10", "wgs", "male", [("chr1", 1500, "A", "T", "1/1"),
                                 ("chr1", 7000, "A", "T", "0/1"),
                                 ("chrX", 5000000, "A", "G", "0/1")]),
@@ -239,3 +242,68 @@ def test_multiallelic_cohort_matches_oracle(tmp_path):
     # chrX:5000000: X_GC carries G and C on one allele, so it is a failed call
     got = {r.variant.alt: r for r in Database(str(db)).query("chrX", 5000000)}
     assert got["G"].N_FAIL == got["C"].N_FAIL == 1
+
+
+def test_sex_chromosome_cohort_matches_oracle(tmp_path):
+    """Hemizygous, failed and heteroplasmic calls on the sex chromosomes and chrM.
+
+    chrX non-PAR and chrY: a male's 1 or 1/1 is a hemizygous carrier, his 0/1 a
+    failed call. chrX PAR: diploid for everyone. chrY PAR: not genotyped.
+    chrM: every carrier, 0/1 included, counts in N_HOM_ALT."""
+    X, XPAR, Y, YPAR, M = 5000000, 100000, 2700000, 500000, 100
+    calls = {
+        # name: (sex, [(chrom, pos, ref, alt, gt)])
+        "M_HAP":  ("male",   [("chrX", X, "A", "G", "1"), ("chrY", Y, "C", "T", "1"),
+                              ("chrX", XPAR, "C", "G", "0/1"), ("chrM", M, "C", "A", "1")]),
+        "M_HOM":  ("male",   [("chrX", X, "A", "G", "1/1"), ("chrY", Y, "C", "T", "1/1"),
+                              ("chrY", YPAR, "G", "A", "1"), ("chrM", M, "C", "A", "0/1")]),
+        "M_HET":  ("male",   [("chrX", X, "A", "G", "0/1"), ("chrY", Y, "C", "T", "0/1")]),
+        "M_REF":  ("male",   []),
+        "F_HET":  ("female", [("chrX", X, "A", "G", "0/1"), ("chrX", XPAR, "C", "G", "1/1"),
+                              ("chrM", M, "C", "A", "1/1")]),
+        "F_HOM":  ("female", [("chrX", X, "A", "G", "1/1")]),
+        "F_REF":  ("female", []),
+    }
+    manifest = ["sample_name\tsex\ttech_name\tvcf_path\tphenotype_codes"]
+    for name, (sex, records) in calls.items():
+        vcf = tmp_path / f"{name}.vcf"
+        with open(vcf, "w") as f:
+            f.write("##fileformat=VCFv4.2\n")
+            for contig in ("chrX", "chrY", "chrM"):
+                f.write(f"##contig=<ID={contig}>\n")
+            f.write('##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">\n')
+            f.write(f"#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{name}\n")
+            for chrom, pos, ref, alt, gt in sorted(records, key=lambda r: (r[0], r[1])):
+                f.write(f"{chrom}\t{pos}\t.\t{ref}\t{alt}\t.\tPASS\t.\tGT\t{gt}\n")
+        manifest.append(f"{name}\t{sex}\twgs\t{vcf}\tE11.9")
+    manifest_path = tmp_path / "manifest.tsv"
+    manifest_path.write_text("\n".join(manifest) + "\n")
+
+    db = tmp_path / "db"
+    run_preprocess(manifest_path=str(manifest_path), output_dir=str(db),
+                   genome_build="GRCh37", threads=1)
+    cohort = oracle.Cohort(manifest_path)
+    # The chrY PAR call is looked up too, and warned about
+    with pytest.warns(AfqueryWarning, match="pseudoautosomal"):
+        _assert_matches(db, cohort, label="sex chromosomes")
+    with pytest.warns(AfqueryWarning, match="pseudoautosomal"):
+        _assert_matches(db, cohort, label="sex chromosomes, fail as ref", fail_as_ref=True)
+
+    database = Database(str(db))
+
+    def counts(chrom, pos, **kw):
+        [r] = database.query(chrom, pos, **kw)
+        return (r.N_HET, r.N_HOM_ALT, r.N_HEMI, r.N_HOM_REF, r.N_FAIL, r.AC, r.AN)
+
+    # chrX non-PAR: M_HAP and M_HOM hemizygous, M_HET failed, M_REF hemizygous REF;
+    # F_HET het, F_HOM hom, F_REF hom-ref. AN: 3 males x 1 + 3 females x 2.
+    assert counts("chrX", X) == (1, 1, 2, 2, 1, 5, 9)
+    assert counts("chrX", X, sex="male") == (0, 0, 2, 1, 1, 2, 3)
+    # chrY non-PAR: males only
+    assert counts("chrY", Y) == (0, 0, 2, 1, 1, 2, 3)
+    # chrX PAR: diploid; M_HAP's 0/1 is a genuine heterozygote there
+    assert counts("chrX", XPAR) == (1, 1, 0, 5, 0, 3, 14)
+    # chrM: M_HAP 1, M_HOM 0/1, F_HET 1/1 all count once, in N_HOM_ALT
+    assert counts("chrM", M) == (0, 3, 0, 4, 0, 3, 7)
+    # chrY PAR: nobody genotyped
+    assert database.query_region("chrY", YPAR, YPAR) == []

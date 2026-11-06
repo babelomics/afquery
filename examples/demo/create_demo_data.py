@@ -69,7 +69,7 @@ WES_V2_REGIONS = WES_V1_REGIONS + [
 PINNED_VARIANTS = [
     # chr1:925952 — inside wes_v1 + wes_v2 capture region (chr1:900000-950000)
     # Primary teaching variant used throughout steps 4–8 of the tutorial.
-    # Expected (no filter): AC=6, AN=20, AF=0.3000, N_HET=4, N_HOM_ALT=1, N_HOM_REF=5, N_FAIL=0
+    # Expected (no filter): AC=6, AN=20, AF=0.3000, N_HET=4, N_HOM_ALT=1, N_HEMI=0, N_HOM_REF=5, N_FAIL=0
     ("chr1", 925952, "G", "A", {
         "DEMO_001": "0/1",   # female, wgs,    E11.9+I10
         "DEMO_002": "1/1",   # male,   wgs,    E11.9
@@ -84,7 +84,7 @@ PINNED_VARIANTS = [
     }),
     # chr1:925100 — second variant in the same WES region, adds a second row to
     # region queries on chr1:900000-950000.
-    # Expected (no filter): AC=4, AN=20, AF=0.2000, N_HET=4, N_HOM_ALT=0, N_HOM_REF=6, N_FAIL=0
+    # Expected (no filter): AC=4, AN=20, AF=0.2000, N_HET=4, N_HOM_ALT=0, N_HEMI=0, N_HOM_REF=6, N_FAIL=0
     ("chr1", 925100, "C", "T", {
         "DEMO_001": "0/1",
         "DEMO_002": "0/0",
@@ -100,7 +100,7 @@ PINNED_VARIANTS = [
     # chr1:946000 — inside wes_v1 + wes_v2 capture region (chr1:900000-950000)
     # N_FAIL teaching variant: DEMO_002 and DEMO_004 carry the alt allele with
     # a LowQual filter → they contribute to N_FAIL, not AC/AN.
-    # Expected (no filter): AC=2, AN=16, AF=0.1250, N_HET=2, N_HOM_ALT=0, N_HOM_REF=6, N_FAIL=2
+    # Expected (no filter): AC=2, AN=16, AF=0.1250, N_HET=2, N_HOM_ALT=0, N_HEMI=0, N_HOM_REF=6, N_FAIL=2
     ("chr1", 946000, "T", "C", {
         "DEMO_001": ("0/1", "PASS"),
         "DEMO_002": ("0/1", "LowQual"),
@@ -171,6 +171,11 @@ def _generate_variant_pool(n_per_chrom: int = 20) -> list[tuple[str, int, str, s
 
     for _ in range(5):
         pos = random.randint(2700000, 10000000)
+        # Stay outside the chrY PAR1 of GRCh38 (ends at 2,781,479): the chrY PARs
+        # are not genotyped. Shifting instead of redrawing keeps the random
+        # sequence, and so every other variant and genotype, unchanged.
+        if pos <= 2781479:
+            pos += 100000
         ref = random.choice(BASES)
         pool.append(("chrY", pos, ref, _alt_for(ref)))
 
@@ -233,15 +238,13 @@ def _write_vcf(
         else:
             continue  # skip (not called)
 
-        # Haploid on chrY/chrM for males, chrY excluded for females
-        if chrom == "chrY":
-            if sex == "female":
-                continue
-            gt = gt.replace("0/", "").replace("/0", "").replace("/1", "")
-            if gt == "0":
-                gt = "0"
-            elif "1" in gt:
-                gt = "1"
+        # Males are haploid on chrX outside the PARs (all chrX pool positions
+        # are) and on chrY; females have no chrY. A haploid genotype is written
+        # with one allele, as a sex-aware caller writes it.
+        if chrom == "chrY" and sex == "female":
+            continue
+        if chrom in ("chrX", "chrY") and sex == "male":
+            gt = "1" if "1" in gt else "0"
 
         if chrom == "chrM":
             gt = "1" if "1" in gt else "0"

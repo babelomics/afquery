@@ -50,7 +50,7 @@ VARIANTS = [
     ("chr1",  3500,    "G", "C", [7],        [],     []),       # no failures
     ("chr1",  5000,    "T", "G", [0],       [],     [1, 3]),   # S01, S03 fail FILTER
     ("chrX",  5000000, "A", "G", [0, 2],    [],     []),       # no failures
-    ("chrY",  500000,  "T", "C", [0, 1],    [4],    []),       # no failures
+    ("chrY",  2700000, "T", "C", [0, 1],    [4],    []),       # no failures; outside the chrY PARs
     ("chrM",  100,     "C", "A", [0, 2],    [],     [5]),      # S05 fails FILTER
 ]
 

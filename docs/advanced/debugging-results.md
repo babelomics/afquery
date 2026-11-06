@@ -19,6 +19,7 @@ AN=0 means no eligible samples at the queried position. Work through these check
 | WES samples missing from AN | `afquery query --db ./db/ --locus chr1:12345678 --tech WES_kit_A` | If this prints `No variants found for the given filters.` for a technology whose kit should cover the position, while the unfiltered query returns the variant, that technology's capture index is not matching the position. `afquery` warns on open when a capture BED is empty or matches no known chromosome, naming the offending contigs. |
 | AN=0 only on chrM | `afquery query --db ./db/ --locus chrM:3243` | Mitochondrial coverage is easy to lose on its own: a BED naming it `chrMT` still matches on the autosomes, so nothing else looks wrong. Names are normalized (`MT`, `M`, `chrMT` → `chrM`) since v0.4.0 — databases built before that may need the capture BED re-checked. |
 | Technology filter | Remove `--tech` filter | Check if any samples match the requested technology. |
+| Position in a chrY PAR | `afquery query --db ./db/ --locus chrY:1500000` | A warning says the position lies in a pseudoautosomal region. PAR loci are counted at their chrX coordinates; query the chrX position instead. |
 
 ### 2. Unexpected AF Value
 
@@ -88,7 +89,7 @@ Validates: manifest consistency, Parquet file integrity, capture index presence.
 afquery query --db ./db/ --locus chr1:12345678 --format json
 ```
 
-JSON format shows all fields including N_HET, N_HOM_ALT, N_HOM_REF, and N_FAIL — useful for understanding the composition of the result.
+JSON format shows all fields including N_HET, N_HOM_ALT, N_HEMI, N_HOM_REF, and N_FAIL — useful for understanding the composition of the result.
 
 
 ### Direct Metadata Inspection
