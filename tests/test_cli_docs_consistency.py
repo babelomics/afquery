@@ -117,6 +117,26 @@ def test_query_outputs_report_n_hemi(test_db):
     assert "N_HOM_ALT=0  N_HEMI=1  N_HOM_REF=2" in text
 
 
+def test_query_outputs_report_ac_ref(test_db):
+    """AC_REF follows AF in TSV and is in every query output format."""
+    args = ["query", "--db", test_db, "--locus", "chrX:5000000"]
+    tsv = runner.invoke(cli, args + ["--format", "tsv"]).output.splitlines()
+    header = tsv[0].split("\t")
+    assert header[header.index("AF") + 1] == "AC_REF"
+    row = dict(zip(header, tsv[1].split("\t")))
+    assert int(row["AN"]) == int(row["AC_REF"]) + int(row["AC"])
+
+    [entry] = json.loads(runner.invoke(cli, args + ["--format", "json"]).output)
+    assert entry["AC_REF"] == entry["AN"] - entry["AC"]
+
+    text = runner.invoke(cli, args).output
+    assert f"AC_REF={entry['AC_REF']}  n_eligible=" in text
+
+
+def test_annotate_help_lists_ac_ref():
+    assert "AFQUERY_AC_REF" in _help(["annotate"])
+
+
 def test_annotate_help_lists_n_hemi():
     assert "AFQUERY_N_HEMI" in _help(["annotate"])
 

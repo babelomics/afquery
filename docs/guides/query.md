@@ -97,7 +97,7 @@ Batch queries support variants across multiple chromosomes in a single file.
 Human-readable, one block per variant:
 
 ```
-chr1:925952 G>A  AC=142  AN=2742  AF=0.0518  n_eligible=1371  N_HET=138  N_HOM_ALT=2  N_HEMI=0  N_HOM_REF=1231  N_FAIL=0  N_NO_COVERAGE=0
+chr1:925952 G>A  AC=142  AN=2742  AF=0.0518  AC_REF=2600  n_eligible=1371  N_HET=138  N_HOM_ALT=2  N_HEMI=0  N_HOM_REF=1231  N_FAIL=0  N_NO_COVERAGE=0
 ```
 
 ### tsv
@@ -109,8 +109,8 @@ afquery query --db ./db/ --region chr1:900000-1000000 --format tsv
 ```
 
 ```
-chrom	pos	ref	alt	AC	AN	AF	n_eligible	N_HET	N_HOM_ALT	N_HEMI	N_HOM_REF	N_FAIL	N_NO_COVERAGE
-chr1	925952	G	A	142	2742	0.051782	1371	138	2	0	1231	0	0
+chrom	pos	ref	alt	AC	AN	AF	AC_REF	n_eligible	N_HET	N_HOM_ALT	N_HEMI	N_HOM_REF	N_FAIL	N_NO_COVERAGE
+chr1	925952	G	A	142	2742	0.051782	2600	1371	138	2	0	1231	0	0
 ```
 
 
@@ -132,6 +132,7 @@ afquery query --db ./db/ --locus chr1:925952 --format json
     "AC": 142,
     "AN": 2742,
     "AF": 0.05178,
+    "AC_REF": 2600,
     "n_eligible": 1371,
     "N_HET": 138,
     "N_HOM_ALT": 2,
