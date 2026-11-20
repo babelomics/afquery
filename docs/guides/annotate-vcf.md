@@ -23,6 +23,7 @@ afquery annotate \
 | `AFQUERY_AC` | Integer | A (per ALT) | Allele count in eligible samples |
 | `AFQUERY_AN` | Integer | 1 (per site) | Allele number (total alleles examined, excluding samples in `AFQUERY_N_FAIL`) |
 | `AFQUERY_AF` | Float | A (per ALT) | Allele frequency (`AC / AN`); `.` when `AFQUERY_AN=0` |
+| `AFQUERY_AC_REF` | Integer | 1 (per site) | Reference allele count (`AFQUERY_AN` minus the AC of every ALT allele stored in the database at the position, including alleles absent from the input record). The reference frequency is `AFQUERY_AC_REF / AFQUERY_AN`. It is not `1 − AFQUERY_AF` at a multi-allelic site, nor `AN − ΣAFQUERY_AC` when the record does not list every stored allele. Not written when no sample is eligible, in which case only `AFQUERY_AN=0` is |
 | `AFQUERY_N_HET` | Integer | A (per ALT) | Heterozygous sample count (diploid genotypes) |
 | `AFQUERY_N_HOM_ALT` | Integer | A (per ALT) | Homozygous alt sample count (diploid genotypes); on chrM, every carrier |
 | `AFQUERY_N_HEMI` | Integer | A (per ALT) | Hemizygous carrier count: males carrying the allele on chrX outside the PARs or on chrY. `0` on autosomes, chrX PARs and chrM |
@@ -32,6 +33,8 @@ afquery annotate \
 
 !!! note "Multi-allelic sites"
     Number=A fields have one value per ALT allele (comma-separated for multi-allelic sites). Number=1 fields are shared across all ALT alleles at the same position.
+
+    Sites are defined by position whatever the REF of their alleles, so an insertion, a deletion and a SNV starting at the same position share `AFQUERY_AN`, `AFQUERY_AC_REF` and `AFQUERY_N_FAIL`.
 
 ---
 

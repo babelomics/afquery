@@ -99,7 +99,7 @@ afquery annotate [OPTIONS]
 | `--fail-as-ref` | flag | False | Count samples with a failed call at the position (`N_FAIL`) as hom-ref in AN instead of leaving them out. See [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md#counting-failed-calls-as-reference). |
 | `--no-warn` | flag | False | Suppress warnings for unknown phenotypes, technologies, and chromosomes |
 
-The annotated VCF gains `AFQUERY_AC`, `AFQUERY_AN`, `AFQUERY_AF`,
+The annotated VCF gains `AFQUERY_AC`, `AFQUERY_AN`, `AFQUERY_AF`, `AFQUERY_AC_REF`,
 `AFQUERY_N_HET`, `AFQUERY_N_HOM_ALT`, `AFQUERY_N_HEMI`, `AFQUERY_N_HOM_REF`,
 `AFQUERY_N_FAIL`, and `AFQUERY_N_NO_COVERAGE` INFO fields
 (see [Annotate a VCF](../guides/annotate-vcf.md#added-info-fields)).
@@ -136,10 +136,12 @@ afquery dump [OPTIONS]
 | `--min-quality-evidence` | INTEGER | `0` | Min quality-passing carriers per partially-covered tech. Requires a database built with `--min-dp`, `--min-gq`, `--min-qual`, or `--min-covered`. (0 = disabled) |
 | `--fail-as-ref` | flag | False | Count samples with a failed call at the position (`N_FAIL`) as hom-ref in AN instead of leaving them out. See [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md#counting-failed-calls-as-reference). |
 
-CSV columns: `chrom,pos,ref,alt,AC,AN,AF,n_eligible,N_HET,N_HOM_ALT,N_HEMI,N_HOM_REF,N_FAIL,N_NO_COVERAGE`.
+CSV columns: `chrom,pos,ref,alt,AC,AN,AF,AC_REF,n_eligible,N_HET,N_HOM_ALT,N_HEMI,N_HOM_REF,N_FAIL,N_NO_COVERAGE`.
 Each disaggregation group adds the same columns from `AC` onwards, suffixed
-with its label (`AC_<label>`, `AN_<label>`, `AF_<label>`, `n_eligible_<label>`, …).
-See [Bulk Export](../guides/dump-export.md#disaggregate-output).
+with its label (`AC_<label>`, `AN_<label>`, `AF_<label>`, `AC_REF_<label>`, `n_eligible_<label>`, …).
+If two columns would share a name, `dump` exits with a usage error.
+See [Bulk Export](../guides/dump-export.md#disaggregate-output) and
+[Summing Dump Groups](../guides/dump-aggregation.md).
 
 ---
 

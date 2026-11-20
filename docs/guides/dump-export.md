@@ -65,8 +65,15 @@ All three disaggregation modes work on the same principle: add stratified column
 
 Base columns (always present):
 ```
-chrom,pos,ref,alt,AC,AN,AF,n_eligible,N_HET,N_HOM_ALT,N_HEMI,N_HOM_REF,N_FAIL,N_NO_COVERAGE
+chrom,pos,ref,alt,AC,AN,AF,AC_REF,n_eligible,N_HET,N_HOM_ALT,N_HEMI,N_HOM_REF,N_FAIL,N_NO_COVERAGE
 ```
+
+`AC_REF` is the number of reference alleles at the position, that is, `AN`
+minus the `AC` of every alt allele stored there, whatever its REF. Alleles
+whose row is left out of the dump are subtracted as well. `AC_REF` is the same
+on every row of a position, so each row holds both the allele frequency
+(`AC / AN`) and the reference frequency (`AC_REF / AN`). At a multi-allelic
+position the reference frequency is not `1 − AF`.
 
 `n_eligible` is the number of samples that can be genotyped at the position:
 they pass the sample filters, their technology covers the position, and they
@@ -94,7 +101,7 @@ i.e. when no eligible sample of that group has a usable call at the position.
 
     Output columns:
     ```
-    chrom,pos,ref,alt,AC,AN,AF,n_eligible,N_HET,N_HOM_ALT,N_HEMI,N_HOM_REF,N_FAIL,N_NO_COVERAGE,AC_male,AN_male,AF_male,n_eligible_male,N_HET_male,N_HOM_ALT_male,N_HEMI_male,N_HOM_REF_male,N_FAIL_male,N_NO_COVERAGE_male,AC_female,AN_female,AF_female,n_eligible_female,N_HET_female,N_HOM_ALT_female,N_HEMI_female,N_HOM_REF_female,N_FAIL_female,N_NO_COVERAGE_female
+    chrom,pos,ref,alt,AC,AN,AF,AC_REF,n_eligible,N_HET,N_HOM_ALT,N_HEMI,N_HOM_REF,N_FAIL,N_NO_COVERAGE,AC_male,AN_male,AF_male,AC_REF_male,n_eligible_male,N_HET_male,N_HOM_ALT_male,N_HEMI_male,N_HOM_REF_male,N_FAIL_male,N_NO_COVERAGE_male,AC_female,AN_female,AF_female,AC_REF_female,n_eligible_female,N_HET_female,N_HOM_ALT_female,N_HEMI_female,N_HOM_REF_female,N_FAIL_female,N_NO_COVERAGE_female
     ```
 
 === "--by-tech"
@@ -105,7 +112,7 @@ i.e. when no eligible sample of that group has a usable call at the position.
     afquery dump --db ./db/ --by-tech --output by_tech.csv
     ```
 
-    Output columns include `AC_wgs`, `AN_wgs`, `AF_wgs`, `n_eligible_wgs`, `N_HET_wgs`, `N_HOM_ALT_wgs`, `N_HEMI_wgs`, `N_HOM_REF_wgs`, `N_FAIL_wgs`, `N_NO_COVERAGE_wgs`, `AC_wes_v1`, `AN_wes_v1`, etc. (one group of ten columns per registered technology).
+    Output columns include `AC_wgs`, `AN_wgs`, `AF_wgs`, `AC_REF_wgs`, `n_eligible_wgs`, `N_HET_wgs`, `N_HOM_ALT_wgs`, `N_HEMI_wgs`, `N_HOM_REF_wgs`, `N_FAIL_wgs`, `N_NO_COVERAGE_wgs`, `AC_wes_v1`, `AN_wes_v1`, etc. (one group of eleven columns per registered technology).
 
 === "--by-phenotype"
 
@@ -118,7 +125,7 @@ i.e. when no eligible sample of that group has a usable call at the position.
       --output by_phenotype.csv
     ```
 
-    Output includes `AC_E11.9`, `AN_E11.9`, `AF_E11.9`, `n_eligible_E11.9`, `N_HET_E11.9`, `N_HOM_ALT_E11.9`, `N_HEMI_E11.9`, `N_HOM_REF_E11.9`, `N_FAIL_E11.9`, `N_NO_COVERAGE_E11.9`, `AC_I10`, etc.
+    Output includes `AC_E11.9`, `AN_E11.9`, `AF_E11.9`, `AC_REF_E11.9`, `n_eligible_E11.9`, `N_HET_E11.9`, `N_HOM_ALT_E11.9`, `N_HEMI_E11.9`, `N_HOM_REF_E11.9`, `N_FAIL_E11.9`, `N_NO_COVERAGE_E11.9`, `AC_I10`, etc.
 
 === "--all-groups"
 
@@ -130,6 +137,20 @@ i.e. when no eligible sample of that group has a usable call at the position.
 
     !!! warning
         The number of columns grows as a Cartesian product. Disaggregating by all combinations may produce a very wide CSV file.
+
+The axis of a group replaces the matching inclusion filter of the command
+instead of narrowing it. With `--sex male --by-sex` the `_female` columns
+still count the female samples, while exclusions such as `--phenotype ^CODE`
+apply to every group.
+
+Group labels join the active axes with `_` (`female_wes_v1_E11.9`). Since a
+technology or phenotype name can itself contain `_`, match column names
+against the known labels instead of splitting them on `_`. If two columns
+would end up with the same name, as happens with a technology called `REF`
+whose `AC_REF` column clashes with the base one, `dump` stops with an error.
+
+To add up the counts of several groups and derive frequencies from the sums,
+see [Summing Dump Groups](dump-aggregation.md).
 
 ---
 

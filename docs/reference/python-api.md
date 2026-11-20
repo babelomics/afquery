@@ -292,8 +292,11 @@ db.dump(
 
 Export allele frequency data to CSV. If `output` is None, writes to stdout.
 `include_ac_zero=True` includes positions with `AC=0` (equivalent to `--all-variants` in the CLI).
-The CSV columns, including `n_eligible` and the per-group columns, are described in
-[Bulk Export](../guides/dump-export.md#disaggregate-output).
+The CSV columns, including `AC_REF`, `n_eligible` and the per-group columns, are described in
+[Bulk Export](../guides/dump-export.md#disaggregate-output); how to sum groups is in
+[Summing Dump Groups](../guides/dump-aggregation.md). Raises
+`afquery.dump.DumpColumnError` (a `ValueError`) when group labels would produce
+two columns with the same name.
 
 ---
 
@@ -472,7 +475,13 @@ class QueryResult:
     N_HOM_REF: int           # Homozygous ref count (hemizygous for REF where haploid)
     N_FAIL: int              # Eligible samples with a failed call at the position (out of AC and AN)
     N_NO_COVERAGE: int       # Eligible samples whose tech lacks evidence (excluded from N_HOM_REF)
+    AC_REF: int              # Reference alleles at the position (AN minus the AC of every ALT there)
 ```
+
+`AC_REF` is the same for every allele of a position, so
+`AN == AC_REF + sum(AC of the position's alleles)`, and the reference frequency
+is `AC_REF / AN`. It is the last field so that positional construction of
+`QueryResult` keeps working.
 
 At a biallelic site the genotype categories partition the eligible samples:
 `N_HET + N_HOM_ALT + N_HEMI + N_HOM_REF + N_FAIL + N_NO_COVERAGE == n_samples_eligible`.

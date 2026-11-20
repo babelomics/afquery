@@ -37,7 +37,8 @@ def _assert_matches(db_dir, cohort, samples=None, phenotype=None, label="",
         assert got, f"{label} {chrom}:{pos} {ref}>{alt} returned nothing, expected {want}"
         r = got[0]
         actual = {
-            "AC": r.AC, "AN": r.AN, "N_HET": r.N_HET, "N_HOM_ALT": r.N_HOM_ALT,
+            "AC": r.AC, "AN": r.AN, "AC_REF": r.AC_REF,
+            "N_HET": r.N_HET, "N_HOM_ALT": r.N_HOM_ALT,
             "N_HEMI": r.N_HEMI, "N_FAIL": r.N_FAIL, "N_HOM_REF": r.N_HOM_REF,
             "n_eligible": r.n_samples_eligible,
         }

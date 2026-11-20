@@ -40,6 +40,7 @@ def _read_annotated(path: str) -> dict[int, dict]:
         result[v.POS] = {
             "AC": _as_tuple(v.INFO.get("AFQUERY_AC")),
             "AN": v.INFO.get("AFQUERY_AN"),
+            "AC_REF": v.INFO.get("AFQUERY_AC_REF"),
             "AF": _as_tuple(v.INFO.get("AFQUERY_AF")),
             "N_HET": _as_tuple(v.INFO.get("AFQUERY_N_HET")),
             "N_HOM_ALT": _as_tuple(v.INFO.get("AFQUERY_N_HOM_ALT")),
@@ -137,6 +138,7 @@ def test_annotate_uncovered_position(test_db, tmp_path):
         assert r["AN"] == 0, f"Expected AN=0 at pos {pos}"
         assert r["AC"] is None, f"Expected AFQUERY_AC absent at pos {pos}"
         assert r["AF"] is None, f"Expected AFQUERY_AF absent at pos {pos}"
+        assert r["AC_REF"] is None, f"Expected AFQUERY_AC_REF absent at pos {pos}"
 
 
 # ---------------------------------------------------------------------------
@@ -199,6 +201,7 @@ def test_annotate_info_headers_present(test_db, tmp_path):
     assert "AFQUERY_N_HOM_ALT" in header_str
     assert "AFQUERY_N_HEMI" in header_str
     assert "AFQUERY_N_HOM_REF" in header_str
+    assert "AFQUERY_AC_REF" in header_str
 
 
 # ---------------------------------------------------------------------------
@@ -343,3 +346,19 @@ def test_annotate_no_hemizygotes_on_autosomes(test_db, tmp_path):
     for pos, r in _read_annotated(out).items():
         if r["AC"] is not None:
             assert all(n == 0 for n in r["N_HEMI"]), pos
+
+
+def test_annotate_ac_ref_matches_query(test_db, tmp_path):
+    """AFQUERY_AC_REF equals the AC_REF query reports for the position."""
+    from afquery.database import Database
+    db = Database(test_db)
+    out = str(tmp_path / "out.vcf")
+    db.annotate_vcf(DATA_VCF, out)
+    checked = 0
+    for v in cyvcf2.VCF(out):
+        results = db.query(v.CHROM, v.POS)
+        if v.INFO.get("AFQUERY_AN") in (None, 0) or not results:
+            continue
+        assert {r.AC_REF for r in results} == {v.INFO.get("AFQUERY_AC_REF")}
+        checked += 1
+    assert checked > 0

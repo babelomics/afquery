@@ -47,7 +47,7 @@ AFQuery solves this with per-position, per-technology capture-aware AN, ploidy-a
 - **Coverage evidence model** — `N_NO_COVERAGE` separates trusted hom-ref from samples lacking sufficient evidence; query-time gates (`--min-pass`, `--min-observed`, `--min-quality-evidence`) keep AF conservative.
 - **ACMG-compatible AC/AN/AF** — per-standard definitions, exposed as both query output and VCF INFO fields.
 - **Flexible metadata filtering** — arbitrary phenotype labels (ICD-10, HPO, OMIM, custom tags), inclusion or exclusion (`^` prefix), combined with sex and technology.
-- **Parallel VCF annotation** — multi-threaded; adds `AFQUERY_AC/AN/AF/N_HET/N_HOM_ALT/N_HEMI/N_HOM_REF/N_FAIL/N_NO_COVERAGE` INFO fields.
+- **Parallel VCF annotation** — multi-threaded; adds `AFQUERY_AC/AN/AF/AC_REF/N_HET/N_HOM_ALT/N_HEMI/N_HOM_REF/N_FAIL/N_NO_COVERAGE` INFO fields.
 - **Bulk CSV export** — per-variant frequencies with optional disaggregation by sex, technology, or phenotype.
 - **Incremental updates** — add or remove samples, edit phenotype/sex metadata, compact storage, without full rebuilds.
 - **Audit changelog** — every database operation is logged with timestamps and operator notes.
@@ -155,6 +155,7 @@ Every query and annotated VCF reports:
 | `AC` | Alt-allele count over eligible samples (FILTER=PASS) |
 | `AN` | Total alleles considered, ploidy- and capture-aware |
 | `AF` | `AC / AN` |
+| `AC_REF` | Reference alleles at the position: `AN` minus the AC of every alt allele there (the reference frequency is `AC_REF / AN`) |
 | `N_HET` | Heterozygous PASS carriers (diploid) |
 | `N_HOM_ALT` | Homozygous-alt PASS carriers (diploid); every carrier on chrM |
 | `N_HEMI` | Hemizygous PASS carriers: males on chrX outside the PARs and on chrY |

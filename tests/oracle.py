@@ -195,15 +195,26 @@ class Cohort:
 
         AN = 0
         AC = 0
+        ac_ref = 0
         n_het = n_hom_alt = n_hemi = n_fail = 0
         for s in elig:
             haploid = self.is_haploid(s, chrom, pos)
+            ploidy = 1 if haploid else 2
             if s in site_fail:
                 n_fail += 1
                 if fail_as_ref:
-                    AN += 1 if haploid else 2
+                    AN += ploidy
+                    ac_ref += ploidy
                 continue
-            AN += 1 if haploid else 2
+            AN += ploidy
+            # Reference copies are the sample's alleles not taken by any ALT
+            # stored at the position, whatever its REF. A haploid sample has
+            # one allele, taken by whichever ALT it carries.
+            carried = [st for st in (c.get(s) for c in site.values()) if st in ("het", "hom")]
+            if haploid:
+                ac_ref += ploidy - len(carried)
+            else:
+                ac_ref += ploidy - sum(2 if st == "hom" else 1 for st in carried)
             state = calls.get(s)
             if state not in ("het", "hom"):
                 continue
@@ -237,6 +248,7 @@ class Cohort:
         return {
             "AC": AC,
             "AN": AN,
+            "AC_REF": ac_ref,
             "N_HET": n_het,
             "N_HOM_ALT": n_hom_alt,
             "N_HEMI": n_hemi,

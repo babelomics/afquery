@@ -34,7 +34,7 @@ afquery query --db ./db/ --locus chrX:153296777
 ```
 
 ```
-chrX:153296777 C>T  AC=15  AN=2500  AF=0.0060  n_eligible=1500  N_HET=5  N_HOM_ALT=0  N_HEMI=10  N_HOM_REF=1485  N_FAIL=0  N_NO_COVERAGE=0
+chrX:153296777 C>T  AC=15  AN=2500  AF=0.0060  AC_REF=2485  n_eligible=1500  N_HET=5  N_HOM_ALT=0  N_HEMI=10  N_HOM_REF=1485  N_FAIL=0  N_NO_COVERAGE=0
 ```
 
 AN=2500: 500 males × 1 + 1000 females × 2 = 2500 (mixed ploidy). The 10 hemizygous male carriers are counted in N_HEMI, and the 5 heterozygous females in N_HET; N_HOM_ALT counts only females homozygous for the allele (none here). N_HOM_REF holds 490 males hemizygous for the reference and 995 homozygous-reference females.
@@ -46,7 +46,7 @@ afquery query --db ./db/ --locus chrX:153296777 --sex male
 ```
 
 ```
-chrX:153296777 C>T  AC=10  AN=500  AF=0.0200  n_eligible=500  N_HET=0  N_HOM_ALT=0  N_HEMI=10  N_HOM_REF=490  N_FAIL=0  N_NO_COVERAGE=0
+chrX:153296777 C>T  AC=10  AN=500  AF=0.0200  AC_REF=490  n_eligible=500  N_HET=0  N_HOM_ALT=0  N_HEMI=10  N_HOM_REF=490  N_FAIL=0  N_NO_COVERAGE=0
 ```
 
 Hemizygous rate: 2%. Males are haploid at chrX non-PAR, so every carrier is hemizygous: N_HEMI = AC = 10, and N_HET and N_HOM_ALT are 0. A male whose call there is heterozygous (`0/1`) is counted in N_FAIL instead, since a single copy cannot hold both alleles.
@@ -58,7 +58,7 @@ afquery query --db ./db/ --locus chrX:153296777 --sex female
 ```
 
 ```
-chrX:153296777 C>T  AC=5  AN=2000  AF=0.0025  n_eligible=1000  N_HET=5  N_HOM_ALT=0  N_HEMI=0  N_HOM_REF=995  N_FAIL=0  N_NO_COVERAGE=0
+chrX:153296777 C>T  AC=5  AN=2000  AF=0.0025  AC_REF=1995  n_eligible=1000  N_HET=5  N_HOM_ALT=0  N_HEMI=0  N_HOM_REF=995  N_FAIL=0  N_NO_COVERAGE=0
 ```
 
 Carrier rate: 0.25%

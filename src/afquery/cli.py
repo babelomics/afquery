@@ -74,7 +74,8 @@ def _print_results(results, fmt: str) -> None:
             entry = {
                 "chrom": r.variant.chrom, "pos": r.variant.pos,
                 "ref": r.variant.ref, "alt": r.variant.alt,
-                "AC": r.AC, "AN": r.AN, "AF": r.AF, "n_eligible": r.n_samples_eligible,
+                "AC": r.AC, "AN": r.AN, "AF": r.AF, "AC_REF": r.AC_REF,
+                "n_eligible": r.n_samples_eligible,
                 "N_HET": r.N_HET, "N_HOM_ALT": r.N_HOM_ALT, "N_HEMI": r.N_HEMI,
                 "N_HOM_REF": r.N_HOM_REF,
                 "N_FAIL": r.N_FAIL, "N_NO_COVERAGE": r.N_NO_COVERAGE,
@@ -83,7 +84,7 @@ def _print_results(results, fmt: str) -> None:
         click.echo(json.dumps(out, indent=2))
     elif fmt == "tsv":
         header = (
-            "chrom\tpos\tref\talt\tAC\tAN\tAF\tn_eligible\t"
+            "chrom\tpos\tref\talt\tAC\tAN\tAF\tAC_REF\tn_eligible\t"
             "N_HET\tN_HOM_ALT\tN_HEMI\tN_HOM_REF\tN_FAIL\tN_NO_COVERAGE"
         )
         click.echo(header)
@@ -91,7 +92,7 @@ def _print_results(results, fmt: str) -> None:
             af = f"{r.AF:.6f}" if r.AF is not None else "NA"
             line = (
                 f"{r.variant.chrom}\t{r.variant.pos}\t{r.variant.ref}\t"
-                f"{r.variant.alt}\t{r.AC}\t{r.AN}\t{af}\t{r.n_samples_eligible}\t"
+                f"{r.variant.alt}\t{r.AC}\t{r.AN}\t{af}\t{r.AC_REF}\t{r.n_samples_eligible}\t"
                 f"{r.N_HET}\t{r.N_HOM_ALT}\t{r.N_HEMI}\t{r.N_HOM_REF}\t{r.N_FAIL}\t"
                 f"{r.N_NO_COVERAGE}"
             )
@@ -104,7 +105,7 @@ def _print_results(results, fmt: str) -> None:
             af = f"{r.AF:.4f}" if r.AF is not None else "NA"
             click.echo(
                 f"{r.variant.chrom}:{r.variant.pos} {r.variant.ref}>{r.variant.alt}  "
-                f"AC={r.AC}  AN={r.AN}  AF={af}  n_eligible={r.n_samples_eligible}  "
+                f"AC={r.AC}  AN={r.AN}  AF={af}  AC_REF={r.AC_REF}  n_eligible={r.n_samples_eligible}  "
                 f"N_HET={r.N_HET}  N_HOM_ALT={r.N_HOM_ALT}  N_HEMI={r.N_HEMI}  "
                 f"N_HOM_REF={r.N_HOM_REF}  N_FAIL={r.N_FAIL}  N_NO_COVERAGE={r.N_NO_COVERAGE}"
             )
@@ -329,6 +330,8 @@ def annotate(db, input_vcf, output_vcf, phenotype, sex, tech, threads, verbose,
       AFQUERY_AC          allele count (per ALT)
       AFQUERY_AN          allele number (per site)
       AFQUERY_AF          allele frequency (per ALT)
+      AFQUERY_AC_REF      reference allele count, i.e. AN minus the AC of every
+                          allele stored at the position (per site)
       AFQUERY_N_HET       heterozygous carrier count, diploid (per ALT)
       AFQUERY_N_HOM_ALT   homozygous alt count, diploid; every carrier on chrM (per ALT)
       AFQUERY_N_HEMI      hemizygous carrier count, males on chrX non-PAR and chrY (per ALT)
@@ -385,8 +388,12 @@ def dump(db, output, chrom, start, end, phenotype, sex, tech,
     include positions that are covered but have no observed carriers (AC=0).
 
     \b
-    Columns: chrom, pos, ref, alt, AC, AN, AF, n_eligible, N_HET, N_HOM_ALT,
-    N_HEMI, N_HOM_REF, N_FAIL, N_NO_COVERAGE.
+    Columns: chrom, pos, ref, alt, AC, AN, AF, AC_REF, n_eligible, N_HET,
+    N_HOM_ALT, N_HEMI, N_HOM_REF, N_FAIL, N_NO_COVERAGE.
+
+    AC_REF is the reference allele count at the position (AN minus the AC of
+    every allele there), so each row carries everything needed for both the
+    alternate and the reference frequency.
 
     Supports disaggregation by sex (--by-sex), technology (--by-tech),
     phenotype (--by-phenotype), or all combinations (--all-groups); each
@@ -399,26 +406,31 @@ def dump(db, output, chrom, start, end, phenotype, sex, tech,
     if start is not None and end is not None and start > end:
         raise click.UsageError("--start must be <= --end.")
 
+    from .dump import DumpColumnError
+
     database = Database(db)
-    stats = database.dump(
-        output=output,
-        phenotype=_expand_tokens(phenotype),
-        sex=sex,
-        tech=_expand_tokens(tech),
-        by_sex=by_sex,
-        by_tech=by_tech,
-        by_phenotype=_expand_tokens(by_phenotype),
-        all_groups=all_groups,
-        chrom=chrom,
-        start=start,
-        end=end,
-        n_workers=threads,
-        include_ac_zero=all_variants,
-        min_pass=min_pass,
-        min_observed=min_observed,
-        min_quality_evidence=min_quality_evidence,
-        fail_as_ref=fail_as_ref,
-    )
+    try:
+        stats = database.dump(
+            output=output,
+            phenotype=_expand_tokens(phenotype),
+            sex=sex,
+            tech=_expand_tokens(tech),
+            by_sex=by_sex,
+            by_tech=by_tech,
+            by_phenotype=_expand_tokens(by_phenotype),
+            all_groups=all_groups,
+            chrom=chrom,
+            start=start,
+            end=end,
+            n_workers=threads,
+            include_ac_zero=all_variants,
+            min_pass=min_pass,
+            min_observed=min_observed,
+            min_quality_evidence=min_quality_evidence,
+            fail_as_ref=fail_as_ref,
+        )
+    except DumpColumnError as exc:
+        raise click.UsageError(str(exc)) from exc
     click.echo(
         f"{stats['n_rows']} row(s) exported from {stats['n_buckets']} bucket(s)"
         f" across {stats['n_chroms']} chrom(s).",

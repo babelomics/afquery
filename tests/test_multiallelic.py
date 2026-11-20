@@ -363,3 +363,186 @@ def test_annotate_novel_position_has_no_coverage_evidence(panel_db, tmp_path):
         [v] = list(cyvcf2.VCF(str(out)))
         assert v.INFO.get("AFQUERY_N_NO_COVERAGE") == no_cov
         assert v.INFO.get("AFQUERY_N_HOM_REF") == hom_ref
+
+
+# ---------------------------------------------------------------------------
+# AC_REF: reference alleles at the position, the same on every allele's row
+# ---------------------------------------------------------------------------
+
+# COHORT at chr1:5000: A_HET 1 + T_HET 1 + REF1 2 (females) + REF2 2 (male);
+# A_HOM and AT carry no reference allele.
+COHORT_AC_REF = {"both": 6, "female": 4, "male": 2}
+
+
+def _check_ac_ref(results, want):
+    rows = [r for r in results if (r.variant.chrom, r.variant.pos) == SITE]
+    assert rows
+    for r in rows:
+        assert r.AC_REF == want, r.variant.alt
+        assert r.AN == r.AC_REF + sum(o.AC for o in rows)
+
+
+@pytest.mark.parametrize("sex", ["both", "female", "male"])
+def test_ac_ref_point_and_region_query(db, sex):
+    _check_ac_ref(db.query(*SITE, sex=sex), COHORT_AC_REF[sex])
+    _check_ac_ref(db.query_region("chr1", 1, 10000, sex=sex), COHORT_AC_REF[sex])
+
+
+def test_ac_ref_when_one_allele_requested(db):
+    """The allele not asked for is still subtracted."""
+    [r] = db.query_batch("chr1", [(5000, "G", "A")])
+    assert r.AC_REF == 6
+    [r] = db.query(*SITE, alt="T")
+    assert r.AC_REF == 6
+    results = db.query_batch_multi([("chr1", 5000, "G", "T")])
+    assert [r.AC_REF for r in results] == [6]
+
+
+def test_ac_ref_biallelic_is_an_minus_ac(db):
+    [r] = db.query("chr1", 100)
+    assert (r.AC, r.AN, r.AC_REF) == (2, 12, 10)
+
+
+def test_ac_ref_in_dump(db):
+    buf = io.StringIO()
+    db.dump(output=buf, by_sex=True)
+    rows = [r for r in csv.DictReader(io.StringIO(buf.getvalue())) if r["pos"] == "5000"]
+    assert len(rows) == 2
+    for row in rows:
+        assert int(row["AC_REF"]) == COHORT_AC_REF["both"]
+        for sex in ("male", "female"):
+            assert int(row[f"AC_REF_{sex}"]) == COHORT_AC_REF[sex]
+        assert int(row["AC_REF_male"]) + int(row["AC_REF_female"]) == int(row["AC_REF"])
+    assert int(rows[0]["AN"]) == int(rows[0]["AC_REF"]) + sum(int(r["AC"]) for r in rows)
+
+
+def _annotate_one(db, tmp_path, record, **kwargs):
+    vcf_in = tmp_path / "in.vcf"
+    vcf_in.write_text(
+        "##fileformat=VCFv4.2\n"
+        "##contig=<ID=chr1>\n"
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+        f"{record}\n"
+    )
+    out = tmp_path / "out.vcf"
+    db.annotate_vcf(str(vcf_in), str(out), **kwargs)
+    [v] = list(cyvcf2.VCF(str(out)))
+    return v
+
+
+@pytest.mark.parametrize("alts", ["A,T,C", "A", "C"])
+def test_ac_ref_in_annotate_counts_alleles_the_record_omits(db, tmp_path, alts):
+    """AN - sum(AFQUERY_AC) is wrong when the record lists only some of the
+    stored alleles; AFQUERY_AC_REF is not."""
+    v = _annotate_one(db, tmp_path, f"chr1\t5000\t.\tG\t{alts}\t.\tPASS\t.")
+    assert v.INFO.get("AFQUERY_AN") == 12
+    assert v.INFO.get("AFQUERY_AC_REF") == 6
+
+
+def test_ac_ref_in_annotate_at_a_position_with_nothing_stored(db, tmp_path):
+    v = _annotate_one(db, tmp_path, "chr1\t5500\t.\tC\tG\t.\tPASS\t.")
+    assert v.INFO.get("AFQUERY_AN") == 12
+    assert v.INFO.get("AFQUERY_AC_REF") == 12
+
+
+def test_ac_ref_with_failed_calls(fail_db, tmp_path):
+    """Failed calls are out of AN, so out of AC_REF; --fail-as-ref counts them
+    as reference."""
+    for fail_as_ref, want_an, want_ref in ((False, 10, 5), (True, 16, 11)):
+        results = fail_db.query(*SITE, fail_as_ref=fail_as_ref)
+        assert {r.AN for r in results} == {want_an}
+        _check_ac_ref(results, want_ref)
+
+        v = _annotate_one(fail_db, tmp_path, "chr1\t5000\t.\tG\tA,T\t.\tPASS\t.",
+                          fail_as_ref=fail_as_ref)
+        assert v.INFO.get("AFQUERY_AC_REF") == want_ref
+
+        buf = io.StringIO()
+        fail_db.dump(output=buf, fail_as_ref=fail_as_ref)
+        rows = [r for r in csv.DictReader(io.StringIO(buf.getvalue())) if r["pos"] == "5000"]
+        assert {int(r["AC_REF"]) for r in rows} == {want_ref}
+
+
+def test_ac_ref_is_zero_when_every_call_failed(tmp_path):
+    db = _build_db(tmp_path, [
+        ("F1", "female", "WGS", [("chr1", 5000, "G", "A", "0/1", "LowQual")]),
+        ("F2", "male",   "WGS", [("chr1", 5000, "G", "A", "./.", "LowQual")]),
+    ])
+    [r] = db.query(*SITE)
+    assert (r.AN, r.AC_REF) == (0, 0)
+
+
+def test_ac_ref_on_chrX_non_par(tmp_path):
+    """Males are haploid, with one allele each that is reference unless they carry an ALT."""
+    db = _build_db(tmp_path, [
+        ("MA",   "male",   "WGS", [("chrX", 5_000_000, "G", "A", "1")]),
+        ("MT",   "male",   "WGS", [("chrX", 5_000_000, "G", "T", "1")]),
+        ("FA",   "female", "WGS", [("chrX", 5_000_000, "G", "A", "0/1")]),
+        ("FAT",  "female", "WGS", [("chrX", 5_000_000, "G", "A,T", "1/2")]),
+        ("MREF", "male",   "WGS", [("chrX", 200, "C", "G", "1")]),
+        ("FREF", "female", "WGS", [("chrX", 200, "C", "G", "0/1")]),
+    ])
+    results = db.query("chrX", 5_000_000)
+    assert {r.AN for r in results} == {9}       # 3 females x 2 + 3 males x 1
+    for r in results:
+        assert r.AC_REF == 1 + 2 + 1             # FA, FREF, MREF
+    [m] = db.query("chrX", 5_000_000, alt="A", sex="male")
+    assert (m.AN, m.AC_REF) == (3, 1)            # MREF
+
+
+def test_ac_ref_with_indels_and_a_snv_at_one_position(tmp_path):
+    """A deletion, an insertion and a SNV starting at one position are one site,
+    whatever their REF: they share AN and AC_REF."""
+    db = _build_db(tmp_path, [
+        ("DEL",     "female", "WGS", [("chr1", 5000, "GC", "G", "0/1")]),
+        ("INS",     "male",   "WGS", [("chr1", 5000, "G", "GA", "1/1")]),
+        ("SNV_DEL", "female", "WGS", [("chr1", 5000, "G", "T", "0/1"),
+                                      ("chr1", 5000, "GC", "G", "0/1")]),
+        ("REF",     "male",   "WGS", [("chr1", 100, "C", "G", "0/1")]),
+    ])
+    rows = {(r.variant.ref, r.variant.alt): r for r in db.query(*SITE)}
+    assert set(rows) == {("GC", "G"), ("G", "GA"), ("G", "T")}
+    assert [rows[k].AC for k in (("GC", "G"), ("G", "GA"), ("G", "T"))] == [2, 2, 1]
+    for r in rows.values():
+        assert r.AN == 8
+        assert r.AC_REF == 1 + 2                 # DEL, REF
+
+
+def test_ac_ref_subtracts_an_allele_whose_row_the_dump_omits(tmp_path):
+    """Base rows with AC=0 are not written, but a group may still carry that
+    allele, and the group's AC_REF on the other rows subtracts it."""
+    db = _build_db(tmp_path, [
+        ("F_T", "female", "WGS", [("chr1", 5000, "G", "T", "0/1")]),
+        ("M_A", "male",   "WGS", [("chr1", 5000, "G", "A", "0/1")]),
+        ("M_R", "male",   "WGS", [("chr1", 100, "C", "G", "0/1")]),
+    ])
+    buf = io.StringIO()
+    db.dump(output=buf, sex="male", by_sex=True)
+    rows = [r for r in csv.DictReader(io.StringIO(buf.getvalue())) if r["pos"] == "5000"]
+    [row] = rows                                  # T has AC=0 among males
+    assert row["alt"] == "A"
+    assert (row["AN"], row["AC_REF"]) == ("4", "3")
+    assert (row["AN_female"], row["AC_female"], row["AC_REF_female"]) == ("2", "0", "1")
+
+
+def test_ac_ref_ignores_coverage_gates(panel_db):
+    """Samples moved to N_NO_COVERAGE stay in AN, and so in AC_REF."""
+    plain = {r.variant.alt: r for r in panel_db.query(*SITE)}
+    gated = {r.variant.alt: r for r in panel_db.query(*SITE, min_pass=2)}
+    for alt in ("A", "T"):
+        assert gated[alt].N_NO_COVERAGE > plain[alt].N_NO_COVERAGE
+        assert (gated[alt].AN, gated[alt].AC_REF) == (plain[alt].AN, plain[alt].AC_REF)
+
+
+def test_threshold_layers_sum_to_the_counts():
+    from pyroaring import BitMap
+    from afquery.query import _add_to_layers
+
+    layers: list[BitMap] = []
+    for bm in (BitMap([1, 2, 3]), BitMap([2, 3]), BitMap([3]), BitMap([3, 4])):
+        _add_to_layers(layers, bm)
+    counts = {1: 1, 2: 2, 3: 4, 4: 1}
+    for sample, want in counts.items():
+        assert sum(sample in layer for layer in layers) == want
+    assert sum(len(layer) for layer in layers) == sum(counts.values())
+    assert sum(len(layer & BitMap([2, 4])) for layer in layers) == 3

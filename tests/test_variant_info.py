@@ -469,7 +469,9 @@ def _write_vcf(path, sample_name, records):
 
 
 def _build_db(tmp_path, sample_defs, beds=None, **build_options):
-    """sample_defs = [(name, sex, tech, records)]; beds = {tech: bed_text}.
+    """sample_defs = [(name, sex, tech, records[, phenotype])]; beds = {tech: bed_text}.
+
+    The phenotype defaults to E11.9.
 
     build_options are passed to run_preprocess (e.g. min_covered=1).
     """
@@ -480,10 +482,11 @@ def _build_db(tmp_path, sample_defs, beds=None, **build_options):
     for tech, text in (beds or {}).items():
         (bed_dir / f"{tech}.bed").write_text(text)
     rows = ["sample_name\tsex\ttech_name\tvcf_path\tphenotype_codes"]
-    for name, sex, tech, records in sample_defs:
+    for name, sex, tech, records, *rest in sample_defs:
+        phenotype = rest[0] if rest else "E11.9"
         vcf_path = tmp_path / f"{name}.vcf"
         _write_vcf(vcf_path, name, records)
-        rows.append(f"{name}\t{sex}\t{tech}\t{vcf_path}\tE11.9")
+        rows.append(f"{name}\t{sex}\t{tech}\t{vcf_path}\t{phenotype}")
     manifest = tmp_path / "manifest.tsv"
     manifest.write_text("\n".join(rows) + "\n")
     db_path = tmp_path / "db"

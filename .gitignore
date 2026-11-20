@@ -61,3 +61,4 @@ src/afquery/_version.py
 db/*
 site
 CONTEXT.md
+examples/dump_aggregation/example_output/
