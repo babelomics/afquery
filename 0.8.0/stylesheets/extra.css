@@ -1,0 +1,8 @@
+@media (min-width: 960px) {
+    .md-content__inner p,
+    .md-content__inner li {
+        text-align: justify;
+        hyphens: auto;
+        -webkit-hyphens: auto;
+    }
+}
