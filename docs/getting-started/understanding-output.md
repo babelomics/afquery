@@ -11,6 +11,7 @@ This page explains what each field in AFQuery output means and how to interpret 
 | **AC** | int | Allele count — number of alt allele copies in eligible samples |
 | **AN** | int | Allele number — alleles of the eligible samples with a usable call at this position, adjusted for ploidy. Samples in `N_FAIL` are left out (counted as hom-ref with `--fail-as-ref`) |
 | **AF** | float | Allele frequency — `AC / AN`. `NA` (text/TSV) or `null` (JSON) when AN=0 |
+| **AC_REF** | int | Reference allele count — the alleles in AN not taken by any ALT allele stored at this position (`AN` minus the AC of every ALT there, whatever its REF). It is the same on every line of a position and equals `AN − AC` at a biallelic site. The reference frequency is `AC_REF / AN` (see [Multi-allelic sites](#multi-allelic-sites)) |
 | **N_HET** | int | Number of eligible samples heterozygous for the alt allele: a diploid `0/1` genotype |
 | **N_HOM_ALT** | int | Number of eligible samples homozygous for the alt allele: a diploid `1/1` genotype. On chrM every carrier is counted here, whatever its GT, because AFQuery records no heteroplasmy. See [Ploidy](../advanced/ploidy-and-sex-chroms.md#genotype-counting). |
 | **N_HEMI** | int | Number of eligible hemizygous carriers: males carrying the alt allele on chrX outside the PARs or on chrY, where they have a single copy (GT `1`, or `1/1` written diploid). Always `0` on autosomes, chrX PARs, chrM and for females. |
@@ -31,7 +32,7 @@ afquery query --db ./db/ --locus chr1:925952 --ref G --alt A
 ```
 
 ```
-chr1:925952 G>A  AC=3  AN=120  AF=0.0250  n_eligible=60  N_HET=1  N_HOM_ALT=1  N_HEMI=0  N_HOM_REF=57  N_FAIL=0  N_NO_COVERAGE=0
+chr1:925952 G>A  AC=3  AN=120  AF=0.0250  AC_REF=117  n_eligible=60  N_HET=1  N_HOM_ALT=1  N_HEMI=0  N_HOM_REF=58  N_FAIL=0  N_NO_COVERAGE=0
 ```
 
 ### TSV
@@ -41,8 +42,8 @@ afquery query --db ./db/ --locus chr1:925952 --ref G --alt A --format tsv
 ```
 
 ```
-chrom	pos	ref	alt	AC	AN	AF	n_eligible	N_HET	N_HOM_ALT	N_HEMI	N_HOM_REF	N_FAIL	N_NO_COVERAGE
-chr1	925952	G	A	3	120	0.025000	60	1	1	0	57	0	0
+chrom	pos	ref	alt	AC	AN	AF	AC_REF	n_eligible	N_HET	N_HOM_ALT	N_HEMI	N_HOM_REF	N_FAIL	N_NO_COVERAGE
+chr1	925952	G	A	3	120	0.025000	117	60	1	1	0	58	0	0
 ```
 
 ### JSON
@@ -60,11 +61,12 @@ afquery query --db ./db/ --locus chr1:925952 --ref G --alt A --format json
   "AC": 3,
   "AN": 120,
   "AF": 0.025,
+  "AC_REF": 117,
   "n_eligible": 60,
   "N_HET": 1,
   "N_HOM_ALT": 1,
   "N_HEMI": 0,
-  "N_HOM_REF": 57,
+  "N_HOM_REF": 58,
   "N_FAIL": 0,
   "N_NO_COVERAGE": 0
 }
@@ -99,10 +101,18 @@ reference for this allele, so it appears in none of `N_HET`, `N_HOM_ALT`,
 `n_eligible` at biallelic sites; at a multi-allelic site they fall short by the
 number of such samples. AC, AN and AF are not affected.
 
-AN and `N_FAIL` describe the position, so they are the same on every line of a
-multi-allelic site, and AN equals the reference alleles plus the AC of all its
-ALT alleles. A sample with a failed call for any of the alleles is counted in
-`N_FAIL` on every line.
+AN, `AC_REF` and `N_FAIL` describe the position, so they are the same on every
+line of a multi-allelic site, and AN equals `AC_REF` plus the AC of all its ALT
+alleles. A sample with a failed call for any of the alleles is counted in
+`N_FAIL` on every line. Sites are defined by position whatever the REF of their
+alleles, so after normalization an insertion, a deletion and a SNV starting at
+the same position share AN, `AC_REF` and `N_FAIL`.
+
+The reference frequency is therefore `AC_REF / AN`, not `1 − AF`. With AN=16,
+a deletion with AC=4 and an insertion with AC=2 at one position, `AC_REF` is 10
+and the reference frequency 0.625, while `1 − AF` gives 0.75 and 0.875.
+`N_HOM_REF` cannot replace `AC_REF` either, because it counts samples rather
+than alleles and leaves out the reference copy of heterozygous carriers.
 
 A sample with two different ALT alleles (`GT=1/2`) is counted as heterozygous on
 both lines.
@@ -147,6 +157,7 @@ When using `afquery annotate`, the following INFO fields are added to each varia
 | `AFQUERY_AC` | A (per ALT) | Allele count — one value per ALT allele |
 | `AFQUERY_AN` | 1 (per site) | Allele number — shared across all ALT alleles; excludes samples in `AFQUERY_N_FAIL` |
 | `AFQUERY_AF` | A (per ALT) | Allele frequency — one value per ALT allele; `.` when `AFQUERY_AN=0` |
+| `AFQUERY_AC_REF` | 1 (per site) | Reference allele count — `AFQUERY_AN` minus the AC of every ALT allele stored at the position, including alleles the record does not list |
 | `AFQUERY_N_HET` | A (per ALT) | Heterozygous sample count per ALT allele (diploid) |
 | `AFQUERY_N_HOM_ALT` | A (per ALT) | Homozygous alt sample count per ALT allele (diploid; every carrier on chrM) |
 | `AFQUERY_N_HEMI` | A (per ALT) | Hemizygous carrier count per ALT allele: males on chrX outside the PARs and on chrY |

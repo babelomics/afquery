@@ -18,11 +18,22 @@ BATCH_IN_THRESHOLD = 10_000
 
 
 class SiteEvidence(NamedTuple):
-    """Carriers of any allele at one position, pooled across its Parquet rows."""
+    """Carriers of any allele at one position, pooled across its Parquet rows.
+
+    ``carried`` and ``copies`` are threshold layers used to sum AC over every
+    allele of the position without keeping one bitmap per allele. Layer k holds
+    the samples whose count exceeds k. ``carried`` counts the alleles a sample
+    carries (het or hom), which is what a haploid sample adds to the alleles of
+    the site; ``copies`` counts allele copies (1 per het, 2 per hom), which is
+    what a diploid sample adds. Summing ``|layer & S|`` over the layers gives
+    the total count over the samples S.
+    """
     pass_bm: BitMap
     carrier_bm: BitMap
     fail_bm: BitMap
     quality_pass_bm: "BitMap | None"
+    carried: tuple[BitMap, ...] = ()
+    copies: tuple[BitMap, ...] = ()
 
 
 class VariantStats(NamedTuple):
@@ -34,6 +45,20 @@ class VariantStats(NamedTuple):
     N_HOM_REF: int
     N_FAIL: int
     N_NO_COVERAGE: int
+    AC_REF: int
+
+
+def _add_to_layers(layers: list[BitMap], bm: BitMap) -> None:
+    """Add one to the count of every sample in ``bm`` (see SiteEvidence)."""
+    carry = bm
+    for i in range(len(layers)):
+        if not carry:
+            return
+        nxt = layers[i] & carry
+        layers[i] = layers[i] | carry
+        carry = nxt
+    if carry:
+        layers.append(BitMap(carry))
 
 
 def _parse_schema_version(s: str) -> tuple[int, ...]:
@@ -328,13 +353,20 @@ class QueryEngine:
         carrier_bm = BitMap()
         site_fail_bm = BitMap()
         quality_pass_bm = None
+        carried: list[BitMap] = []
+        copies: list[BitMap] = []
         for het_bm, hom_bm, fail_bm, _filtered_bm, qp_bm in unpacked_rows:
             pass_bm |= het_bm | hom_bm
             carrier_bm |= het_bm | hom_bm | fail_bm
             site_fail_bm |= fail_bm
             if qp_bm is not None:
                 quality_pass_bm = qp_bm if quality_pass_bm is None else quality_pass_bm | qp_bm
-        return SiteEvidence(pass_bm, carrier_bm, site_fail_bm, quality_pass_bm)
+            _add_to_layers(carried, het_bm | hom_bm)
+            _add_to_layers(copies, het_bm)
+            _add_to_layers(copies, hom_bm)
+            _add_to_layers(copies, hom_bm)
+        return SiteEvidence(pass_bm, carrier_bm, site_fail_bm, quality_pass_bm,
+                            tuple(carried), tuple(copies))
 
     @classmethod
     def _site_evidence_by_pos(
@@ -381,6 +413,14 @@ class QueryEngine:
         returned categories, so at a multi-allelic site
         N_HET + N_HOM_ALT + N_HEMI + N_HOM_REF + N_FAIL + N_NO_COVERAGE falls
         short of n_eligible by exactly that number of samples.
+
+        AC_REF is the number of reference alleles at the position among the
+        alleles counted in AN, that is, AN minus the AC of every allele stored there,
+        whatever its REF, including alleles no eligible sample carries. It is
+        the same for every allele of the position, so AN = AC_REF + the sum of
+        AC over the alleles of the position. Samples counted in AN without a
+        called genotype (N_NO_COVERAGE, and failed calls under ``fail_as_ref``)
+        count as reference.
         """
         het_bm, hom_bm, fail_bm, filtered_bm, quality_pass_bm = bitmaps
         site_fail = (site.fail_bm if site is not None else fail_bm) & eligible
@@ -395,6 +435,14 @@ class QueryEngine:
               + 2 * len(hom_elig & diploid_elig))
         in_AN = eligible if fail_as_ref else called
         AN = len(haploid_elig & in_AN) + 2 * len(diploid_elig & in_AN)
+        if site is None:
+            site_AC = AC
+        else:
+            haploid_called = haploid_elig & called
+            diploid_called = diploid_elig & called
+            site_AC = (sum(len(layer & haploid_called) for layer in site.carried)
+                       + sum(len(layer & diploid_called) for layer in site.copies))
+        AC_REF = AN - site_AC
         het_cls, hom_cls, hemi_cls = classify_carriers(
             chrom, haploid_elig, diploid_elig, het_elig, hom_elig,
         )
@@ -416,7 +464,8 @@ class QueryEngine:
             N_OTHER = len((site.carrier_bm - (het_bm | hom_bm | site.fail_bm)) & eligible)
         N_HOM_REF = (len(eligible) - N_HET - N_HOM_ALT - N_HEMI
                      - N_FAIL - N_NO_COVERAGE - N_OTHER)
-        return VariantStats(AC, AN, N_HET, N_HOM_ALT, N_HEMI, N_HOM_REF, N_FAIL, N_NO_COVERAGE)
+        return VariantStats(AC, AN, N_HET, N_HOM_ALT, N_HEMI, N_HOM_REF, N_FAIL,
+                            N_NO_COVERAGE, AC_REF)
 
     @staticmethod
     def _make_result(
@@ -430,6 +479,7 @@ class QueryEngine:
             N_HET=stats.N_HET, N_HOM_ALT=stats.N_HOM_ALT, N_HEMI=stats.N_HEMI,
             N_HOM_REF=stats.N_HOM_REF,
             N_FAIL=stats.N_FAIL, N_NO_COVERAGE=stats.N_NO_COVERAGE,
+            AC_REF=stats.AC_REF,
         )
 
     def _compute_eligible(

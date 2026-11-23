@@ -87,6 +87,7 @@ class QueryResult:
     N_HOM_REF: int = 0
     N_FAIL: int = 0
     N_NO_COVERAGE: int = 0
+    AC_REF: int = 0         # reference alleles at the position (AN minus the AC of every allele there)
 
 
 @dataclass

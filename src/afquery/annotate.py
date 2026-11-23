@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 # Stats of an allele where nobody is eligible: no carriers and AN=0
 _NO_STATS = VariantStats(AC=0, AN=0, N_HET=0, N_HOM_ALT=0, N_HEMI=0,
-                         N_HOM_REF=0, N_FAIL=0, N_NO_COVERAGE=0)
+                         N_HOM_REF=0, N_FAIL=0, N_NO_COVERAGE=0, AC_REF=0)
 
 
 def _compute_chunk_annotations(
@@ -136,7 +136,11 @@ def annotate_vcf(
     sf: SampleFilter,
     n_workers: int | None = None,
 ) -> dict:
-    """Annotate a VCF with AFQUERY_* INFO fields: AC, AN, AF and the genotype counts.
+    """Annotate a VCF with AFQUERY_* INFO fields: AC, AN, AF, AC_REF and the genotype counts.
+
+    AFQUERY_AC_REF is a per-position value, equal to AN minus the AC of every
+    allele stored in the database at the position, including alleles the
+    record does not list.
 
     Returns a summary dict: {"n_variants": int, "n_annotated": int, "n_uncovered": int}.
     """
@@ -165,6 +169,12 @@ def annotate_vcf(
     vcf.add_info_to_header({
         "ID": "AFQUERY_AF", "Number": "A", "Type": "Float",
         "Description": "Allele frequency in eligible samples",
+    })
+    vcf.add_info_to_header({
+        "ID": "AFQUERY_AC_REF", "Number": "1", "Type": "Integer",
+        "Description": "Reference allele count at the position in eligible samples: "
+                       "AFQUERY_AN minus the allele count of every alt allele stored "
+                       "at the position, including alleles not listed in this record",
     })
     vcf.add_info_to_header({
         "ID": "AFQUERY_N_HET", "Number": "A", "Type": "Integer",
@@ -254,12 +264,12 @@ def annotate_vcf(
             pos = variant.POS
             stats["n_variants"] += 1
 
-            # AN and N_FAIL are per position: every alt's entry holds the same
-            # values. AN is 0 with N_FAIL 0 only when no sample is eligible.
-            AN = N_FAIL = 0
+            # AN, N_FAIL and AC_REF are per position, so every alt's entry holds the
+            # same values. AN is 0 with N_FAIL 0 only when no sample is eligible.
+            AN = N_FAIL = AC_REF = 0
             if variant.ALT:
                 _, site_stats = ann.get((pos, variant.REF, variant.ALT[0]), (False, _NO_STATS))
-                AN, N_FAIL = site_stats.AN, site_stats.N_FAIL
+                AN, N_FAIL, AC_REF = site_stats.AN, site_stats.N_FAIL, site_stats.AC_REF
 
             if AN == 0 and N_FAIL == 0:
                 stats["n_uncovered"] += 1
@@ -295,6 +305,7 @@ def annotate_vcf(
             variant.INFO["AFQUERY_AF"] = ",".join(
                 "." if v is None else "%.10g" % v for v in af_list
             )
+            variant.INFO["AFQUERY_AC_REF"] = AC_REF
             variant.INFO["AFQUERY_N_HET"] = ",".join(str(v) for v in n_het_list)
             variant.INFO["AFQUERY_N_HOM_ALT"] = ",".join(str(v) for v in n_hom_alt_list)
             variant.INFO["AFQUERY_N_HEMI"] = ",".join(str(v) for v in n_hemi_list)

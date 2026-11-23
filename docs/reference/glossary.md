@@ -4,6 +4,10 @@
 
 Number of copies of the alternate allele observed across eligible samples. A heterozygous carrier contributes 1; a homozygous alt carrier contributes 2; a carrier with a single copy of the locus ([hemizygous](#hemizygous), or on chrM) contributes 1. See [Key Concepts](../getting-started/concepts.md#allele-frequency-ac-an-af).
 
+## AC_REF (Reference Allele Count)
+
+Number of reference alleles at a position among the alleles counted in [AN](#an-allele-number), that is, AN minus the AC of every alternate allele stored at the position, whatever its REF. It is the same for every allele of the position, so `AN = AC_REF + ΣAC`, and the reference frequency is `AC_REF / AN` — not `1 − AF` at a multi-allelic site. Samples counted in AN without a called genotype ([N_NO_COVERAGE](#n_no_coverage), and failed calls under `--fail-as-ref`) count as reference. See [Understanding Output](../getting-started/understanding-output.md#multi-allelic-sites).
+
 ## AF (Allele Frequency)
 
 Ratio of AC to AN (`AC / AN`). Represents the proportion of alleles that are the alternate allele among eligible samples. Returns `None` when AN=0. See [Key Concepts](../getting-started/concepts.md#allele-frequency-ac-an-af).

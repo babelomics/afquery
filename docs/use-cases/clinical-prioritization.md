@@ -34,7 +34,9 @@ This adds to each variant:
 - `AFQUERY_AC`: allele count in cohort
 - `AFQUERY_AN`: allele number (eligible samples at this position)
 - `AFQUERY_AF`: allele frequency
+- `AFQUERY_AC_REF`: reference allele count at the position
 - `AFQUERY_N_HET`, `AFQUERY_N_HOM_ALT`, `AFQUERY_N_HEMI`: genotype counts (heterozygous, homozygous, and hemizygous males on chrX/chrY)
+- `AFQUERY_N_HOM_REF`, `AFQUERY_N_FAIL`, `AFQUERY_N_NO_COVERAGE`: homozygous reference samples, failed calls and samples without coverage evidence
 
 ### 2. Filter for rare variants with reliable AN
 

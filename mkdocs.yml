@@ -86,6 +86,7 @@ nav:
       - Query Allele Frequencies: guides/query.md
       - Annotate a VCF: guides/annotate-vcf.md
       - Bulk Export: guides/dump-export.md
+      - Summing Dump Groups: guides/dump-aggregation.md
       - Variant Info: guides/variant-info.md
       - Sample Filtering: guides/sample-filtering.md
     - 🏥 Clinical Workflows:

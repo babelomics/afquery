@@ -42,11 +42,11 @@ def _dump_to_string(db_path, **kwargs) -> tuple[str, dict]:
 
 # Column order of a dump, base block and one disaggregation group
 BASE_COLUMNS = [
-    "chrom", "pos", "ref", "alt", "AC", "AN", "AF", "n_eligible",
+    "chrom", "pos", "ref", "alt", "AC", "AN", "AF", "AC_REF", "n_eligible",
     "N_HET", "N_HOM_ALT", "N_HEMI", "N_HOM_REF", "N_FAIL", "N_NO_COVERAGE",
 ]
 GROUP_FIELDS = [
-    "AC", "AN", "AF", "n_eligible",
+    "AC", "AN", "AF", "AC_REF", "n_eligible",
     "N_HET", "N_HOM_ALT", "N_HEMI", "N_HOM_REF", "N_FAIL", "N_NO_COVERAGE",
 ]
 
@@ -246,9 +246,7 @@ class TestDumpBasic:
             _check_ac_zero_af(row, "")
             for sex in ("male", "female"):
                 _check_ac_zero_af(row, f"_{sex}")
-            sex_ac_cols = [k for k in row if k.startswith("AC_")]
-            assert sex_ac_cols, "Expected disaggregated AC_ columns"
-            for col in sex_ac_cols:
+            for col in ("AC_male", "AC_female"):
                 assert int(row[col]) == 0, f"Expected {col}=0, got {row[col]}"
 
     def test_values_match_query(self, test_db):
@@ -646,3 +644,156 @@ class TestDumpHemizygous:
     def test_none_on_autosomes(self, test_db):
         rows = _parse_csv(_dump_to_string(test_db, chrom="chr1", include_ac_zero=True)[0])
         assert rows and all(r["N_HEMI"] == "0" for r in rows)
+
+
+# ---------------------------------------------------------------------------
+# Summing groups. Disjoint groups add up to the base row
+# ---------------------------------------------------------------------------
+
+# Every field a consumer may sum over disjoint groups. AF is never summed.
+ADDITIVE_FIELDS = [
+    "AC", "AN", "AC_REF", "n_eligible",
+    "N_HET", "N_HOM_ALT", "N_HEMI", "N_HOM_REF", "N_FAIL", "N_NO_COVERAGE",
+]
+
+_WES_BED = "chr1\t0\t10000\nchrX\t4999000\t5001000\nchrM\t0\t16569\n"
+
+# sex x technology x phenotype, one sample per cell, one phenotype per sample.
+# Covers an insertion and a deletion at one position, a 1/2 SNV, a failed call,
+# a position outside the WES capture, chrX non-PAR and chrM.
+PARTITION_COHORT = [
+    ("W_F_E", "female", "WGS", [("chr1", 1000, "AC", "A", "0/1"),
+                                ("chr1", 5000, "G", "A,T", "1/2"),
+                                ("chrX", 5_000_000, "G", "A", "0/1"),
+                                ("chrM", 300, "C", "T", "1")], "E11"),
+    ("W_M_E", "male",   "WGS", [("chr1", 1000, "A", "AT", "1/1"),
+                                ("chr1", 5000, "G", "A", "1/1"),
+                                ("chrX", 5_000_000, "G", "A", "1"),
+                                ("chr1", 20000, "C", "T", "0/1")], "E11"),
+    ("W_F_I", "female", "WGS", [("chr1", 5000, "G", "T", "0/1"),
+                                ("chr1", 7000, "C", "G", "0/1", "LowQual"),
+                                ("chrX", 5_000_000, "G", "A", "1/1")], "I10"),
+    ("W_M_I", "male",   "WGS", [("chr1", 200, "C", "G", "0/1"),
+                                ("chrM", 300, "C", "T", "1")], "I10"),
+    ("X_F_E", "female", "WES", [("chr1", 1000, "AC", "A", "0/1"),
+                                ("chr1", 7000, "C", "G", "0/1")], "E11"),
+    ("X_M_E", "male",   "WES", [("chr1", 5000, "G", "T", "0/1"),
+                                ("chrX", 5_000_000, "G", "A", "1")], "E11"),
+    ("X_F_I", "female", "WES", [("chr1", 20000, "C", "T", "0/1"),
+                                ("chr1", 200, "C", "G", "0/1")], "I10"),
+    ("X_M_I", "male",   "WES", [("chr1", 5000, "G", "A,T", "1/2"),
+                                ("chr1", 7000, "C", "G", "1/1")], "I10"),
+]
+
+
+@pytest.fixture(scope="module")
+def partition_db(tmp_path_factory):
+    from test_variant_info import _build_db
+    return _build_db(tmp_path_factory.mktemp("dump_partition"), PARTITION_COHORT,
+                     beds={"WES": _WES_BED})
+
+
+def _group_labels(header: list[str]) -> list[str]:
+    return [c[len("n_eligible_"):] for c in header if c.startswith("n_eligible_")]
+
+
+def _assert_groups_sum_to_base(rows, labels):
+    assert rows and labels
+    for row in rows:
+        for field in ADDITIVE_FIELDS:
+            total = sum(int(row[f"{field}_{label}"]) for label in labels)
+            assert total == int(row[field]), (row["chrom"], row["pos"], row["alt"], field)
+
+
+class TestDumpGroupSums:
+    def test_sex_by_tech_cells_sum_to_base(self, partition_db):
+        text, _ = _dump_to_string(partition_db._engine._db, by_sex=True, by_tech=True)
+        header = text.splitlines()[0].split(",")
+        labels = _group_labels(header)
+        assert sorted(labels) == ["female_WES", "female_WGS", "male_WES", "male_WGS"]
+        _assert_groups_sum_to_base(_parse_csv(text), labels)
+
+    def test_all_cells_sum_to_base(self, partition_db):
+        text, _ = _dump_to_string(partition_db._engine._db, all_groups=True)
+        rows = _parse_csv(text)
+        labels = _group_labels(text.splitlines()[0].split(","))
+        assert len(labels) == 8
+        _assert_groups_sum_to_base(rows, labels)
+        chroms = {r["chrom"] for r in rows}
+        assert {"chr1", "chrX", "chrM"} <= chroms
+
+    def test_reference_frequency_from_a_selection(self, partition_db):
+        """RefFreq of a selection is sum(AC_REF) / sum(AN), from one row."""
+        text, _ = _dump_to_string(partition_db._engine._db, chrom="chr1", all_groups=True)
+        rows = [r for r in _parse_csv(text) if r["pos"] == "1000"]
+        assert {(r["ref"], r["alt"]) for r in rows} == {("AC", "A"), ("A", "AT")}
+        selection = ["female_WGS_E11", "male_WGS_E11", "female_WES_E11", "male_WES_E11"]
+        for row in rows:
+            an = sum(int(row[f"AN_{g}"]) for g in selection)
+            ac_ref = sum(int(row[f"AC_REF_{g}"]) for g in selection)
+            assert (an, ac_ref) == (8, 4)    # W_F_E 1, W_M_E 0, X_F_E 1, X_M_E 2
+
+    def test_groups_replace_the_base_include_filter(self, partition_db):
+        """A group's sex replaces the base --sex, so groups are not nested in it."""
+        db_path = partition_db._engine._db
+        text, _ = _dump_to_string(db_path, sex="male", by_sex=True)
+        for row in _parse_csv(text):
+            [want] = partition_db.query(row["chrom"], int(row["pos"]), ref=row["ref"],
+                                        alt=row["alt"], sex="female")
+            assert int(row["n_eligible_female"]) == want.n_samples_eligible
+            assert int(row["AC_REF_female"]) == want.AC_REF
+
+    def test_coverage_gates_leave_an_and_ac_ref(self, partition_db):
+        db_path = partition_db._engine._db
+        plain = _parse_csv(_dump_to_string(db_path, chrom="chr1")[0])
+        gated = _parse_csv(_dump_to_string(db_path, chrom="chr1", min_pass=5)[0])
+        key = lambda r: (r["pos"], r["ref"], r["alt"])
+        gated_by_key = {key(r): r for r in gated}
+        assert any(int(r["N_NO_COVERAGE"]) > 0 for r in gated)
+        for row in plain:
+            g = gated_by_key[key(row)]
+            assert (g["AN"], g["AC_REF"]) == (row["AN"], row["AC_REF"])
+
+
+def test_min_covered_database_keeps_groups_additive(tmp_path):
+    """Build-time --min-covered is judged per technology over the whole cohort,
+    so N_HOM_REF and N_NO_COVERAGE still add up over groups."""
+    from test_variant_info import _build_db
+    db = _build_db(tmp_path, PARTITION_COHORT, beds={"WES": _WES_BED}, min_covered=2)
+    text, _ = _dump_to_string(db._engine._db, all_groups=True)
+    rows = _parse_csv(text)
+    assert any(int(r["N_NO_COVERAGE"]) > 0 for r in rows)
+    _assert_groups_sum_to_base(rows, _group_labels(text.splitlines()[0].split(",")))
+
+
+def test_overlapping_phenotypes_do_not_sum(tmp_path):
+    """A sample with two codes is in both phenotype groups."""
+    from test_variant_info import _build_db
+    db = _build_db(tmp_path, [
+        ("S1", "female", "WGS", [("chr1", 5000, "G", "A", "0/1")], "E11,I10"),
+        ("S2", "male",   "WGS", [("chr1", 5000, "G", "A", "0/1")], "E11"),
+    ])
+    [row] = _parse_csv(_dump_to_string(db._engine._db, by_phenotype=["E11", "I10"])[0])
+    assert int(row["n_eligible_E11"]) + int(row["n_eligible_I10"]) == 3
+    assert int(row["n_eligible"]) == 2
+
+
+def test_repeated_phenotype_code_is_one_group(test_db):
+    text, _ = _dump_to_string(test_db, chrom="chr1", by_phenotype=["E11.9", "E11.9"])
+    header = text.splitlines()[0].split(",")
+    assert header == BASE_COLUMNS + _group_columns("E11.9")
+
+
+def test_column_collision_is_rejected(tmp_path):
+    """A technology named REF would make AC_REF both the base reference count
+    and that group's AC."""
+    from afquery.dump import DumpColumnError
+    from test_variant_info import _build_db
+    db = _build_db(tmp_path, [
+        ("S1", "female", "REF", [("chr1", 5000, "G", "A", "0/1")]),
+    ], beds={"REF": "chr1\t0\t10000\n"})
+    with pytest.raises(DumpColumnError, match="AC_REF"):
+        _dump_to_string(db._engine._db, by_tech=True)
+    result = CliRunner().invoke(cli, ["dump", "--db", str(db._engine._db), "--by-tech"])
+    assert result.exit_code == 2
+    assert "duplicate dump columns" in result.output

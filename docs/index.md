@@ -31,7 +31,7 @@ AFQuery pre-indexes genotypes as [Roaring Bitmaps](https://roaringbitmap.org/) i
 - **Ploidy-aware** — correct AN on chrX PAR/non-PAR, chrY, and chrM, with hemizygous carriers counted on their own (`N_HEMI`).
 - **Technology-aware AN** — per-position capture BED intersection across WGS, WES kits, and panels.
 - **Carrier lookup** — list samples carrying any variant with full metadata (sex, tech, phenotypes, genotype, FILTER status).
-- **VCF annotation** — add `AFQUERY_AC/AN/AF/N_HET/N_HOM_ALT/N_HEMI/N_HOM_REF/N_FAIL/N_NO_COVERAGE` INFO fields from any sample subset.
+- **VCF annotation** — add `AFQUERY_AC/AN/AF/AC_REF/N_HET/N_HOM_ALT/N_HEMI/N_HOM_REF/N_FAIL/N_NO_COVERAGE` INFO fields from any sample subset.
 - **Audit changelog** — every database operation is recorded for reproducibility.
 
 ---

@@ -32,7 +32,7 @@ afquery query --db ./db/ --locus chr1:925952
 ```
 
 ```
-chr1:925952 G>A  AC=142  AN=2728  AF=0.0521  n_eligible=1371  N_HET=138  N_HOM_ALT=2  N_HEMI=0  N_HOM_REF=1224  N_FAIL=7  N_NO_COVERAGE=0
+chr1:925952 G>A  AC=142  AN=2728  AF=0.0521  AC_REF=2586  n_eligible=1371  N_HET=138  N_HOM_ALT=2  N_HEMI=0  N_HOM_REF=1224  N_FAIL=7  N_NO_COVERAGE=0
 ```
 
 The 7 samples with a failed call are part of `n_eligible` (138 + 2 + 1224 + 7 = 1371) but not of AN: 2 × (1371 − 7) = 2728.
@@ -45,17 +45,17 @@ If all eligible samples have a failed call at a position, AN is 0 and AF is unde
 
 ## Counting failed calls as reference
 
-`--fail-as-ref` (`fail_as_ref=True` in the Python API) keeps samples with a failed call in AN, counting them as homozygous reference. It is available on `query`, `annotate` and `dump`, and changes only AN and AF: the failed samples still add nothing to AC and are still reported in `N_FAIL`.
+`--fail-as-ref` (`fail_as_ref=True` in the Python API) keeps samples with a failed call in AN, counting them as homozygous reference. It is available on `query`, `annotate` and `dump`, and changes only AN, AF and `AC_REF`. The failed samples still add nothing to AC and are still reported in `N_FAIL`.
 
 ```bash
 afquery query --db ./db/ --locus chr1:925952 --fail-as-ref
 ```
 
 ```
-chr1:925952 G>A  AC=142  AN=2742  AF=0.0518  n_eligible=1371  N_HET=138  N_HOM_ALT=2  N_HEMI=0  N_HOM_REF=1224  N_FAIL=7  N_NO_COVERAGE=0
+chr1:925952 G>A  AC=142  AN=2742  AF=0.0518  AC_REF=2600  n_eligible=1371  N_HET=138  N_HOM_ALT=2  N_HEMI=0  N_HOM_REF=1224  N_FAIL=7  N_NO_COVERAGE=0
 ```
 
-Because every failed sample is then treated as a non-carrier, the AF is never higher than the default one, which makes it a conservative lower estimate when a site has many failures. AN then no longer equals the reference alleles plus the AC of all ALT alleles.
+Because every failed sample is then treated as a non-carrier, the AF is never higher than the default one, which makes it a conservative lower estimate when a site has many failures. Their alleles are counted as reference in `AC_REF`, so `AN = AC_REF + ΣAC` still holds, but `AC_REF` then includes alleles that were never called reference. A sample whose call failed for one allele of a multi-allelic position is failed for all of them, so a confirmed ALT call of that sample at the same position is also counted as reference.
 
 ---
 

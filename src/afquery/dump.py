@@ -16,10 +16,63 @@ logger = logging.getLogger(__name__)
 
 BUCKET_SIZE = storage.BUCKET_SIZE
 
+# Statistic columns, in output order. The whole-population block uses these
+# names as they are; each group repeats them with a ``_<label>`` suffix.
+STAT_FIELDS = [
+    "AC", "AN", "AF", "AC_REF", "n_eligible",
+    "N_HET", "N_HOM_ALT", "N_HEMI", "N_HOM_REF", "N_FAIL", "N_NO_COVERAGE",
+]
+
 
 def _af(stats):
     """AF of one variant's stats, or None (an empty cell) when AN is 0."""
     return stats.AC / stats.AN if stats.AN > 0 else None
+
+
+def _stat_values(stats, n_eligible: int) -> dict:
+    """Values of STAT_FIELDS for one variant among one set of samples."""
+    return {
+        "AC": stats.AC,
+        "AN": stats.AN,
+        "AF": _af(stats),
+        "AC_REF": stats.AC_REF,
+        "n_eligible": n_eligible,
+        "N_HET": stats.N_HET,
+        "N_HOM_ALT": stats.N_HOM_ALT,
+        "N_HEMI": stats.N_HEMI,
+        "N_HOM_REF": stats.N_HOM_REF,
+        "N_FAIL": stats.N_FAIL,
+        "N_NO_COVERAGE": stats.N_NO_COVERAGE,
+    }
+
+
+class DumpColumnError(ValueError):
+    """Two dump columns would share a name."""
+
+
+def dump_columns(group_labels: list[str]) -> list[str]:
+    """CSV header for a dump with the given group labels.
+
+    Raises DumpColumnError when two columns would share a name, which happens when
+    a group label turns one column into another (a technology named ``REF``
+    makes ``AC_REF`` both the base reference count and that group's AC).
+    """
+    columns = ["chrom", "pos", "ref", "alt"] + list(STAT_FIELDS)
+    for label in group_labels:
+        columns += [f"{field}_{label}" for field in STAT_FIELDS]
+    seen: set[str] = set()
+    duplicates = []
+    for col in columns:
+        if col in seen:
+            duplicates.append(col)
+        seen.add(col)
+    if duplicates:
+        raise DumpColumnError(
+            "Group labels produce duplicate dump columns: "
+            + ", ".join(sorted(set(duplicates)))
+            + ". Rename the technology or phenotype code, or disaggregate on fewer axes."
+        )
+    return columns
 
 
 def _build_groups(engine, base_sf, by_sex, by_tech, by_phenotype, all_groups):
@@ -40,7 +93,7 @@ def _build_groups(engine, base_sf, by_sex, by_tech, by_phenotype, all_groups):
         tech_names = sorted(engine._tech_name_to_id.keys())
         axes.append([(name, "tech", name) for name in tech_names])
 
-    pheno_codes = list(by_phenotype)
+    pheno_codes = list(dict.fromkeys(by_phenotype))
     if all_groups and not pheno_codes:
         import sqlite3
         con = sqlite3.connect(str(engine._db / "metadata.sqlite"))
@@ -209,22 +262,8 @@ def _dump_bucket_worker(
         if s.AC == 0 and not include_ac_zero:
             continue  # main row filter
 
-        out_row: dict = {
-            "chrom": chrom,
-            "pos": pos,
-            "ref": ref,
-            "alt": alt,
-            "AC": s.AC,
-            "AN": s.AN,
-            "AF": _af(s),
-            "n_eligible": len(eligible),
-            "N_HET": s.N_HET,
-            "N_HOM_ALT": s.N_HOM_ALT,
-            "N_HEMI": s.N_HEMI,
-            "N_HOM_REF": s.N_HOM_REF,
-            "N_FAIL": s.N_FAIL,
-            "N_NO_COVERAGE": s.N_NO_COVERAGE,
-        }
+        out_row: dict = {"chrom": chrom, "pos": pos, "ref": ref, "alt": alt}
+        out_row.update(_stat_values(s, len(eligible)))
 
         # Per-group columns
         for g_idx, (label, g_bm) in enumerate(group_bms):
@@ -240,16 +279,8 @@ def _dump_bucket_worker(
                 g_sf.fail_as_ref,
             )
 
-            out_row[f"AC_{label}"] = g.AC
-            out_row[f"AN_{label}"] = g.AN
-            out_row[f"AF_{label}"] = _af(g)
-            out_row[f"n_eligible_{label}"] = len(g_eligible)
-            out_row[f"N_HET_{label}"] = g.N_HET
-            out_row[f"N_HOM_ALT_{label}"] = g.N_HOM_ALT
-            out_row[f"N_HEMI_{label}"] = g.N_HEMI
-            out_row[f"N_HOM_REF_{label}"] = g.N_HOM_REF
-            out_row[f"N_FAIL_{label}"] = g.N_FAIL
-            out_row[f"N_NO_COVERAGE_{label}"] = g.N_NO_COVERAGE
+            for field, value in _stat_values(g, len(g_eligible)).items():
+                out_row[f"{field}_{label}"] = value
 
         result_rows.append(out_row)
 
@@ -282,8 +313,15 @@ def dump_database(
 
     Returns:
         {"n_rows": int, "n_buckets": int, "n_chroms": int}
+
+    Raises:
+        DumpColumnError: if the group labels produce duplicate column names
+            (see dump_columns).
     """
     from concurrent.futures import ProcessPoolExecutor, as_completed
+
+    # Validate the header before any work, since a column collision is a usage error
+    fieldnames = dump_columns([label for label, _ in groups])
 
     db_path = str(engine._db)
     variants_dir = engine._db / "variants"
@@ -334,20 +372,6 @@ def dump_database(
         len(chroms),
         effective,
     )
-
-    # Build CSV header
-    base_cols = ["chrom", "pos", "ref", "alt", "AC", "AN", "AF", "n_eligible",
-                 "N_HET", "N_HOM_ALT", "N_HEMI", "N_HOM_REF", "N_FAIL", "N_NO_COVERAGE"]
-
-    group_cols = []
-    for label, _ in groups:
-        group_cols += [
-            f"AC_{label}", f"AN_{label}", f"AF_{label}", f"n_eligible_{label}",
-            f"N_HET_{label}", f"N_HOM_ALT_{label}", f"N_HEMI_{label}",
-            f"N_HOM_REF_{label}", f"N_FAIL_{label}", f"N_NO_COVERAGE_{label}",
-        ]
-
-    fieldnames = base_cols + group_cols
 
     # Collect results in work-unit order (preserves genomic order)
     unit_results: dict[int, list[dict]] = {}
