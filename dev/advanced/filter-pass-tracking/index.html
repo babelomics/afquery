@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.2">
     
     
       
@@ -819,6 +819,8 @@
       
         
       
+        
+      
     
     
     
@@ -1019,6 +1021,34 @@
     
   
     Bulk Export
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/dump-aggregation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Summing Dump Groups
   
 
     
@@ -2183,19 +2213,19 @@
 <p>Leaving failed calls out of AN keeps AF an estimate over the genotypes that were actually observed. At every position, AN equals the reference alleles plus the AC of all its ALT alleles.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--locus<span class="w"> </span>chr1:925952
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>chr1:925952 G&gt;A  AC=142  AN=2728  AF=0.0521  n_eligible=1371  N_HET=138  N_HOM_ALT=2  N_HEMI=0  N_HOM_REF=1224  N_FAIL=7  N_NO_COVERAGE=0
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>chr1:925952 G&gt;A  AC=142  AN=2728  AF=0.0521  AC_REF=2586  n_eligible=1371  N_HET=138  N_HOM_ALT=2  N_HEMI=0  N_HOM_REF=1224  N_FAIL=7  N_NO_COVERAGE=0
 </code></pre></div>
 <p>The 7 samples with a failed call are part of <code>n_eligible</code> (138 + 2 + 1224 + 7 = 1371) but not of AN: 2 × (1371 − 7) = 2728.</p>
 <h3 id="when-every-eligible-sample-failed">When every eligible sample failed</h3>
 <p>If all eligible samples have a failed call at a position, AN is 0 and AF is undefined: <code>NA</code> in text and TSV output, <code>null</code> in JSON and the Python API, an empty cell in <code>dump</code>, and <code>.</code> in <code>AFQUERY_AF</code>. <code>N_FAIL</code> still reports how many samples failed.</p>
 <hr />
 <h2 id="counting-failed-calls-as-reference">Counting failed calls as reference</h2>
-<p><code>--fail-as-ref</code> (<code>fail_as_ref=True</code> in the Python API) keeps samples with a failed call in AN, counting them as homozygous reference. It is available on <code>query</code>, <code>annotate</code> and <code>dump</code>, and changes only AN and AF: the failed samples still add nothing to AC and are still reported in <code>N_FAIL</code>.</p>
+<p><code>--fail-as-ref</code> (<code>fail_as_ref=True</code> in the Python API) keeps samples with a failed call in AN, counting them as homozygous reference. It is available on <code>query</code>, <code>annotate</code> and <code>dump</code>, and changes only AN, AF and <code>AC_REF</code>. The failed samples still add nothing to AC and are still reported in <code>N_FAIL</code>.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--locus<span class="w"> </span>chr1:925952<span class="w"> </span>--fail-as-ref
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>chr1:925952 G&gt;A  AC=142  AN=2742  AF=0.0518  n_eligible=1371  N_HET=138  N_HOM_ALT=2  N_HEMI=0  N_HOM_REF=1224  N_FAIL=7  N_NO_COVERAGE=0
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>chr1:925952 G&gt;A  AC=142  AN=2742  AF=0.0518  AC_REF=2600  n_eligible=1371  N_HET=138  N_HOM_ALT=2  N_HEMI=0  N_HOM_REF=1224  N_FAIL=7  N_NO_COVERAGE=0
 </code></pre></div>
-<p>Because every failed sample is then treated as a non-carrier, the AF is never higher than the default one, which makes it a conservative lower estimate when a site has many failures. AN then no longer equals the reference alleles plus the AC of all ALT alleles.</p>
+<p>Because every failed sample is then treated as a non-carrier, the AF is never higher than the default one, which makes it a conservative lower estimate when a site has many failures. Their alleles are counted as reference in <code>AC_REF</code>, so <code>AN = AC_REF + ΣAC</code> still holds, but <code>AC_REF</code> then includes alleles that were never called reference. A sample whose call failed for one allele of a multi-allelic position is failed for all of them, so a confirmed ALT call of that sample at the same position is also counted as reference.</p>
 <hr />
 <h2 id="finding-the-failed-samples">Finding the failed samples</h2>
 <p><code>afquery variant-info</code> lists each sample with a failed call at the position as genotype <code>alt</code> with filter <code>FAIL</code>, along with its technology and phenotypes. This shows whether failures cluster in one technology or sample group. See <a href="../../guides/variant-info/">Variant Info</a>.</p>
@@ -2269,7 +2299,7 @@
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.instant", "navigation.indexes", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "toc.integrate"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
+      <script src="../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
         <script src="../../js/print-site.js"></script>
       

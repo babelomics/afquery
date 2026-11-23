@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.2">
     
     
       
@@ -819,6 +819,8 @@
       
         
       
+        
+      
     
     
     
@@ -1019,6 +1021,34 @@
     
   
     Bulk Export
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/dump-aggregation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Summing Dump Groups
   
 
     
@@ -2555,7 +2585,7 @@ taken from the Git release tag at build time. In an editable install
 </tr>
 </tbody>
 </table>
-<p>The annotated VCF gains <code>AFQUERY_AC</code>, <code>AFQUERY_AN</code>, <code>AFQUERY_AF</code>,
+<p>The annotated VCF gains <code>AFQUERY_AC</code>, <code>AFQUERY_AN</code>, <code>AFQUERY_AF</code>, <code>AFQUERY_AC_REF</code>,
 <code>AFQUERY_N_HET</code>, <code>AFQUERY_N_HOM_ALT</code>, <code>AFQUERY_N_HEMI</code>, <code>AFQUERY_N_HOM_REF</code>,
 <code>AFQUERY_N_FAIL</code>, and <code>AFQUERY_N_NO_COVERAGE</code> INFO fields
 (see <a href="../../guides/annotate-vcf/#added-info-fields">Annotate a VCF</a>).</p>
@@ -2690,10 +2720,12 @@ taken from the Git release tag at build time. In an editable install
 </tr>
 </tbody>
 </table>
-<p>CSV columns: <code>chrom,pos,ref,alt,AC,AN,AF,n_eligible,N_HET,N_HOM_ALT,N_HEMI,N_HOM_REF,N_FAIL,N_NO_COVERAGE</code>.
+<p>CSV columns: <code>chrom,pos,ref,alt,AC,AN,AF,AC_REF,n_eligible,N_HET,N_HOM_ALT,N_HEMI,N_HOM_REF,N_FAIL,N_NO_COVERAGE</code>.
 Each disaggregation group adds the same columns from <code>AC</code> onwards, suffixed
-with its label (<code>AC_&lt;label&gt;</code>, <code>AN_&lt;label&gt;</code>, <code>AF_&lt;label&gt;</code>, <code>n_eligible_&lt;label&gt;</code>, …).
-See <a href="../../guides/dump-export/#disaggregate-output">Bulk Export</a>.</p>
+with its label (<code>AC_&lt;label&gt;</code>, <code>AN_&lt;label&gt;</code>, <code>AF_&lt;label&gt;</code>, <code>AC_REF_&lt;label&gt;</code>, <code>n_eligible_&lt;label&gt;</code>, …).
+If two columns would share a name, <code>dump</code> exits with a usage error.
+See <a href="../../guides/dump-export/#disaggregate-output">Bulk Export</a> and
+<a href="../../guides/dump-aggregation/">Summing Dump Groups</a>.</p>
 <hr />
 <h2 id="variant-info">variant-info</h2>
 <p>List samples carrying a specific variant, with their metadata.</p>
@@ -3123,7 +3155,7 @@ See <a href="../../guides/dump-export/#disaggregate-output">Bulk Export</a>.</p>
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.instant", "navigation.indexes", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "toc.integrate"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
+      <script src="../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
         <script src="../../js/print-site.js"></script>
       

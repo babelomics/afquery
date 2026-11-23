@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.2">
     
     
       
@@ -828,6 +828,8 @@
       
         
       
+        
+      
     
     
     
@@ -1194,6 +1196,34 @@
     
   
     Bulk Export
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dump-aggregation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Summing Dump Groups
   
 
     
@@ -2243,6 +2273,12 @@
 <td>Allele frequency (<code>AC / AN</code>); <code>.</code> when <code>AFQUERY_AN=0</code></td>
 </tr>
 <tr>
+<td><code>AFQUERY_AC_REF</code></td>
+<td>Integer</td>
+<td>1 (per site)</td>
+<td>Reference allele count (<code>AFQUERY_AN</code> minus the AC of every ALT allele stored in the database at the position, including alleles absent from the input record). The reference frequency is <code>AFQUERY_AC_REF / AFQUERY_AN</code>. It is not <code>1 − AFQUERY_AF</code> at a multi-allelic site, nor <code>AN − ΣAFQUERY_AC</code> when the record does not list every stored allele. Not written when no sample is eligible, in which case only <code>AFQUERY_AN=0</code> is</td>
+</tr>
+<tr>
 <td><code>AFQUERY_N_HET</code></td>
 <td>Integer</td>
 <td>A (per ALT)</td>
@@ -2283,6 +2319,7 @@
 <div class="admonition note">
 <p class="admonition-title">Multi-allelic sites</p>
 <p>Number=A fields have one value per ALT allele (comma-separated for multi-allelic sites). Number=1 fields are shared across all ALT alleles at the same position.</p>
+<p>Sites are defined by position whatever the REF of their alleles, so an insertion, a deletion and a SNV starting at the same position share <code>AFQUERY_AN</code>, <code>AFQUERY_AC_REF</code> and <code>AFQUERY_N_FAIL</code>.</p>
 </div>
 <hr />
 <h2 id="sample-filtering">Sample Filtering</h2>
@@ -2398,7 +2435,7 @@
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.instant", "navigation.indexes", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "toc.integrate"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
+      <script src="../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
         <script src="../../js/print-site.js"></script>
       

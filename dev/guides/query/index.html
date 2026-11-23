@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.2">
     
     
       
@@ -828,6 +828,8 @@
       
         
       
+        
+      
     
     
     
@@ -1244,6 +1246,34 @@
     
   
     Bulk Export
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dump-aggregation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Summing Dump Groups
   
 
     
@@ -2312,14 +2342,14 @@ normalized, so <code>"1"</code> and <code>"chr1"</code> are equivalent.</p>
 <h2 id="output-formats">Output Formats</h2>
 <h3 id="text-default">text (default)</h3>
 <p>Human-readable, one block per variant:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>chr1:925952 G&gt;A  AC=142  AN=2742  AF=0.0518  n_eligible=1371  N_HET=138  N_HOM_ALT=2  N_HEMI=0  N_HOM_REF=1231  N_FAIL=0  N_NO_COVERAGE=0
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>chr1:925952 G&gt;A  AC=142  AN=2742  AF=0.0518  AC_REF=2600  n_eligible=1371  N_HET=138  N_HOM_ALT=2  N_HEMI=0  N_HOM_REF=1231  N_FAIL=0  N_NO_COVERAGE=0
 </code></pre></div>
 <h3 id="tsv">tsv</h3>
 <p>Tab-separated, one row per variant, suitable for downstream processing:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--region<span class="w"> </span>chr1:900000-1000000<span class="w"> </span>--format<span class="w"> </span>tsv
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>chrom   pos ref alt AC  AN  AF  n_eligible  N_HET   N_HOM_ALT   N_HEMI  N_HOM_REF   N_FAIL  N_NO_COVERAGE
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>chr1    925952  G   A   142 2742    0.051782    1371    138 2   0   1231    0   0
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>chrom   pos ref alt AC  AN  AF  AC_REF  n_eligible  N_HET   N_HOM_ALT   N_HEMI  N_HOM_REF   N_FAIL  N_NO_COVERAGE
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>chr1    925952  G   A   142 2742    0.051782    2600    1371    138 2   0   1231    0   0
 </code></pre></div>
 <h3 id="json">json</h3>
 <p>JSON array, one object per variant:</p>
@@ -2334,15 +2364,16 @@ normalized, so <code>"1"</code> and <code>"chr1"</code> are equivalent.</p>
 <a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="w">    </span><span class="nt">"AC"</span><span class="p">:</span><span class="w"> </span><span class="mi">142</span><span class="p">,</span>
 <a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="w">    </span><span class="nt">"AN"</span><span class="p">:</span><span class="w"> </span><span class="mi">2742</span><span class="p">,</span>
 <a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="w">    </span><span class="nt">"AF"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.05178</span><span class="p">,</span>
-<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="w">    </span><span class="nt">"n_eligible"</span><span class="p">:</span><span class="w"> </span><span class="mi">1371</span><span class="p">,</span>
-<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="w">    </span><span class="nt">"N_HET"</span><span class="p">:</span><span class="w"> </span><span class="mi">138</span><span class="p">,</span>
-<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a><span class="w">    </span><span class="nt">"N_HOM_ALT"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
-<a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a><span class="w">    </span><span class="nt">"N_HEMI"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-<a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a><span class="w">    </span><span class="nt">"N_HOM_REF"</span><span class="p">:</span><span class="w"> </span><span class="mi">1231</span><span class="p">,</span>
-<a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a><span class="w">    </span><span class="nt">"N_FAIL"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-<a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a><span class="w">    </span><span class="nt">"N_NO_COVERAGE"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span>
-<a id="__codelineno-11-17" name="__codelineno-11-17" href="#__codelineno-11-17"></a><span class="w">  </span><span class="p">}</span>
-<a id="__codelineno-11-18" name="__codelineno-11-18" href="#__codelineno-11-18"></a><span class="p">]</span>
+<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="w">    </span><span class="nt">"AC_REF"</span><span class="p">:</span><span class="w"> </span><span class="mi">2600</span><span class="p">,</span>
+<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="w">    </span><span class="nt">"n_eligible"</span><span class="p">:</span><span class="w"> </span><span class="mi">1371</span><span class="p">,</span>
+<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a><span class="w">    </span><span class="nt">"N_HET"</span><span class="p">:</span><span class="w"> </span><span class="mi">138</span><span class="p">,</span>
+<a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a><span class="w">    </span><span class="nt">"N_HOM_ALT"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a><span class="w">    </span><span class="nt">"N_HEMI"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a><span class="w">    </span><span class="nt">"N_HOM_REF"</span><span class="p">:</span><span class="w"> </span><span class="mi">1231</span><span class="p">,</span>
+<a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a><span class="w">    </span><span class="nt">"N_FAIL"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-11-17" name="__codelineno-11-17" href="#__codelineno-11-17"></a><span class="w">    </span><span class="nt">"N_NO_COVERAGE"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span>
+<a id="__codelineno-11-18" name="__codelineno-11-18" href="#__codelineno-11-18"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-11-19" name="__codelineno-11-19" href="#__codelineno-11-19"></a><span class="p">]</span>
 </code></pre></div>
 <hr />
 <h2 id="coverage-evidence-filters-no_coverage">Coverage-Evidence Filters (no_coverage)</h2>
@@ -2492,7 +2523,7 @@ for when to reach for each flag.</p>
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.instant", "navigation.indexes", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "toc.integrate"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
+      <script src="../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
         <script src="../../js/print-site.js"></script>
       

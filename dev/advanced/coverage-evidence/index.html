@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.2">
     
     
       
@@ -819,6 +819,8 @@
       
         
       
+        
+      
     
     
     
@@ -1019,6 +1021,34 @@
     
   
     Bulk Export
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/dump-aggregation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Summing Dump Groups
   
 
     
@@ -2247,12 +2277,12 @@ flags you want. They are the cheapest option and apply to any database.</p>
 <p>Default query — every BED-covered non-carrier counts as hom-ref:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--locus<span class="w"> </span>chr1:925952
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>chr1:925952 G&gt;A  AC=142  AN=2742  AF=0.0518  n_eligible=1371  N_HET=138  N_HOM_ALT=2  N_HEMI=0  N_HOM_REF=1231  N_FAIL=0  N_NO_COVERAGE=0
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>chr1:925952 G&gt;A  AC=142  AN=2742  AF=0.0518  AC_REF=2600  n_eligible=1371  N_HET=138  N_HOM_ALT=2  N_HEMI=0  N_HOM_REF=1231  N_FAIL=0  N_NO_COVERAGE=0
 </code></pre></div>
 <p>Now require at least one PASS carrier per partially-covered tech:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--locus<span class="w"> </span>chr1:925952<span class="w"> </span>--min-pass<span class="w"> </span><span class="m">1</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>chr1:925952 G&gt;A  AC=142  AN=2742  AF=0.0518  n_eligible=1371  N_HET=138  N_HOM_ALT=2  N_HEMI=0  N_HOM_REF=1108  N_FAIL=0  N_NO_COVERAGE=123
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>chr1:925952 G&gt;A  AC=142  AN=2742  AF=0.0518  AC_REF=2600  n_eligible=1371  N_HET=138  N_HOM_ALT=2  N_HEMI=0  N_HOM_REF=1108  N_FAIL=0  N_NO_COVERAGE=123
 </code></pre></div>
 <p>Samples on partially-covered techs that did not contribute a single PASS
 carrier at this position have moved out of <code>N_HOM_REF</code> and into
@@ -2426,7 +2456,7 @@ exits with a clear error:</p>
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.instant", "navigation.indexes", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "toc.integrate"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
+      <script src="../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
         <script src="../../js/print-site.js"></script>
       

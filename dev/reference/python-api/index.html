@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.2">
     
     
       
@@ -819,6 +819,8 @@
       
         
       
+        
+      
     
     
     
@@ -1019,6 +1021,34 @@
     
   
     Bulk Export
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/dump-aggregation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Summing Dump Groups
   
 
     
@@ -2753,8 +2783,11 @@ Variants not found in the database are omitted.</p>
 </code></pre></div>
 <p>Export allele frequency data to CSV. If <code>output</code> is None, writes to stdout.
 <code>include_ac_zero=True</code> includes positions with <code>AC=0</code> (equivalent to <code>--all-variants</code> in the CLI).
-The CSV columns, including <code>n_eligible</code> and the per-group columns, are described in
-<a href="../../guides/dump-export/#disaggregate-output">Bulk Export</a>.</p>
+The CSV columns, including <code>AC_REF</code>, <code>n_eligible</code> and the per-group columns, are described in
+<a href="../../guides/dump-export/#disaggregate-output">Bulk Export</a>; how to sum groups is in
+<a href="../../guides/dump-aggregation/">Summing Dump Groups</a>. Raises
+<code>afquery.dump.DumpColumnError</code> (a <code>ValueError</code>) when group labels would produce
+two columns with the same name.</p>
 <hr />
 <h3 id="variant_info">variant_info</h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="n">db</span><span class="o">.</span><span class="n">variant_info</span><span class="p">(</span>
@@ -2906,7 +2939,12 @@ The CSV columns, including <code>n_eligible</code> and the per-group columns, ar
 <a id="__codelineno-29-11" name="__codelineno-29-11" href="#__codelineno-29-11"></a>    <span class="n">N_HOM_REF</span><span class="p">:</span> <span class="nb">int</span>           <span class="c1"># Homozygous ref count (hemizygous for REF where haploid)</span>
 <a id="__codelineno-29-12" name="__codelineno-29-12" href="#__codelineno-29-12"></a>    <span class="n">N_FAIL</span><span class="p">:</span> <span class="nb">int</span>              <span class="c1"># Eligible samples with a failed call at the position (out of AC and AN)</span>
 <a id="__codelineno-29-13" name="__codelineno-29-13" href="#__codelineno-29-13"></a>    <span class="n">N_NO_COVERAGE</span><span class="p">:</span> <span class="nb">int</span>       <span class="c1"># Eligible samples whose tech lacks evidence (excluded from N_HOM_REF)</span>
+<a id="__codelineno-29-14" name="__codelineno-29-14" href="#__codelineno-29-14"></a>    <span class="n">AC_REF</span><span class="p">:</span> <span class="nb">int</span>              <span class="c1"># Reference alleles at the position (AN minus the AC of every ALT there)</span>
 </code></pre></div>
+<p><code>AC_REF</code> is the same for every allele of a position, so
+<code>AN == AC_REF + sum(AC of the position's alleles)</code>, and the reference frequency
+is <code>AC_REF / AN</code>. It is the last field so that positional construction of
+<code>QueryResult</code> keeps working.</p>
 <p>At a biallelic site the genotype categories partition the eligible samples:
 <code>N_HET + N_HOM_ALT + N_HEMI + N_HOM_REF + N_FAIL + N_NO_COVERAGE == n_samples_eligible</code>.
 At a multi-allelic site, eligible samples that carry only another ALT allele at
@@ -3122,7 +3160,7 @@ build-time companions (<code>--min-dp</code>, <code>--min-gq</code>, <code>--min
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.instant", "navigation.indexes", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "toc.integrate"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
+      <script src="../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
         <script src="../../js/print-site.js"></script>
       

@@ -16,14 +16,14 @@
         <link rel="prev" href="../annotate-vcf/">
       
       
-        <link rel="next" href="../variant-info/">
+        <link rel="next" href="../dump-aggregation/">
       
       
         
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.2">
     
     
       
@@ -828,6 +828,8 @@
       
         
       
+        
+      
     
     
     
@@ -1163,6 +1165,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dump-aggregation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Summing Dump Groups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -2202,8 +2232,14 @@
 <h2 id="disaggregate-output">Disaggregate Output</h2>
 <p>All three disaggregation modes work on the same principle: add stratified columns alongside the totals. They can be combined in a single command. Each group adds the same columns as the base block, suffixed with the group label; <code>n_eligible_&lt;label&gt;</code> counts the samples of that group that can be genotyped at the position, and is <code>0</code> where none can.</p>
 <p>Base columns (always present):
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>chrom,pos,ref,alt,AC,AN,AF,n_eligible,N_HET,N_HOM_ALT,N_HEMI,N_HOM_REF,N_FAIL,N_NO_COVERAGE
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>chrom,pos,ref,alt,AC,AN,AF,AC_REF,n_eligible,N_HET,N_HOM_ALT,N_HEMI,N_HOM_REF,N_FAIL,N_NO_COVERAGE
 </code></pre></div></p>
+<p><code>AC_REF</code> is the number of reference alleles at the position, that is, <code>AN</code>
+minus the <code>AC</code> of every alt allele stored there, whatever its REF. Alleles
+whose row is left out of the dump are subtracted as well. <code>AC_REF</code> is the same
+on every row of a position, so each row holds both the allele frequency
+(<code>AC / AN</code>) and the reference frequency (<code>AC_REF / AN</code>). At a multi-allelic
+position the reference frequency is not <code>1 − AF</code>.</p>
 <p><code>n_eligible</code> is the number of samples that can be genotyped at the position:
 they pass the sample filters, their technology covers the position, and they
 carry at least one copy of the locus. It counts samples, not alleles, so on
@@ -2224,14 +2260,14 @@ i.e. when no eligible sample of that group has a usable call at the position.</p
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>afquery<span class="w"> </span>dump<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--by-sex<span class="w"> </span>--output<span class="w"> </span>by_sex.csv
 </code></pre></div>
 <p>Output columns:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>chrom,pos,ref,alt,AC,AN,AF,n_eligible,N_HET,N_HOM_ALT,N_HEMI,N_HOM_REF,N_FAIL,N_NO_COVERAGE,AC_male,AN_male,AF_male,n_eligible_male,N_HET_male,N_HOM_ALT_male,N_HEMI_male,N_HOM_REF_male,N_FAIL_male,N_NO_COVERAGE_male,AC_female,AN_female,AF_female,n_eligible_female,N_HET_female,N_HOM_ALT_female,N_HEMI_female,N_HOM_REF_female,N_FAIL_female,N_NO_COVERAGE_female
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>chrom,pos,ref,alt,AC,AN,AF,AC_REF,n_eligible,N_HET,N_HOM_ALT,N_HEMI,N_HOM_REF,N_FAIL,N_NO_COVERAGE,AC_male,AN_male,AF_male,AC_REF_male,n_eligible_male,N_HET_male,N_HOM_ALT_male,N_HEMI_male,N_HOM_REF_male,N_FAIL_male,N_NO_COVERAGE_male,AC_female,AN_female,AF_female,AC_REF_female,n_eligible_female,N_HET_female,N_HOM_ALT_female,N_HEMI_female,N_HOM_REF_female,N_FAIL_female,N_NO_COVERAGE_female
 </code></pre></div></p>
 </div>
 <div class="tabbed-block">
 <p>Add separate columns per sequencing technology:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>afquery<span class="w"> </span>dump<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--by-tech<span class="w"> </span>--output<span class="w"> </span>by_tech.csv
 </code></pre></div>
-<p>Output columns include <code>AC_wgs</code>, <code>AN_wgs</code>, <code>AF_wgs</code>, <code>n_eligible_wgs</code>, <code>N_HET_wgs</code>, <code>N_HOM_ALT_wgs</code>, <code>N_HEMI_wgs</code>, <code>N_HOM_REF_wgs</code>, <code>N_FAIL_wgs</code>, <code>N_NO_COVERAGE_wgs</code>, <code>AC_wes_v1</code>, <code>AN_wes_v1</code>, etc. (one group of ten columns per registered technology).</p>
+<p>Output columns include <code>AC_wgs</code>, <code>AN_wgs</code>, <code>AF_wgs</code>, <code>AC_REF_wgs</code>, <code>n_eligible_wgs</code>, <code>N_HET_wgs</code>, <code>N_HOM_ALT_wgs</code>, <code>N_HEMI_wgs</code>, <code>N_HOM_REF_wgs</code>, <code>N_FAIL_wgs</code>, <code>N_NO_COVERAGE_wgs</code>, <code>AC_wes_v1</code>, <code>AN_wes_v1</code>, etc. (one group of eleven columns per registered technology).</p>
 </div>
 <div class="tabbed-block">
 <p>Add separate columns for specific phenotype groups:</p>
@@ -2240,7 +2276,7 @@ i.e. when no eligible sample of that group has a usable call at the position.</p
 <a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">  </span>--by-phenotype<span class="w"> </span>I10<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">  </span>--output<span class="w"> </span>by_phenotype.csv
 </code></pre></div>
-<p>Output includes <code>AC_E11.9</code>, <code>AN_E11.9</code>, <code>AF_E11.9</code>, <code>n_eligible_E11.9</code>, <code>N_HET_E11.9</code>, <code>N_HOM_ALT_E11.9</code>, <code>N_HEMI_E11.9</code>, <code>N_HOM_REF_E11.9</code>, <code>N_FAIL_E11.9</code>, <code>N_NO_COVERAGE_E11.9</code>, <code>AC_I10</code>, etc.</p>
+<p>Output includes <code>AC_E11.9</code>, <code>AN_E11.9</code>, <code>AF_E11.9</code>, <code>AC_REF_E11.9</code>, <code>n_eligible_E11.9</code>, <code>N_HET_E11.9</code>, <code>N_HOM_ALT_E11.9</code>, <code>N_HEMI_E11.9</code>, <code>N_HOM_REF_E11.9</code>, <code>N_FAIL_E11.9</code>, <code>N_NO_COVERAGE_E11.9</code>, <code>AC_I10</code>, etc.</p>
 </div>
 <div class="tabbed-block">
 <p>Disaggregate by all combinations of sex × technology × phenotype simultaneously:</p>
@@ -2253,6 +2289,17 @@ i.e. when no eligible sample of that group has a usable call at the position.</p
 </div>
 </div>
 </div>
+<p>The axis of a group replaces the matching inclusion filter of the command
+instead of narrowing it. With <code>--sex male --by-sex</code> the <code>_female</code> columns
+still count the female samples, while exclusions such as <code>--phenotype ^CODE</code>
+apply to every group.</p>
+<p>Group labels join the active axes with <code>_</code> (<code>female_wes_v1_E11.9</code>). Since a
+technology or phenotype name can itself contain <code>_</code>, match column names
+against the known labels instead of splitting them on <code>_</code>. If two columns
+would end up with the same name, as happens with a technology called <code>REF</code>
+whose <code>AC_REF</code> column clashes with the base one, <code>dump</code> stops with an error.</p>
+<p>To add up the counts of several groups and derive frequencies from the sums,
+see <a href="../dump-aggregation/">Summing Dump Groups</a>.</p>
 <hr />
 <h2 id="parallelism">Parallelism</h2>
 <p>Use multiple threads for faster export:</p>
@@ -2326,7 +2373,7 @@ i.e. when no eligible sample of that group has a usable call at the position.</p
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.instant", "navigation.indexes", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "toc.integrate"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
+      <script src="../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
         <script src="../../js/print-site.js"></script>
       

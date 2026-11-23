@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.2">
     
     
       
@@ -1026,6 +1026,8 @@
       
         
       
+        
+      
     
     
     
@@ -1226,6 +1228,34 @@
     
   
     Bulk Export
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/dump-aggregation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Summing Dump Groups
   
 
     
@@ -2261,6 +2291,11 @@
 <td>Allele frequency — <code>AC / AN</code>. <code>NA</code> (text/TSV) or <code>null</code> (JSON) when AN=0</td>
 </tr>
 <tr>
+<td><strong>AC_REF</strong></td>
+<td>int</td>
+<td>Reference allele count — the alleles in AN not taken by any ALT allele stored at this position (<code>AN</code> minus the AC of every ALT there, whatever its REF). It is the same on every line of a position and equals <code>AN − AC</code> at a biallelic site. The reference frequency is <code>AC_REF / AN</code> (see <a href="#multi-allelic-sites">Multi-allelic sites</a>)</td>
+</tr>
+<tr>
 <td><strong>N_HET</strong></td>
 <td>int</td>
 <td>Number of eligible samples heterozygous for the alt allele: a diploid <code>0/1</code> genotype</td>
@@ -2302,13 +2337,13 @@
 <h3 id="text-default">Text (default)</h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--locus<span class="w"> </span>chr1:925952<span class="w"> </span>--ref<span class="w"> </span>G<span class="w"> </span>--alt<span class="w"> </span>A
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>chr1:925952 G&gt;A  AC=3  AN=120  AF=0.0250  n_eligible=60  N_HET=1  N_HOM_ALT=1  N_HEMI=0  N_HOM_REF=57  N_FAIL=0  N_NO_COVERAGE=0
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>chr1:925952 G&gt;A  AC=3  AN=120  AF=0.0250  AC_REF=117  n_eligible=60  N_HET=1  N_HOM_ALT=1  N_HEMI=0  N_HOM_REF=58  N_FAIL=0  N_NO_COVERAGE=0
 </code></pre></div>
 <h3 id="tsv">TSV</h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--locus<span class="w"> </span>chr1:925952<span class="w"> </span>--ref<span class="w"> </span>G<span class="w"> </span>--alt<span class="w"> </span>A<span class="w"> </span>--format<span class="w"> </span>tsv
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>chrom   pos ref alt AC  AN  AF  n_eligible  N_HET   N_HOM_ALT   N_HEMI  N_HOM_REF   N_FAIL  N_NO_COVERAGE
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>chr1    925952  G   A   3   120 0.025000    60  1   1   0   57  0   0
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>chrom   pos ref alt AC  AN  AF  AC_REF  n_eligible  N_HET   N_HOM_ALT   N_HEMI  N_HOM_REF   N_FAIL  N_NO_COVERAGE
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>chr1    925952  G   A   3   120 0.025000    117 60  1   1   0   58  0   0
 </code></pre></div>
 <h3 id="json">JSON</h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--locus<span class="w"> </span>chr1:925952<span class="w"> </span>--ref<span class="w"> </span>G<span class="w"> </span>--alt<span class="w"> </span>A<span class="w"> </span>--format<span class="w"> </span>json
@@ -2321,14 +2356,15 @@
 <a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">  </span><span class="nt">"AC"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
 <a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">  </span><span class="nt">"AN"</span><span class="p">:</span><span class="w"> </span><span class="mi">120</span><span class="p">,</span>
 <a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">  </span><span class="nt">"AF"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.025</span><span class="p">,</span>
-<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">  </span><span class="nt">"n_eligible"</span><span class="p">:</span><span class="w"> </span><span class="mi">60</span><span class="p">,</span>
-<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">  </span><span class="nt">"N_HET"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">  </span><span class="nt">"N_HOM_ALT"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">  </span><span class="nt">"N_HEMI"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="w">  </span><span class="nt">"N_HOM_REF"</span><span class="p">:</span><span class="w"> </span><span class="mi">57</span><span class="p">,</span>
-<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="w">  </span><span class="nt">"N_FAIL"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="w">  </span><span class="nt">"N_NO_COVERAGE"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span>
-<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="p">}</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">  </span><span class="nt">"AC_REF"</span><span class="p">:</span><span class="w"> </span><span class="mi">117</span><span class="p">,</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">  </span><span class="nt">"n_eligible"</span><span class="p">:</span><span class="w"> </span><span class="mi">60</span><span class="p">,</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">  </span><span class="nt">"N_HET"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">  </span><span class="nt">"N_HOM_ALT"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="w">  </span><span class="nt">"N_HEMI"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="w">  </span><span class="nt">"N_HOM_REF"</span><span class="p">:</span><span class="w"> </span><span class="mi">58</span><span class="p">,</span>
+<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="w">  </span><span class="nt">"N_FAIL"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="w">  </span><span class="nt">"N_NO_COVERAGE"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span>
+<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a><span class="p">}</span>
 </code></pre></div>
 <hr />
 <h2 id="special-cases">Special Cases</h2>
@@ -2353,10 +2389,17 @@ reference for this allele, so it appears in none of <code>N_HET</code>, <code>N_
 <code>N_HEMI</code>, <code>N_HOM_REF</code>, <code>N_FAIL</code> or <code>N_NO_COVERAGE</code>. The six counts add up to
 <code>n_eligible</code> at biallelic sites; at a multi-allelic site they fall short by the
 number of such samples. AC, AN and AF are not affected.</p>
-<p>AN and <code>N_FAIL</code> describe the position, so they are the same on every line of a
-multi-allelic site, and AN equals the reference alleles plus the AC of all its
-ALT alleles. A sample with a failed call for any of the alleles is counted in
-<code>N_FAIL</code> on every line.</p>
+<p>AN, <code>AC_REF</code> and <code>N_FAIL</code> describe the position, so they are the same on every
+line of a multi-allelic site, and AN equals <code>AC_REF</code> plus the AC of all its ALT
+alleles. A sample with a failed call for any of the alleles is counted in
+<code>N_FAIL</code> on every line. Sites are defined by position whatever the REF of their
+alleles, so after normalization an insertion, a deletion and a SNV starting at
+the same position share AN, <code>AC_REF</code> and <code>N_FAIL</code>.</p>
+<p>The reference frequency is therefore <code>AC_REF / AN</code>, not <code>1 − AF</code>. With AN=16,
+a deletion with AC=4 and an insertion with AC=2 at one position, <code>AC_REF</code> is 10
+and the reference frequency 0.625, while <code>1 − AF</code> gives 0.75 and 0.875.
+<code>N_HOM_REF</code> cannot replace <code>AC_REF</code> either, because it counts samples rather
+than alleles and leaves out the reference copy of heterozygous carriers.</p>
 <p>A sample with two different ALT alleles (<code>GT=1/2</code>) is counted as heterozygous on
 both lines.</p>
 <h3 id="warnings">Warnings</h3>
@@ -2429,6 +2472,11 @@ both lines.</p>
 <td><code>AFQUERY_AF</code></td>
 <td>A (per ALT)</td>
 <td>Allele frequency — one value per ALT allele; <code>.</code> when <code>AFQUERY_AN=0</code></td>
+</tr>
+<tr>
+<td><code>AFQUERY_AC_REF</code></td>
+<td>1 (per site)</td>
+<td>Reference allele count — <code>AFQUERY_AN</code> minus the AC of every ALT allele stored at the position, including alleles the record does not list</td>
 </tr>
 <tr>
 <td><code>AFQUERY_N_HET</code></td>
@@ -2536,7 +2584,7 @@ both lines.</p>
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.instant", "navigation.indexes", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "toc.integrate"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
+      <script src="../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
         <script src="../../js/print-site.js"></script>
       

@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.2">
     
     
       
@@ -819,6 +819,8 @@
       
         
       
+        
+      
     
     
     
@@ -1019,6 +1021,34 @@
     
   
     Bulk Export
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/dump-aggregation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Summing Dump Groups
   
 
     
@@ -1597,6 +1627,17 @@
     <span class="md-ellipsis">
       
         AC (Allele Count)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ac_ref-reference-allele-count" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AC_REF (Reference Allele Count)
       
     </span>
   </a>
@@ -2311,6 +2352,8 @@
 <h1 id="glossary">Glossary</h1>
 <h2 id="ac-allele-count">AC (Allele Count)</h2>
 <p>Number of copies of the alternate allele observed across eligible samples. A heterozygous carrier contributes 1; a homozygous alt carrier contributes 2; a carrier with a single copy of the locus (<a href="#hemizygous">hemizygous</a>, or on chrM) contributes 1. See <a href="../../getting-started/concepts/#allele-frequency-ac-an-af">Key Concepts</a>.</p>
+<h2 id="ac_ref-reference-allele-count">AC_REF (Reference Allele Count)</h2>
+<p>Number of reference alleles at a position among the alleles counted in <a href="#an-allele-number">AN</a>, that is, AN minus the AC of every alternate allele stored at the position, whatever its REF. It is the same for every allele of the position, so <code>AN = AC_REF + ΣAC</code>, and the reference frequency is <code>AC_REF / AN</code> — not <code>1 − AF</code> at a multi-allelic site. Samples counted in AN without a called genotype (<a href="#n_no_coverage">N_NO_COVERAGE</a>, and failed calls under <code>--fail-as-ref</code>) count as reference. See <a href="../../getting-started/understanding-output/#multi-allelic-sites">Understanding Output</a>.</p>
 <h2 id="af-allele-frequency">AF (Allele Frequency)</h2>
 <p>Ratio of AC to AN (<code>AC / AN</code>). Represents the proportion of alleles that are the alternate allele among eligible samples. Returns <code>None</code> when AN=0. See <a href="../../getting-started/concepts/#allele-frequency-ac-an-af">Key Concepts</a>.</p>
 <h2 id="an-allele-number">AN (Allele Number)</h2>
@@ -2409,7 +2452,7 @@
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.instant", "navigation.indexes", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "toc.integrate"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
+      <script src="../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
         <script src="../../js/print-site.js"></script>
       

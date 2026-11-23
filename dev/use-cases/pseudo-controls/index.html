@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.2">
     
     
       
@@ -826,6 +826,8 @@
       
         
       
+        
+      
     
     
     
@@ -1029,6 +1031,34 @@
     
   
     Bulk Export
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/dump-aggregation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Summing Dump Groups
   
 
     
@@ -2280,14 +2310,14 @@
 <h3 id="2-query-full-cohort">2. Query full cohort</h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--locus<span class="w"> </span>chr1:925952<span class="w"> </span>--format<span class="w"> </span>tsv
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>chrom   pos ref alt AC  AN  AF  n_eligible  N_HET   N_HOM_ALT   N_HEMI  N_HOM_REF   N_FAIL  N_NO_COVERAGE
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>chr1    925952  G   A   18  4000    0.004500    2000    16  1   0   1983    0   0
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>chrom   pos ref alt AC  AN  AF  AC_REF  n_eligible  N_HET   N_HOM_ALT   N_HEMI  N_HOM_REF   N_FAIL  N_NO_COVERAGE
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>chr1    925952  G   A   18  4000    0.004500    3982    2000    16  1   0   1983    0   0
 </code></pre></div>
 <h3 id="3-query-pseudo-controls-exclude-cardiomyopathy">3. Query pseudo-controls (exclude cardiomyopathy)</h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>afquery<span class="w"> </span>query<span class="w"> </span>--db<span class="w"> </span>./db/<span class="w"> </span>--locus<span class="w"> </span>chr1:925952<span class="w"> </span>--phenotype<span class="w"> </span>^I42<span class="w"> </span>--format<span class="w"> </span>tsv
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>chrom   pos ref alt AC  AN  AF  n_eligible  N_HET   N_HOM_ALT   N_HEMI  N_HOM_REF   N_FAIL  N_NO_COVERAGE
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>chr1    925952  G   A   4   3200    0.001250    1600    4   0   0   1596    0   0
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>chrom   pos ref alt AC  AN  AF  AC_REF  n_eligible  N_HET   N_HOM_ALT   N_HEMI  N_HOM_REF   N_FAIL  N_NO_COVERAGE
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>chr1    925952  G   A   4   3200    0.001250    3196    1600    4   0   0   1596    0   0
 </code></pre></div>
 <p>The variant is 3.5× enriched in cardiomyopathy patients versus the pseudo-control background.</p>
 <h3 id="4-python-api">4. Python API</h3>
@@ -2378,7 +2408,7 @@
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.instant", "navigation.indexes", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "toc.integrate"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
+      <script src="../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
         <script src="../../js/print-site.js"></script>
       
